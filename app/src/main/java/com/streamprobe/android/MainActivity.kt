@@ -4,13 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.streamprobe.android.ui.PlayerScreen
+import com.streamprobe.android.ui.StreamSelectionScreen
 import com.streamprobe.android.ui.theme.StreamProbeTheme
 
 class MainActivity : ComponentActivity() {
@@ -19,29 +17,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             StreamProbeTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                val viewModel: PlayerViewModel = viewModel()
+                val selectedStream by viewModel.selectedStream.collectAsStateWithLifecycle()
+                val current = selectedStream
+                if (current == null) {
+                    StreamSelectionScreen(onStreamSelected = { viewModel.selectStream(it) })
+                } else {
+                    PlayerScreen(viewModel = viewModel)
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    StreamProbeTheme {
-        Greeting("Android")
     }
 }

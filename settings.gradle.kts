@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "StreamProbe"
 include(":app")
+include(":sdk")
