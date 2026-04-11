@@ -1,8 +1,8 @@
 package com.streamprobe.sdk
 
 import android.app.Activity
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
 import com.streamprobe.sdk.internal.PlayerInterceptor
 import com.streamprobe.sdk.internal.SessionStore
 import com.streamprobe.sdk.internal.overlay.OverlayManager
@@ -28,7 +28,7 @@ class StreamProbe {
 
     private val overlayManager = OverlayManager(sessionStore)
 
-    private var attachedPlayer: Player? = null
+    private var attachedPlayer: ExoPlayer? = null
 
     /**
      * Attaches StreamProbe to the given [player] and shows the debug overlay
@@ -37,7 +37,7 @@ class StreamProbe {
      * Call [detach] to clean up when the player is being released or the
      * activity is finishing.
      */
-    fun attach(player: Player, activity: Activity) {
+    fun attach(player: ExoPlayer, activity: Activity) {
         if (attachedPlayer != null) detach()
 
         attachedPlayer = player

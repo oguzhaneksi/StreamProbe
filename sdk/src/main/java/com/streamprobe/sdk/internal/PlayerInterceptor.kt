@@ -4,7 +4,11 @@ import android.util.Log
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
+import androidx.media3.common.Format
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DecoderReuseEvaluation
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.hls.HlsManifest
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.HlsManifestInfo
@@ -17,13 +21,14 @@ import com.streamprobe.sdk.model.VariantInfo
 @UnstableApi
 internal class PlayerInterceptor(
     private val sessionStore: SessionStore,
-) : Player.Listener {
+) : Player.Listener, AnalyticsListener {
 
-    private var player: Player? = null
+    private var player: ExoPlayer? = null
 
-    fun attach(player: Player) {
+    fun attach(player: ExoPlayer) {
         this.player = player
         player.addListener(this)
+        player.addAnalyticsListener(this)
 
         // Probe immediately — manifest may already be available if the player is prepared.
         probeManifest(player)
@@ -31,6 +36,7 @@ internal class PlayerInterceptor(
     }
 
     fun detach() {
+        player?.removeAnalyticsListener(this)
         player?.removeListener(this)
         player = null
     }
@@ -45,9 +51,18 @@ internal class PlayerInterceptor(
         probeTracks(player ?: return)
     }
 
+    // AnalyticsListener — fires on every input-format change, including bitrate-only ABR switches.
+    override fun onVideoInputFormatChanged(
+        eventTime: AnalyticsListener.EventTime,
+        format: Format,
+        decoderReuseEvaluation: DecoderReuseEvaluation?,
+    ) {
+        updateActiveTrack(format)
+    }
+
     // ── Internal helpers ────────────────────────────────────────────────────
 
-    private fun probeManifest(player: Player) {
+    private fun probeManifest(player: ExoPlayer) {
         val manifest = player.currentManifest
         if (manifest !is HlsManifest) return
 
@@ -76,19 +91,23 @@ internal class PlayerInterceptor(
                 val fmt = group.getTrackFormat(i)
                 // Only capture video tracks for the active-rendition indicator.
                 if (fmt.width > 0 || fmt.height > 0) {
-                    sessionStore.updateActiveTrack(
-                        ActiveTrackInfo(
-                            bitrate = fmt.bitrate,
-                            width = fmt.width,
-                            height = fmt.height,
-                            codecs = fmt.codecs,
-                        )
-                    )
-                    Log.d(TAG, "Active track: ${fmt.width}x${fmt.height} @ ${fmt.bitrate} bps")
+                    updateActiveTrack(fmt)
                     return
                 }
             }
         }
+    }
+
+    private fun updateActiveTrack(format: Format) {
+        sessionStore.updateActiveTrack(
+            ActiveTrackInfo(
+                bitrate = format.bitrate,
+                width = format.width,
+                height = format.height,
+                codecs = format.codecs,
+            )
+        )
+        Log.d(TAG, "Active track: ${format.width}x${format.height} @ ${format.bitrate} bps")
     }
 
     companion object {
