@@ -1,5 +1,6 @@
 package com.streamprobe.android
 
+import android.app.Activity
 import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,12 +43,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _selectedStream.value = null
     }
 
-    fun initializePlayer() {
+    fun initializePlayer(activity: Activity) {
         val stream = _selectedStream.value ?: return
         if (player != null) return
 
         player = ExoPlayer.Builder(getApplication()).build().apply {
-            streamProbe.attach(this)
+            streamProbe.attach(this, activity)
             val mediaItem = if (stream.mimeType != null) {
                 MediaItem.Builder()
                     .setUri(stream.url)
