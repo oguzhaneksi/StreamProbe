@@ -121,11 +121,13 @@ The overlay lifecycle is tied to `attach` / `detach`. When the SDK is not attach
 The entire SDK is gated behind two calls:
 
 ```kotlin
-StreamProbe.attach(player)   // ExoPlayer or Media3 Player instance
-StreamProbe.detach(player)
+val probe = StreamProbe()
+probe.attach(player, activity)  // ExoPlayer instance + host Activity
+// …
+probe.detach()
 ```
 
-No additional setup, configuration files, or initialization is required. `attach` wires the interception points; `detach` unwinds them cleanly.
+No additional setup, configuration files, or initialization is required. `attach` wires the interception points and shows the overlay on the provided `Activity`; `detach` unwinds them cleanly and removes the overlay.
 
 ---
 
