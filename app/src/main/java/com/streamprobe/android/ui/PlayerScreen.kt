@@ -39,7 +39,9 @@ fun PlayerScreen(viewModel: PlayerViewModel = viewModel()) {
 
     if (Build.VERSION.SDK_INT > 23) {
         LifecycleStartEffect(viewModel) {
-            viewModel.initializePlayer(activity!!)
+            activity?.let {
+                viewModel.initializePlayer(it)
+            }
             onStopOrDispose {
                 if (activity?.isChangingConfigurations == false) {
                     viewModel.releasePlayer()
@@ -48,7 +50,9 @@ fun PlayerScreen(viewModel: PlayerViewModel = viewModel()) {
         }
     } else {
         LifecycleResumeEffect(viewModel) {
-            viewModel.initializePlayer(activity!!)
+            activity?.let {
+                viewModel.initializePlayer(it)
+            }
             onPauseOrDispose {
                 if (activity?.isChangingConfigurations == false) {
                     viewModel.releasePlayer()
