@@ -65,7 +65,7 @@ internal class VariantListAdapter :
     companion object {
         private val DIFF = object : DiffUtil.ItemCallback<VariantInfo>() {
             override fun areItemsTheSame(old: VariantInfo, new: VariantInfo) =
-                old.bitrate == new.bitrate && old.width == new.width && old.height == new.height
+                old == new
 
             override fun areContentsTheSame(old: VariantInfo, new: VariantInfo) =
                 old == new
