@@ -19,10 +19,35 @@ internal class VariantListAdapter :
 
     var activeTrack: ActiveTrackInfo? = null
         set(value) {
+            val previousValue = field
+            if (previousValue == value) {
+                return
+            }
+
             field = value
-            notifyDataSetChanged()
+
+            val previousPosition = findPositionForTrack(previousValue)
+            val newPosition = findPositionForTrack(value)
+
+            if (previousPosition != RecyclerView.NO_POSITION) {
+                notifyItemChanged(previousPosition)
+            }
+            if (newPosition != RecyclerView.NO_POSITION && newPosition != previousPosition) {
+                notifyItemChanged(newPosition)
+            }
         }
 
+    private fun findPositionForTrack(track: ActiveTrackInfo?): Int {
+        if (track == null) {
+            return RecyclerView.NO_POSITION
+        }
+
+        return currentList.indexOfFirst { variant ->
+            variant.bitrate == track.bitrate &&
+                variant.width == track.width &&
+                variant.height == track.height
+        }.takeIf { it >= 0 } ?: RecyclerView.NO_POSITION
+    }
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         return ViewHolder(VariantItemView(parent.context))
     }
