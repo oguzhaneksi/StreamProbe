@@ -106,7 +106,10 @@ class PlayerInterceptorTest {
         )
 
         val mediaPlaylist = mock(HlsMediaPlaylist::class.java)
-        val manifest = HlsManifest(multivariantPlaylist, mediaPlaylist)
+        val manifest = HlsManifest::class.java
+            .getDeclaredConstructor(HlsMultivariantPlaylist::class.java, HlsMediaPlaylist::class.java)
+            .also { it.isAccessible = true }
+            .newInstance(multivariantPlaylist, mediaPlaylist)
 
         `when`(player.currentManifest).thenReturn(manifest)
         `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
