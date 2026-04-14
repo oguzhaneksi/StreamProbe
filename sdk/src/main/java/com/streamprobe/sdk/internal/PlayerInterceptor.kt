@@ -72,10 +72,6 @@ internal class PlayerInterceptor(
     ) {
         if (mediaLoadData.dataType != C.DATA_TYPE_MEDIA) return
 
-        if (loadEventInfo.responseHeaders.isEmpty()) {
-            Log.d(TAG, "onLoadCompleted: empty responseHeaders for ${loadEventInfo.uri}")
-        }
-
         val cdnInfo = CdnHeaderParser.parse(headers = loadEventInfo.responseHeaders)
         val metric = SegmentMetric(
             requestTimestampMs = System.currentTimeMillis() - loadEventInfo.loadDurationMs,
