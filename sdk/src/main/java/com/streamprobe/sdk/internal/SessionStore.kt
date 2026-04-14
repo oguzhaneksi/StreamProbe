@@ -6,6 +6,7 @@ import com.streamprobe.sdk.model.SegmentMetric
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 /**
  * Thread-safe in-memory store for the current debug session.
@@ -35,11 +36,12 @@ internal class SessionStore {
     }
 
     fun addSegmentMetric(metric: SegmentMetric) {
-        val current = _segmentMetrics.value
-        _segmentMetrics.value = if (current.size >= MAX_SEGMENT_METRICS) {
-            current.drop(1) + metric
-        } else {
-            current + metric
+        _segmentMetrics.update { current ->
+            if (current.size >= MAX_SEGMENT_METRICS) {
+                current.drop(1) + metric
+            } else {
+                current + metric
+            }
         }
         _latestSegmentMetric.value = metric
     }
