@@ -1,17 +1,21 @@
 package com.streamprobe.sdk.internal
 
 import android.util.Log
+import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
-import androidx.media3.common.Format
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.hls.HlsManifest
+import androidx.media3.exoplayer.source.LoadEventInfo
+import androidx.media3.exoplayer.source.MediaLoadData
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.HlsManifestInfo
+import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.VariantInfo
 
 /**
@@ -58,6 +62,27 @@ internal class PlayerInterceptor(
         decoderReuseEvaluation: DecoderReuseEvaluation?,
     ) {
         updateActiveTrack(format)
+    }
+
+    // AnalyticsListener — fires when a load completes; used for segment metrics + CDN headers.
+    override fun onLoadCompleted(
+        eventTime: AnalyticsListener.EventTime,
+        loadEventInfo: LoadEventInfo,
+        mediaLoadData: MediaLoadData,
+    ) {
+        if (mediaLoadData.dataType != C.DATA_TYPE_MEDIA) return
+
+        val cdnInfo = CdnHeaderParser.parse(headers = loadEventInfo.responseHeaders)
+        val metric = SegmentMetric(
+            requestTimestampMs = System.currentTimeMillis() - loadEventInfo.loadDurationMs,
+            totalDurationMs = loadEventInfo.loadDurationMs,
+            sizeBytes = loadEventInfo.bytesLoaded,
+            throughputBytesPerSec = if (loadEventInfo.loadDurationMs > 0)
+                loadEventInfo.bytesLoaded * 1000 / loadEventInfo.loadDurationMs else 0,
+            uri = loadEventInfo.uri.toString(),
+            cdnInfo = cdnInfo,
+        )
+        sessionStore.addSegmentMetric(metric)
     }
 
     // ── Internal helpers ────────────────────────────────────────────────────

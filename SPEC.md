@@ -67,7 +67,7 @@ The track currently selected by the player is flagged in real time, so the devel
 Each segment request is recorded with:
 
 - Request timestamp
-- TTFB (time to first byte)
+- ~~TTFB (time to first byte)~~ — Deferred. Requires `MediaSource.Factory` wrapper or `TransferListener` integration. Planned for a future milestone.
 - Total download duration
 - Segment size in bytes
 - Computed throughput (bytes / total duration)
@@ -134,6 +134,8 @@ No additional setup, configuration files, or initialization is required. `attach
 ## 4. Technical Design
 
 ### 4.1 Interception Points
+
+> M2 uses `AnalyticsListener.onLoadCompleted` for both segment metrics and CDN response headers. This provides network-stack-independent capture without requiring host app setup changes. The `NetworkInspector` abstraction remains a planned extension for advanced use cases (true TTFB, custom network insights).
 
 StreamProbe instruments two layers:
 
