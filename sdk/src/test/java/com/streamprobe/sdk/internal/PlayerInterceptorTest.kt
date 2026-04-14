@@ -1,19 +1,26 @@
 package com.streamprobe.sdk.internal
 
 import android.net.Uri
+import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
-import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSpec
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.hls.HlsManifest
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist
 import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist
+import androidx.media3.exoplayer.source.LoadEventInfo
+import androidx.media3.exoplayer.source.MediaLoadData
+import com.streamprobe.sdk.model.CacheStatus
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,13 +35,13 @@ class PlayerInterceptorTest {
 
     private lateinit var sessionStore: SessionStore
     private lateinit var interceptor: PlayerInterceptor
-    private lateinit var player: Player
+    private lateinit var player: ExoPlayer
 
     @Before
     fun setUp() {
         sessionStore = SessionStore()
         interceptor = PlayerInterceptor(sessionStore)
-        player = mock(Player::class.java)
+        player = mock(ExoPlayer::class.java)
     }
 
     @Test
@@ -139,5 +146,103 @@ class PlayerInterceptorTest {
 
         assertNull(sessionStore.manifestInfo.first())
         assertNull(sessionStore.activeTrack.first())
+    }
+
+    // ── onLoadCompleted tests ─────────────────────────────────────────────────
+
+    private fun makeEventTime(): AnalyticsListener.EventTime =
+        mock(AnalyticsListener.EventTime::class.java)
+
+    private fun makeLoadEventInfo(
+        uri: Uri = Uri.parse("https://example.com/seg.ts"),
+        responseHeaders: Map<String, List<String>> = emptyMap(),
+        loadDurationMs: Long = 200L,
+        bytesLoaded: Long = 500_000L,
+    ): LoadEventInfo = LoadEventInfo(
+        /* loadTaskId= */ 1L,
+        /* dataSpec= */ DataSpec(uri),
+        /* uri= */ uri,
+        /* responseHeaders= */ responseHeaders,
+        /* elapsedRealtimeMs= */ 1000L,
+        /* loadDurationMs= */ loadDurationMs,
+        /* bytesLoaded= */ bytesLoaded,
+    )
+
+    @Test
+    fun `onLoadCompleted for media type creates segment metric`() = runTest {
+        val loadEventInfo = makeLoadEventInfo()
+        val mediaLoadData = MediaLoadData(C.DATA_TYPE_MEDIA)
+
+        interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+        val metrics = sessionStore.segmentMetrics.first()
+        assertEquals(1, metrics.size)
+    }
+
+    @Test
+    fun `onLoadCompleted for non-media type is ignored`() = runTest {
+        val loadEventInfo = makeLoadEventInfo()
+        val mediaLoadData = MediaLoadData(C.DATA_TYPE_MANIFEST)
+
+        interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+        assertTrue(sessionStore.segmentMetrics.first().isEmpty())
+    }
+
+    @Test
+    fun `segment metric has correct duration and size`() = runTest {
+        val loadEventInfo = makeLoadEventInfo(loadDurationMs = 320L, bytesLoaded = 1_200_000L)
+        val mediaLoadData = MediaLoadData(C.DATA_TYPE_MEDIA)
+
+        interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+        val metric = sessionStore.segmentMetrics.first().first()
+        assertEquals(320L, metric.totalDurationMs)
+        assertEquals(1_200_000L, metric.sizeBytes)
+    }
+
+    @Test
+    fun `segment metric throughput calculation`() = runTest {
+        val loadEventInfo = makeLoadEventInfo(loadDurationMs = 500L, bytesLoaded = 1_000L)
+        val mediaLoadData = MediaLoadData(C.DATA_TYPE_MEDIA)
+
+        interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+        val metric = sessionStore.segmentMetrics.first().first()
+        assertEquals(2000L, metric.throughputBytesPerSec)
+    }
+
+    @Test
+    fun `zero duration load does not divide by zero`() = runTest {
+        val loadEventInfo = makeLoadEventInfo(loadDurationMs = 0L, bytesLoaded = 1_000L)
+        val mediaLoadData = MediaLoadData(C.DATA_TYPE_MEDIA)
+
+        interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+        val metric = sessionStore.segmentMetrics.first().first()
+        assertEquals(0L, metric.throughputBytesPerSec)
+    }
+
+    @Test
+    fun `onLoadCompleted with response headers populates cdnInfo`() = runTest {
+        val headers = mapOf("X-Cache" to listOf("HIT"))
+        val loadEventInfo = makeLoadEventInfo(responseHeaders = headers)
+        val mediaLoadData = MediaLoadData(C.DATA_TYPE_MEDIA)
+
+        interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+        val metric = sessionStore.segmentMetrics.first().first()
+        assertEquals(CacheStatus.HIT, metric.cdnInfo.cacheStatus)
+    }
+
+    @Test
+    fun `onLoadCompleted with empty headers produces UNKNOWN cdn status`() = runTest {
+        val loadEventInfo = makeLoadEventInfo(responseHeaders = emptyMap())
+        val mediaLoadData = MediaLoadData(C.DATA_TYPE_MEDIA)
+
+        interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+        val metric = sessionStore.segmentMetrics.first().first()
+        assertEquals(CacheStatus.UNKNOWN, metric.cdnInfo.cacheStatus)
     }
 }

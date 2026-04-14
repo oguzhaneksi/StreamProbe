@@ -9,6 +9,7 @@ import android.widget.FrameLayout
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.streamprobe.sdk.internal.SessionStore
+import com.streamprobe.sdk.internal.overlay.OverlayFormatters
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.HlsManifestInfo
 import kotlinx.coroutines.CoroutineScope
@@ -45,6 +46,7 @@ internal class OverlayManager(
         setupDrag(overlay)
         setupCollapseToggle(overlay)
         setupManifestToggle(overlay)
+        setupSegmentTimelineToggle(overlay)
         setupVariantList(overlay)
         startObserving(overlay)
     }
@@ -112,6 +114,17 @@ internal class OverlayManager(
         }
     }
 
+    // ── Segment timeline toggle ─────────────────────────────────────────────
+
+    private fun setupSegmentTimelineToggle(overlay: OverlayPanelView) {
+        overlay.segmentTimelineToggle.setOnClickListener {
+            val showing = overlay.segmentTimelineScroll.isVisible
+            overlay.segmentTimelineScroll.visibility = if (showing) View.GONE else View.VISIBLE
+            overlay.segmentTimelineToggle.text =
+                if (showing) "Show Segment Timeline \u25b8" else "Hide Segment Timeline \u25be"
+        }
+    }
+
     // ── Variant list ────────────────────────────────────────────────────────
 
     private fun setupVariantList(overlay: OverlayPanelView) {
@@ -138,6 +151,19 @@ internal class OverlayManager(
             sessionStore.activeTrack.collect { track ->
                 overlay.activeTrackView.text = formatActiveTrack(track)
                 adapter?.activeTrack = track
+            }
+        }
+
+        scope?.launch {
+            sessionStore.latestSegmentMetric.collect { metric ->
+                overlay.latestSegmentView.text = OverlayFormatters.formatSegmentMetric(metric)
+                overlay.cdnStatusView.text = OverlayFormatters.formatCdnStatus(metric?.cdnInfo)
+            }
+        }
+
+        scope?.launch {
+            sessionStore.segmentMetrics.collect { metrics ->
+                overlay.segmentTimelineText.text = OverlayFormatters.buildSegmentTimeline(metrics)
             }
         }
     }

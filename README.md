@@ -69,7 +69,7 @@ Coarse milestones. Each will be broken down into a TODO checklist as work begins
 
 - **M0 — Scaffolding** ✅: Gradle module, `implementation` distribution with host-managed gating, empty `attach` / `detach` API surface.
 - **M1 — HLS MVP** ✅: Master playlist parsing, variant/rendition listing, basic overlay with active track display.
-- **M2 — Segment & CDN**: Per-segment timing (TTFB, total duration, size, throughput) and CDN response header capture with cache hit/miss flagging.
+- **M2 — Segment & CDN** ✅: Per-segment timing (total duration, size, throughput) and CDN response header capture with cache hit/miss flagging. TTFB deferred to a future milestone via MediaSource.Factory wrapper.
 - **M3 — ABR Log**: Track switch event recording with buffer state, chronological timeline view in the overlay.
 - **M4 — DASH Support**: MPD parsing, feature parity with HLS across all prior milestones.
 - **M5 — Distribution**: JitPack for early releases, then Maven Central for stable distribution.

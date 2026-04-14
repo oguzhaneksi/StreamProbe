@@ -28,10 +28,15 @@ internal class OverlayPanelView(context: Context) : LinearLayout(context) {
     val collapseBtn: TextView
     val body: LinearLayout
     val activeTrackView: TextView
+    val latestSegmentView: TextView
+    val cdnStatusView: TextView
     val variantList: RecyclerView
     val manifestToggle: TextView
     val manifestScroll: ScrollView
     val manifestText: TextView
+    val segmentTimelineToggle: TextView
+    val segmentTimelineScroll: ScrollView
+    val segmentTimelineText: TextView
 
     init {
         orientation = VERTICAL
@@ -99,6 +104,32 @@ internal class OverlayPanelView(context: Context) : LinearLayout(context) {
         }
         body.addView(activeTrackView, marginBottom = dp(12f).toInt())
 
+        // "LATEST SEGMENT" section label
+        val latestSegmentLabel = sectionLabel(context, "LATEST SEGMENT")
+        body.addView(latestSegmentLabel, marginBottom = dp(4f).toInt())
+
+        // Latest segment metric value
+        latestSegmentView = TextView(context).apply {
+            text = "\u2014"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }
+        body.addView(latestSegmentView, marginBottom = dp(8f).toInt())
+
+        // "CDN STATUS" section label
+        val cdnStatusLabel = sectionLabel(context, "CDN STATUS")
+        body.addView(cdnStatusLabel, marginBottom = dp(4f).toInt())
+
+        // CDN status value
+        cdnStatusView = TextView(context).apply {
+            text = "\u2014"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }
+        body.addView(cdnStatusView, marginBottom = dp(12f).toInt())
+
         // "VARIANTS" section label
         val variantsLabel = sectionLabel(context, "VARIANTS")
         body.addView(variantsLabel, marginBottom = dp(4f).toInt())
@@ -132,6 +163,35 @@ internal class OverlayPanelView(context: Context) : LinearLayout(context) {
             addView(manifestText)
         }
         body.addView(manifestScroll, LayoutParams(
+            LayoutParams.MATCH_PARENT,
+            LayoutParams.WRAP_CONTENT,
+        )
+        )
+
+        // Segment timeline toggle link
+        segmentTimelineToggle = TextView(context).apply {
+            text = "Show Segment Timeline \u25b8"
+            setTextColor("#66B2FF".toColorInt())
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }
+        body.addView(segmentTimelineToggle, marginBottom = dp(4f).toInt())
+
+        // Segment timeline text inside a bounded ScrollView (initially hidden)
+        segmentTimelineText = TextView(context).apply {
+            setTextColor("#B0B0B0".toColorInt())
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            typeface = Typeface.MONOSPACE
+            setBackgroundColor("#1A1A2E".toColorInt())
+            val p = dp(8f).toInt()
+            setPadding(p, p, p, p)
+        }
+
+        segmentTimelineScroll = BoundedScrollView(context, dp(160f).toInt()).apply {
+            visibility = GONE
+            addView(segmentTimelineText)
+        }
+        body.addView(segmentTimelineScroll, LayoutParams(
             LayoutParams.MATCH_PARENT,
             LayoutParams.WRAP_CONTENT,
         )
