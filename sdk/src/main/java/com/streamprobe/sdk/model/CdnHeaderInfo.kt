@@ -2,7 +2,7 @@ package com.streamprobe.sdk.model
 
 /**
  * CDN response header data captured from a segment download response.
- * Embedded in [SegmentMetric]; url and requestTimestampMs live on the parent.
+ * Embedded in [SegmentMetric]; uri and requestTimestampMs live on the parent.
  */
 data class CdnHeaderInfo(
     /** Cache-Control header value. */
