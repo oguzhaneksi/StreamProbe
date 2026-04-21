@@ -1,6 +1,6 @@
 package com.streamprobe.sdk
 
-import android.app.Activity
+import androidx.activity.ComponentActivity
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -30,10 +30,11 @@ class StreamProbeTest {
 
     @Test
     fun `attach and detach preserves M1 behavior`() {
-        val activity = Robolectric.buildActivity(Activity::class.java).create().get()
+        val activity = Robolectric.buildActivity(ComponentActivity::class.java).create().get()
 
         // attach should succeed without throwing
-        probe.attach(player, activity)
+        probe.attach(player)
+        probe.show(activity)
         assertNotNull(probe)
 
         // detach should also succeed without throwing

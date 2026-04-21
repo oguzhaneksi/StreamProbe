@@ -38,21 +38,6 @@ internal object OverlayFormatters {
         return if (headerSnippet != null) "$indicator  \u00b7  $headerSnippet" else indicator
     }
 
-    fun buildSegmentTimeline(metrics: List<SegmentMetric>): String {
-        if (metrics.isEmpty()) return ""
-        val sb = StringBuilder()
-        metrics.forEachIndexed { index, m ->
-            sb.append("#${index + 1}  ")
-            sb.append("${m.totalDurationMs}ms  ")
-            sb.append(formatBytes(m.sizeBytes))
-            sb.append("  ")
-            sb.append(formatThroughput(m.throughputBytesPerSec))
-            sb.append("  ")
-            sb.appendLine(m.cdnInfo.cacheStatus.name)
-        }
-        return sb.toString().trimEnd()
-    }
-
     private fun formatBytes(bytes: Long): String = when {
         bytes >= 1_000_000 -> String.format(Locale.ROOT, "%.1f MB", bytes / 1_000_000.0)
         bytes >= 1_000 -> String.format(Locale.ROOT, "%.1f KB", bytes / 1_000.0)

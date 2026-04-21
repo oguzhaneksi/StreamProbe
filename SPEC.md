@@ -105,29 +105,40 @@ At a glance it shows:
 
 - The currently active rendition (or a loading state if the manifest is not yet available)
 - The most recent segment metrics
-- ABR switch count for the session
 - Current CDN cache hit/miss state
 
-Tabs inside the overlay let the developer drill into:
+A **filter chip row** inside the panel lets the developer switch between two views:
 
-- **Manifest view** — structured + raw manifest
-- **Segment timeline** — per-segment metrics over time
-- **ABR log** — chronological switch history
+- **Variants** (default) — per-variant resolution, bitrate, and codec with an active-track indicator.
+- **Segments** — per-segment download duration, size, throughput, and cache-status dot. The segment timeline is shown in the same overlay panel with no Activity transition, so the host player is never backgrounded.
 
-The overlay lifecycle is tied to `attach` / `detach`. When the SDK is not attached, no overlay views exist in the view hierarchy.
+The manifest parsed summary (previously a separate toggle) has been removed — the Variants list already conveys the same information.
+
+#### Orientation-aware layout
+
+- **Portrait** — 280 dp wide vertical stack: stats (Active Track, Latest Segment, CDN Status) → chip row → list.
+- **Landscape** — 440 dp wide horizontal split: left column for stats, right column for chip row + list. The list height is capped at `screenHeight × 0.55`, clamped to `[200 dp, 360 dp]`.
+
+For host apps that declare `android:configChanges` covering orientation, the panel rebuilds in place via `View.onConfigurationChanged`. For apps that don't, the Activity recreates and the new Activity's `show(this)` call re-adds the panel. The selected chip (`viewMode`) is preserved across both rebuild paths.
 
 ### 3.7 Attach / Detach API
 
-The entire SDK is gated behind two calls:
+The SDK is gated behind calls with independent player and Activity lifecycles:
 
 ```kotlin
 val probe = StreamProbe()
-probe.attach(player, activity)  // ExoPlayer instance + host Activity
-// …
-probe.detach()
+
+// In the player owner (e.g. ViewModel) — player-scoped:
+probe.attach(player)   // wires PlayerInterceptor; no Activity needed
+
+// In each Activity onCreate — Activity-scoped, lifecycle-aware:
+probe.show(this)       // adds overlay; auto-hides on Activity onDestroy
+
+// When the player is released:
+probe.detach()         // tears down interceptor, clears session, hides overlay
 ```
 
-No additional setup, configuration files, or initialization is required. `attach` wires the interception points and shows the overlay on the provided `Activity`; `detach` unwinds them cleanly and removes the overlay.
+`show(activity)` subscribes a `DefaultLifecycleObserver` that calls `hide()` automatically on `ON_DESTROY`, preventing stale Activity references if the host forgets to call `hide()`. Calling `show(this)` again on Activity recreation (config change) performs an idempotent replace — the old panel is removed and a fresh one is added for the new Activity.
 
 ---
 

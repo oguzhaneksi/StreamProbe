@@ -72,17 +72,4 @@ class OverlayFormattingTest {
         assertEquals("\u2014", result)
     }
 
-    @Test
-    fun `buildSegmentTimeline formats multiple entries`() {
-        val metrics = listOf(makeMetric(), makeMetric(), makeMetric())
-        val result = OverlayFormatters.buildSegmentTimeline(metrics)
-        val lines = result.trim().lines()
-        assertEquals(3, lines.size)
-    }
-
-    @Test
-    fun `buildSegmentTimeline with empty list returns empty`() {
-        val result = OverlayFormatters.buildSegmentTimeline(emptyList())
-        assertTrue(result.isEmpty())
-    }
 }
