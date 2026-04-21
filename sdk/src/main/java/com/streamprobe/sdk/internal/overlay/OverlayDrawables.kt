@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import androidx.core.graphics.toColorInt
 import com.streamprobe.sdk.model.CacheStatus
+import kotlin.math.roundToInt
 
 /**
  * Factory functions for all drawables used by the debug overlay.
@@ -55,7 +56,7 @@ internal object OverlayDrawables {
         shape = GradientDrawable.RECTANGLE
         setColor(Color.TRANSPARENT)
         cornerRadius = context.dp(12f)
-        setStroke(context.dp(1f).toInt(), "#66B2FF".toColorInt())
+        setStroke(context.dp(1f).roundToInt().coerceAtLeast(1), "#66B2FF".toColorInt())
     }
 
     /** Colored dot reflecting a segment's CDN cache status. */
