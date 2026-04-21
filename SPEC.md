@@ -41,13 +41,10 @@ StreamProbe is deliberately *not*:
 
 ### 3.1 Manifest Parsing
 
-When a master playlist (HLS) or MPD (DASH) is loaded, StreamProbe intercepts it before it reaches the player's internal parser. The content is parsed and exposed as a structured object containing:
+When a master playlist (HLS) or MPD (DASH) is loaded, StreamProbe reads the manifest from `ExoPlayer.currentManifest` after the player has loaded it. The content is parsed into a structured object containing:
 
 - All variant streams and renditions
 - Codec, bitrate, and resolution per variant
-- Playlist-level metadata (version, target duration, type, etc.)
-
-The raw manifest text is also retained so it can be viewed verbatim in the overlay.
 
 > **Timing consideration:** `getCurrentManifest()` returns `null` until the player has fetched and parsed the manifest. All consumers (including the overlay) must handle the `null` case — typically by rendering a loading/placeholder state until the manifest is available.
 
@@ -58,7 +55,6 @@ Every available video, audio, and subtitle track is enumerated. For each track, 
 - Bandwidth
 - Resolution
 - Codec
-- Frame rate (where available)
 
 The track currently selected by the player is flagged in real time, so the developer can see at a glance which variant is actually being played.
 
@@ -76,7 +72,7 @@ These metrics are retained for the session and are the primary input for spottin
 
 ### 3.4 CDN Response Headers
 
-Response headers for every segment and manifest request are captured. The overlay highlights:
+Response headers for every segment request are captured. The overlay highlights:
 
 - `Cache-Control`
 - `X-Cache`, `X-Cache-Status`
