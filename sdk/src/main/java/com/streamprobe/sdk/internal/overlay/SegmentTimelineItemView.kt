@@ -10,7 +10,6 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.graphics.toColorInt
 import com.streamprobe.sdk.model.SegmentMetric
-import java.util.Locale
 
 /**
  * Programmatic view for a single row in the segment timeline list.
@@ -79,20 +78,10 @@ internal class SegmentTimelineItemView(context: Context) : LinearLayout(context)
     fun bind(index: Int, metric: SegmentMetric) {
         indexView.text = "#${index + 1}"
         durationView.text = "${metric.totalDurationMs}ms"
-        sizeView.text = formatBytes(metric.sizeBytes)
-        throughputView.text = formatThroughput(metric.throughputBytesPerSec)
+        sizeView.text = OverlayFormatters.formatBytes(metric.sizeBytes)
+        throughputView.text = OverlayFormatters.formatThroughput(metric.throughputBytesPerSec)
         cacheDot.background = OverlayDrawables.cacheDot(metric.cdnInfo.cacheStatus)
     }
 
     private fun dp(value: Float) = context.dp(value)
-
-    private fun formatScaledBytes(value: Long, suffix: String = ""): String = when {
-        value >= 1_000_000 -> String.format(Locale.ROOT, "%.1f MB%s", value / 1_000_000.0, suffix)
-        value >= 1_000 -> String.format(Locale.ROOT, "%.1f KB%s", value / 1_000.0, suffix)
-        else -> "$value B$suffix"
-    }
-
-    private fun formatBytes(bytes: Long): String = formatScaledBytes(bytes)
-
-    private fun formatThroughput(bytesPerSec: Long): String = formatScaledBytes(bytesPerSec, "/s")
 }

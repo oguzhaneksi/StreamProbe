@@ -12,7 +12,6 @@ import android.widget.TextView
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.VariantInfo
 import androidx.core.graphics.toColorInt
-import java.util.Locale
 
 /**
  * Programmatic view representing a single row in the variant list.
@@ -80,23 +79,9 @@ internal class VariantItemView(context: Context) : LinearLayout(context) {
 
         dot.background = if (isActive) OverlayDrawables.dotActive() else OverlayDrawables.dotInactive()
 
-        resolution.text = if (variant.width > 0 && variant.height > 0) {
-            "${variant.width}×${variant.height}"
-        } else {
-            "Audio only"
-        }
-
-        bitrate.text = formatBitrate(variant.bitrate)
+        resolution.text = OverlayFormatters.formatResolution(variant.width, variant.height)
+        bitrate.text = OverlayFormatters.formatBitrate(variant.bitrate)
         codecs.text = variant.codecs ?: ""
-    }
-
-    private fun formatBitrate(bps: Int): String {
-        if (bps <= 0) return "?"
-        return when {
-            bps >= 1_000_000 -> String.format(Locale.getDefault(), "%.1f Mbps", bps / 1_000_000.0)
-            bps >= 1_000 -> String.format(Locale.getDefault(), "%d kbps", bps / 1_000)
-            else -> "$bps bps"
-        }
     }
 
     private fun dp(value: Float) = context.dp(value)

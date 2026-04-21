@@ -11,13 +11,11 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.streamprobe.sdk.internal.SessionStore
-import com.streamprobe.sdk.model.ActiveTrackInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 /**
  * Manages the debug overlay lifecycle:
@@ -202,7 +200,7 @@ internal class OverlayManager(
 
         scope?.launch {
             sessionStore.activeTrack.collect { track ->
-                overlay.activeTrackView.text = formatActiveTrack(track)
+                overlay.activeTrackView.text = OverlayFormatters.formatActiveTrack(track)
                 variantAdapter?.activeTrack = track
             }
         }
@@ -221,21 +219,4 @@ internal class OverlayManager(
         }
     }
 
-    // ── Formatting ───────────────────────────────────────────────────────────
-
-    private fun formatActiveTrack(track: ActiveTrackInfo?): String {
-        if (track == null) return "Loading\u2026"
-        val resolution = if (track.width > 0 && track.height > 0) {
-            "${track.width}\u00d7${track.height}"
-        } else {
-            "Audio only"
-        }
-        val bitrate = when {
-            track.bitrate >= 1_000_000 -> String.format(Locale.getDefault(), "%.1f Mbps", track.bitrate / 1_000_000.0)
-            track.bitrate >= 1_000 -> String.format(Locale.getDefault(), "%d kbps", track.bitrate / 1_000)
-            track.bitrate > 0 -> "${track.bitrate} bps"
-            else -> "? bps"
-        }
-        return "$resolution  \u00b7  $bitrate"
-    }
 }

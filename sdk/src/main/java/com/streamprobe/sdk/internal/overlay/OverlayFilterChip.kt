@@ -37,7 +37,7 @@ internal class OverlayFilterChip(context: Context) : TextView(context) {
         setPadding(hPad, vPad, hPad, vPad)
         isClickable = true
         isFocusable = true
-        // Initialise background and text colour
+        // Initialize background and text color
         isChecked = false
     }
 }

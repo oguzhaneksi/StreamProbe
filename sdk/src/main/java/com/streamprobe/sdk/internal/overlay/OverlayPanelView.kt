@@ -1,5 +1,6 @@
 package com.streamprobe.sdk.internal.overlay
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Color
@@ -29,9 +30,10 @@ import androidx.recyclerview.widget.RecyclerView
  * orientation changes to [onOrientationChanged] so [OverlayManager] can rebuild the panel
  * in place.
  */
+@SuppressLint("ViewConstructor")
 internal class OverlayPanelView(
     context: Context,
-    private val isLandscape: Boolean,
+    isLandscape: Boolean,
     bodyMaxHeightPx: Int,
 ) : LinearLayout(context) {
 
