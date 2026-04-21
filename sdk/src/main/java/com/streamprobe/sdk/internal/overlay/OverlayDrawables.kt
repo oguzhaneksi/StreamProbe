@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import androidx.core.graphics.toColorInt
+import com.streamprobe.sdk.model.CacheStatus
+import kotlin.math.roundToInt
 
 /**
  * Factory functions for all drawables used by the debug overlay.
@@ -40,6 +42,33 @@ internal object OverlayDrawables {
     fun dotInactive(): GradientDrawable = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
         setColor("#555555".toColorInt())
+    }
+
+    /** Filled accent background for a checked filter chip. */
+    fun filterChipCheckedBackground(context: Context): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        setColor("#66B2FF".toColorInt())
+        cornerRadius = context.dp(12f)
+    }
+
+    /** Transparent background with accent outline for an unchecked filter chip. */
+    fun filterChipUncheckedBackground(context: Context): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        setColor(Color.TRANSPARENT)
+        cornerRadius = context.dp(12f)
+        setStroke(context.dp(1f).roundToInt().coerceAtLeast(1), "#66B2FF".toColorInt())
+    }
+
+    /** Colored dot reflecting a segment's CDN cache status. */
+    fun cacheDot(status: CacheStatus): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(
+            when (status) {
+                CacheStatus.HIT -> "#30D158".toColorInt()
+                CacheStatus.MISS -> "#FF453A".toColorInt()
+                CacheStatus.UNKNOWN -> "#555555".toColorInt()
+            }
+        )
     }
 }
 

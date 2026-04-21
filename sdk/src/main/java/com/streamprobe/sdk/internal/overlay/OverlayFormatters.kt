@@ -1,5 +1,6 @@
 package com.streamprobe.sdk.internal.overlay
 
+import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
 import com.streamprobe.sdk.model.SegmentMetric
@@ -38,30 +39,28 @@ internal object OverlayFormatters {
         return if (headerSnippet != null) "$indicator  \u00b7  $headerSnippet" else indicator
     }
 
-    fun buildSegmentTimeline(metrics: List<SegmentMetric>): String {
-        if (metrics.isEmpty()) return ""
-        val sb = StringBuilder()
-        metrics.forEachIndexed { index, m ->
-            sb.append("#${index + 1}  ")
-            sb.append("${m.totalDurationMs}ms  ")
-            sb.append(formatBytes(m.sizeBytes))
-            sb.append("  ")
-            sb.append(formatThroughput(m.throughputBytesPerSec))
-            sb.append("  ")
-            sb.appendLine(m.cdnInfo.cacheStatus.name)
-        }
-        return sb.toString().trimEnd()
+    private fun formatScaledBytes(value: Long, suffix: String = ""): String = when {
+        value >= 1_000_000 -> String.format(Locale.ROOT, "%.1f MB%s", value / 1_000_000.0, suffix)
+        value >= 1_000 -> String.format(Locale.ROOT, "%.1f KB%s", value / 1_000.0, suffix)
+        else -> "$value B$suffix"
     }
 
-    private fun formatBytes(bytes: Long): String = when {
-        bytes >= 1_000_000 -> String.format(Locale.ROOT, "%.1f MB", bytes / 1_000_000.0)
-        bytes >= 1_000 -> String.format(Locale.ROOT, "%.1f KB", bytes / 1_000.0)
-        else -> "$bytes B"
+    fun formatBytes(bytes: Long): String = formatScaledBytes(bytes)
+
+    fun formatThroughput(bytesPerSec: Long): String = formatScaledBytes(bytesPerSec, "/s")
+
+    fun formatBitrate(bps: Int): String = when {
+        bps >= 1_000_000 -> String.format(Locale.ROOT, "%.1f Mbps", bps / 1_000_000.0)
+        bps >= 1_000 -> String.format(Locale.ROOT, "%d kbps", bps / 1_000)
+        bps > 0 -> "$bps bps"
+        else -> "? bps"
     }
 
-    private fun formatThroughput(bytesPerSec: Long): String = when {
-        bytesPerSec >= 1_000_000 -> String.format(Locale.ROOT, "%.1f MB/s", bytesPerSec / 1_000_000.0)
-        bytesPerSec >= 1_000 -> String.format(Locale.ROOT, "%.1f KB/s", bytesPerSec / 1_000.0)
-        else -> "$bytesPerSec B/s"
+    fun formatResolution(width: Int, height: Int): String =
+        if (width > 0 && height > 0) "${width}\u00d7${height}" else "Audio only"
+
+    fun formatActiveTrack(track: ActiveTrackInfo?): String {
+        if (track == null) return "Loading\u2026"
+        return "${formatResolution(track.width, track.height)}  \u00b7  ${formatBitrate(track.bitrate)}"
     }
 }

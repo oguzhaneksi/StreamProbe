@@ -1,13 +1,14 @@
 package com.streamprobe.sdk.internal.overlay
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.graphics.toColorInt
 import androidx.recyclerview.widget.RecyclerView
@@ -19,10 +20,22 @@ import androidx.recyclerview.widget.RecyclerView
  * so no inflation or [com.streamprobe.sdk.R] references are required. All child views that
  * [OverlayManager] needs to interact with are exposed as public properties.
  *
- * The panel should be added to the host Activity via `addContentView()` with a fixed 320dp
- * width. [OverlayManager] owns that responsibility.
+ * Supports two orientations:
+ * - **Portrait** (`isLandscape = false`): vertical stack — stats, chip row, then the list.
+ * - **Landscape** (`isLandscape = true`): horizontal split — left column for stats, right column
+ *   for the chip row and list.
+ *
+ * When the host Activity declares `android:configChanges` that covers orientation, the system
+ * calls [onConfigurationChanged] on all attached views. [OverlayPanelView] forwards only
+ * orientation changes to [onOrientationChanged] so [OverlayManager] can rebuild the panel
+ * in place.
  */
-internal class OverlayPanelView(context: Context) : LinearLayout(context) {
+@SuppressLint("ViewConstructor")
+internal class OverlayPanelView(
+    context: Context,
+    isLandscape: Boolean,
+    bodyMaxHeightPx: Int,
+) : LinearLayout(context) {
 
     val header: LinearLayout
     val collapseBtn: TextView
@@ -31,12 +44,12 @@ internal class OverlayPanelView(context: Context) : LinearLayout(context) {
     val latestSegmentView: TextView
     val cdnStatusView: TextView
     val variantList: RecyclerView
-    val manifestToggle: TextView
-    val manifestScroll: ScrollView
-    val manifestText: TextView
-    val segmentTimelineToggle: TextView
-    val segmentTimelineScroll: ScrollView
-    val segmentTimelineText: TextView
+    val variantsChip: OverlayFilterChip
+    val segmentsChip: OverlayFilterChip
+
+    /** Set by [OverlayManager] to be notified when the device orientation changes. */
+    var onOrientationChanged: (() -> Unit)? = null
+    private var lastKnownOrientation: Int = resources.configuration.orientation
 
     init {
         orientation = VERTICAL
@@ -69,7 +82,6 @@ internal class OverlayPanelView(context: Context) : LinearLayout(context) {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             gravity = Gravity.CENTER
             contentDescription = "Collapse"
-            // Apply ripple from the host's theme if available
             val rippleValue = TypedValue()
             if (context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, rippleValue, true)
                 && rippleValue.resourceId != 0
@@ -82,133 +94,120 @@ internal class OverlayPanelView(context: Context) : LinearLayout(context) {
 
         addView(header, LayoutParams(LayoutParams.MATCH_PARENT, dp(44f).toInt()))
 
-        // ── Body (collapsible) ────────────────────────────────────────────────
+        // ── Shared data views ─────────────────────────────────────────────────
 
-        body = LinearLayout(context).apply {
-            orientation = VERTICAL
-            val pad = dp(14f).toInt()
-            val topPad = dp(10f).toInt()
-            setPadding(pad, topPad, pad, pad)
-        }
-
-        // "ACTIVE TRACK" section label
-        val activeLabel = sectionLabel(context, "ACTIVE TRACK")
-        body.addView(activeLabel, marginBottom = dp(4f).toInt())
-
-        // Active track value
         activeTrackView = TextView(context).apply {
             text = "Loading\u2026"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
-        body.addView(activeTrackView, marginBottom = dp(12f).toInt())
 
-        // "LATEST SEGMENT" section label
-        val latestSegmentLabel = sectionLabel(context, "LATEST SEGMENT")
-        body.addView(latestSegmentLabel, marginBottom = dp(4f).toInt())
-
-        // Latest segment metric value
         latestSegmentView = TextView(context).apply {
             text = "\u2014"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
-        body.addView(latestSegmentView, marginBottom = dp(8f).toInt())
 
-        // "CDN STATUS" section label
-        val cdnStatusLabel = sectionLabel(context, "CDN STATUS")
-        body.addView(cdnStatusLabel, marginBottom = dp(4f).toInt())
-
-        // CDN status value
         cdnStatusView = TextView(context).apply {
             text = "\u2014"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
-        body.addView(cdnStatusView, marginBottom = dp(12f).toInt())
 
-        // "VARIANTS" section label
-        val variantsLabel = sectionLabel(context, "VARIANTS")
-        body.addView(variantsLabel, marginBottom = dp(4f).toInt())
+        // ── Filter chip row ───────────────────────────────────────────────────
 
-        // Variant RecyclerView (bounded to max 180dp height)
-        variantList = BoundedRecyclerView(context, dp(180f).toInt())
+        variantsChip = OverlayFilterChip(context).apply {
+            text = "Variants"
+            isChecked = true
+        }
+        segmentsChip = OverlayFilterChip(context).apply {
+            text = "Segments"
+            isChecked = false
+        }
+        val chipRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(variantsChip, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
+                it.marginEnd = dp(6f).toInt()
+            })
+            addView(segmentsChip, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        }
+
+        // ── Bounded RecyclerView ──────────────────────────────────────────────
+
+        variantList = BoundedRecyclerView(context, bodyMaxHeightPx)
         variantList.isNestedScrollingEnabled = true
-        body.addView(variantList, marginBottom = dp(10f).toInt())
 
-        // Manifest summary toggle link
-        manifestToggle = TextView(context).apply {
-            text = "Show Parsed Summary \u25b8"
-            setTextColor("#66B2FF".toColorInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        }
-        body.addView(manifestToggle, marginBottom = dp(4f).toInt())
+        // ── Body (collapsible) ────────────────────────────────────────────────
 
-        // Manifest text inside a bounded ScrollView (initially hidden)
-        manifestText = TextView(context).apply {
-            setTextColor("#B0B0B0".toColorInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            typeface = Typeface.MONOSPACE
-            setBackgroundColor("#1A1A2E".toColorInt())
-            val p = dp(8f).toInt()
-            setPadding(p, p, p, p)
+        body = LinearLayout(context).apply {
+            orientation = if (isLandscape) HORIZONTAL else VERTICAL
+            val pad = dp(14f).toInt()
+            val topPad = dp(10f).toInt()
+            setPadding(pad, topPad, pad, pad)
         }
 
-        manifestScroll = BoundedScrollView(context, dp(160f).toInt()).apply {
-            visibility = GONE
-            addView(manifestText)
-        }
-        body.addView(manifestScroll, LayoutParams(
-            LayoutParams.MATCH_PARENT,
-            LayoutParams.WRAP_CONTENT,
-        )
-        )
-
-        // Segment timeline toggle link
-        segmentTimelineToggle = TextView(context).apply {
-            text = "Show Segment Timeline \u25b8"
-            setTextColor("#66B2FF".toColorInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        }
-        body.addView(segmentTimelineToggle, marginBottom = dp(4f).toInt())
-
-        // Segment timeline text inside a bounded ScrollView (initially hidden)
-        segmentTimelineText = TextView(context).apply {
-            setTextColor("#B0B0B0".toColorInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            typeface = Typeface.MONOSPACE
-            setBackgroundColor("#1A1A2E".toColorInt())
-            val p = dp(8f).toInt()
-            setPadding(p, p, p, p)
+        if (isLandscape) {
+            buildLandscapeBody(body, chipRow)
+        } else {
+            buildPortraitBody(body, chipRow)
         }
 
-        segmentTimelineScroll = BoundedScrollView(context, dp(160f).toInt()).apply {
-            visibility = GONE
-            addView(segmentTimelineText)
-        }
-        body.addView(segmentTimelineScroll, LayoutParams(
-            LayoutParams.MATCH_PARENT,
-            LayoutParams.WRAP_CONTENT,
-        )
-        )
+        addView(body, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+    }
 
-        addView(body, LayoutParams(
-            LayoutParams.MATCH_PARENT,
-            LayoutParams.WRAP_CONTENT,
-        )
-        )
+    // ── Layout builders ───────────────────────────────────────────────────────
+
+    private fun buildPortraitBody(body: LinearLayout, chipRow: LinearLayout) {
+        body.addView(sectionLabel(context, "ACTIVE TRACK"), marginBottom = dp(4f).toInt())
+        body.addView(activeTrackView, marginBottom = dp(12f).toInt())
+        body.addView(sectionLabel(context, "LATEST SEGMENT"), marginBottom = dp(4f).toInt())
+        body.addView(latestSegmentView, marginBottom = dp(8f).toInt())
+        body.addView(sectionLabel(context, "CDN STATUS"), marginBottom = dp(4f).toInt())
+        body.addView(cdnStatusView, marginBottom = dp(12f).toInt())
+        body.addView(chipRow, marginBottom = dp(6f).toInt())
+        body.addView(variantList, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+    }
+
+    private fun buildLandscapeBody(body: LinearLayout, chipRow: LinearLayout) {
+        // Left column — stat sections
+        val leftCol = LinearLayout(context).apply { orientation = VERTICAL }
+        leftCol.addView(sectionLabel(context, "ACTIVE TRACK"), marginBottom = dp(4f).toInt())
+        leftCol.addView(activeTrackView, marginBottom = dp(12f).toInt())
+        leftCol.addView(sectionLabel(context, "LATEST SEGMENT"), marginBottom = dp(4f).toInt())
+        leftCol.addView(latestSegmentView, marginBottom = dp(8f).toInt())
+        leftCol.addView(sectionLabel(context, "CDN STATUS"), marginBottom = dp(4f).toInt())
+        leftCol.addView(cdnStatusView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+
+        // Right column — chip row + list
+        val rightCol = LinearLayout(context).apply { orientation = VERTICAL }
+        rightCol.addView(chipRow, marginBottom = dp(6f).toInt())
+        rightCol.addView(variantList, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+
+        body.addView(leftCol, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).also {
+            it.marginEnd = dp(12f).toInt()
+        })
+        body.addView(rightCol, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+    }
+
+    // ── Configuration change ──────────────────────────────────────────────────
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val newOrientation = newConfig.orientation
+        if (newOrientation != lastKnownOrientation) {
+            lastKnownOrientation = newOrientation
+            onOrientationChanged?.invoke()
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private fun dp(value: Float) = context.dp(value)
 
-    /** Creates the styled uppercase section-label TextView ("ACTIVE TRACK", "VARIANTS"). */
     private fun sectionLabel(ctx: Context, text: String) = TextView(ctx).apply {
         this.text = text
         setTextColor("#80FFFFFF".toColorInt())
@@ -217,10 +216,6 @@ internal class OverlayPanelView(context: Context) : LinearLayout(context) {
         letterSpacing = 0.1f
     }
 
-    /**
-     * Convenience overload that wraps [view] in [LinearLayout.LayoutParams] with a bottom margin
-     * and calls [LinearLayout.addView].
-     */
     private fun LinearLayout.addView(view: View, marginBottom: Int) {
         addView(view, LayoutParams(
             LayoutParams.MATCH_PARENT,
@@ -228,7 +223,7 @@ internal class OverlayPanelView(context: Context) : LinearLayout(context) {
         ).also { it.bottomMargin = marginBottom })
     }
 
-    // ── Bounded subclasses ────────────────────────────────────────────────────
+    // ── Bounded subclass ──────────────────────────────────────────────────────
 
     /**
      * A [RecyclerView] that caps its measured height at [maxHeightPx].
@@ -237,16 +232,6 @@ internal class OverlayPanelView(context: Context) : LinearLayout(context) {
      */
     private class BoundedRecyclerView(context: Context, private val maxHeightPx: Int) :
         RecyclerView(context) {
-        override fun onMeasure(widthSpec: Int, heightSpec: Int) {
-            super.onMeasure(widthSpec, MeasureSpec.makeMeasureSpec(maxHeightPx, MeasureSpec.AT_MOST))
-        }
-    }
-
-    /**
-     * A [ScrollView] that caps its measured height at [maxHeightPx].
-     */
-    private class BoundedScrollView(context: Context, private val maxHeightPx: Int) :
-        ScrollView(context) {
         override fun onMeasure(widthSpec: Int, heightSpec: Int) {
             super.onMeasure(widthSpec, MeasureSpec.makeMeasureSpec(maxHeightPx, MeasureSpec.AT_MOST))
         }

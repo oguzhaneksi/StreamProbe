@@ -1,6 +1,7 @@
 package com.streamprobe.android.ui
 
 import android.os.Build
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
@@ -39,7 +40,7 @@ fun PlayerScreen(viewModel: PlayerViewModel = viewModel()) {
 
     if (Build.VERSION.SDK_INT > 23) {
         LifecycleStartEffect(viewModel) {
-            activity?.let {
+            (activity as? ComponentActivity)?.let {
                 viewModel.initializePlayer(it)
             }
             onStopOrDispose {
@@ -50,7 +51,7 @@ fun PlayerScreen(viewModel: PlayerViewModel = viewModel()) {
         }
     } else {
         LifecycleResumeEffect(viewModel) {
-            activity?.let {
+            (activity as? ComponentActivity)?.let {
                 viewModel.initializePlayer(it)
             }
             onPauseOrDispose {

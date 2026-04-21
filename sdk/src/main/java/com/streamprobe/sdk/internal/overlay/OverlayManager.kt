@@ -1,66 +1,125 @@
 package com.streamprobe.sdk.internal.overlay
 
 import android.annotation.SuppressLint
-import android.app.Activity
+import android.content.res.Configuration
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import androidx.core.view.isVisible
+import androidx.activity.ComponentActivity
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.streamprobe.sdk.internal.SessionStore
-import com.streamprobe.sdk.internal.overlay.OverlayFormatters
-import com.streamprobe.sdk.model.ActiveTrackInfo
-import com.streamprobe.sdk.model.HlsManifestInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 /**
  * Manages the debug overlay lifecycle:
- * - [show] creates an [OverlayPanelView], adds it via [Activity.addContentView],
- *   sets up drag, collapse/expand, and starts observing [SessionStore].
- * - [hide] removes the overlay and cancels observation.
+ * - [show] creates an [OverlayPanelView] sized and oriented for the current screen configuration,
+ *   adds it via [ComponentActivity.addContentView], sets up drag, collapse/expand, chip
+ *   switcher, and starts observing [SessionStore]. A [DefaultLifecycleObserver] auto-hides
+ *   the overlay when the Activity is destroyed, preventing leaks.
+ * - [hide] removes the overlay, cancels observation, and removes the lifecycle observer.
+ *
+ * [viewMode] is preserved across orientation rebuilds so that if the user switched to Segments,
+ * the rebuilt overlay shows Segments too.
  */
 internal class OverlayManager(
     private val sessionStore: SessionStore,
 ) {
 
+    private enum class ViewMode { VARIANTS, SEGMENTS }
+
     private var overlayView: OverlayPanelView? = null
     private var scope: CoroutineScope? = null
-    private var adapter: VariantListAdapter? = null
+    private var variantAdapter: VariantListAdapter? = null
+    private var segmentAdapter: SegmentTimelineAdapter? = null
     private var isCollapsed = false
+    private var viewMode = ViewMode.VARIANTS
 
-    fun show(activity: Activity) {
-        if (overlayView != null) return
+    private var currentActivity: ComponentActivity? = null
+    private var lifecycleObserver: DefaultLifecycleObserver? = null
 
-        val overlay = OverlayPanelView(activity)
-        val widthPx = (320 * activity.resources.displayMetrics.density).toInt()
-        val params = FrameLayout.LayoutParams(widthPx, FrameLayout.LayoutParams.WRAP_CONTENT)
-        activity.addContentView(overlay, params)
+    fun show(activity: ComponentActivity) {
+        // Idempotent replace: if already shown, remove the old panel first.
+        if (overlayView != null) hide()
+
+        currentActivity = activity
+
+        val isLandscape =
+            activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val bodyMaxHeightPx = computeBodyMaxHeightPx(activity, isLandscape)
+        val widthPx = computePanelWidthPx(activity, isLandscape)
+
+        val overlay = OverlayPanelView(activity, isLandscape, bodyMaxHeightPx)
+        activity.addContentView(overlay, FrameLayout.LayoutParams(widthPx, FrameLayout.LayoutParams.WRAP_CONTENT))
         overlayView = overlay
+
+        overlay.onOrientationChanged = { currentActivity?.let { show(it) } }
+
+        variantAdapter = VariantListAdapter()
+        segmentAdapter = SegmentTimelineAdapter()
+        overlay.variantList.layoutManager = LinearLayoutManager(overlay.context)
 
         setupDrag(overlay)
         setupCollapseToggle(overlay)
-        setupManifestToggle(overlay)
-        setupSegmentTimelineToggle(overlay)
-        setupVariantList(overlay)
+        setupChips(overlay)
         startObserving(overlay)
+        attachLifecycle(activity)
     }
 
     fun hide() {
         scope?.cancel()
         scope = null
-        adapter = null
+        variantAdapter = null
+        segmentAdapter = null
 
         overlayView?.let { view ->
             (view.parent as? ViewGroup)?.removeView(view)
         }
         overlayView = null
+
+        lifecycleObserver?.let { observer ->
+            currentActivity?.lifecycle?.removeObserver(observer)
+        }
+        lifecycleObserver = null
+        currentActivity = null
         isCollapsed = false
+    }
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+
+    private fun attachLifecycle(activity: ComponentActivity) {
+        val observer = object : DefaultLifecycleObserver {
+            override fun onDestroy(owner: LifecycleOwner) {
+                hide()
+            }
+        }
+        activity.lifecycle.addObserver(observer)
+        lifecycleObserver = observer
+    }
+
+    // ── Sizing helpers ───────────────────────────────────────────────────────
+
+    private fun computeBodyMaxHeightPx(activity: ComponentActivity, isLandscape: Boolean): Int {
+        val dm = activity.resources.displayMetrics
+        return if (isLandscape) {
+            val targetPx = (dm.heightPixels * 0.55f).toInt()
+            val minPx = (200 * dm.density).toInt()
+            val maxPx = (360 * dm.density).toInt()
+            targetPx.coerceIn(minPx, maxPx)
+        } else {
+            (180 * dm.density).toInt()
+        }
+    }
+
+    private fun computePanelWidthPx(activity: ComponentActivity, isLandscape: Boolean): Int {
+        val density = activity.resources.displayMetrics.density
+        return ((if (isLandscape) 440 else 280) * density).toInt()
     }
 
     // ── Drag ────────────────────────────────────────────────────────────────
@@ -104,33 +163,26 @@ internal class OverlayManager(
         }
     }
 
-    // ── Manifest summary toggle ─────────────────────────────────────────────
+    // ── Chip switcher ────────────────────────────────────────────────────────
 
-    private fun setupManifestToggle(overlay: OverlayPanelView) {
-        overlay.manifestToggle.setOnClickListener {
-            val showing = overlay.manifestScroll.isVisible
-            overlay.manifestScroll.visibility = if (showing) View.GONE else View.VISIBLE
-            overlay.manifestToggle.text = if (showing) "Show Parsed Summary \u25b8" else "Hide Parsed Summary \u25be"
+    private fun setupChips(overlay: OverlayPanelView) {
+        applyViewMode(overlay, viewMode)
+
+        overlay.variantsChip.setOnClickListener {
+            viewMode = ViewMode.VARIANTS
+            applyViewMode(overlay, viewMode)
+        }
+        overlay.segmentsChip.setOnClickListener {
+            viewMode = ViewMode.SEGMENTS
+            applyViewMode(overlay, viewMode)
         }
     }
 
-    // ── Segment timeline toggle ─────────────────────────────────────────────
-
-    private fun setupSegmentTimelineToggle(overlay: OverlayPanelView) {
-        overlay.segmentTimelineToggle.setOnClickListener {
-            val showing = overlay.segmentTimelineScroll.isVisible
-            overlay.segmentTimelineScroll.visibility = if (showing) View.GONE else View.VISIBLE
-            overlay.segmentTimelineToggle.text =
-                if (showing) "Show Segment Timeline \u25b8" else "Hide Segment Timeline \u25be"
-        }
-    }
-
-    // ── Variant list ────────────────────────────────────────────────────────
-
-    private fun setupVariantList(overlay: OverlayPanelView) {
-        adapter = VariantListAdapter()
-        overlay.variantList.layoutManager = LinearLayoutManager(overlay.context)
-        overlay.variantList.adapter = adapter
+    private fun applyViewMode(overlay: OverlayPanelView, mode: ViewMode) {
+        overlay.variantsChip.isChecked = mode == ViewMode.VARIANTS
+        overlay.segmentsChip.isChecked = mode == ViewMode.SEGMENTS
+        overlay.variantList.adapter =
+            if (mode == ViewMode.VARIANTS) variantAdapter else segmentAdapter
     }
 
     // ── Observation ─────────────────────────────────────────────────────────
@@ -141,16 +193,15 @@ internal class OverlayManager(
         scope?.launch {
             sessionStore.manifestInfo.collect { info ->
                 if (info != null) {
-                    adapter?.submitList(info.variants)
-                    overlay.manifestText.text = buildManifestSummary(info)
+                    variantAdapter?.submitList(info.variants)
                 }
             }
         }
 
         scope?.launch {
             sessionStore.activeTrack.collect { track ->
-                overlay.activeTrackView.text = formatActiveTrack(track)
-                adapter?.activeTrack = track
+                overlay.activeTrackView.text = OverlayFormatters.formatActiveTrack(track)
+                variantAdapter?.activeTrack = track
             }
         }
 
@@ -163,47 +214,9 @@ internal class OverlayManager(
 
         scope?.launch {
             sessionStore.segmentMetrics.collect { metrics ->
-                overlay.segmentTimelineText.text = OverlayFormatters.buildSegmentTimeline(metrics)
+                segmentAdapter?.submitList(metrics)
             }
         }
     }
 
-    // ── Formatting helpers ──────────────────────────────────────────────────
-
-    private fun formatActiveTrack(track: ActiveTrackInfo?): String {
-        if (track == null) return "Loading\u2026"
-
-        val resolution = if (track.width > 0 && track.height > 0) {
-            "${track.width}\u00d7${track.height}"
-        } else {
-            "Audio only"
-        }
-        val bitrate = when {
-            track.bitrate >= 1_000_000 -> String.format(Locale.getDefault(), "%.1f Mbps", track.bitrate / 1_000_000.0)
-            track.bitrate >= 1_000 -> String.format(Locale.getDefault(), "%d kbps", track.bitrate / 1_000)
-            track.bitrate > 0 -> "${track.bitrate} bps"
-            else -> "? bps"
-        }
-        return "$resolution  \u00b7  $bitrate"
-    }
-
-    private fun buildManifestSummary(info: HlsManifestInfo): String {
-        val sb = StringBuilder()
-        sb.appendLine("# HLS Multivariant Playlist")
-        sb.appendLine("Variants: ${info.variants.size}")
-        sb.appendLine()
-
-        info.variants.forEachIndexed { i, v ->
-            sb.append("#${i + 1}  ")
-            if (v.width > 0 && v.height > 0) sb.append("${v.width}\u00d7${v.height}  ")
-            if (v.bitrate > 0) {
-                val mbps = v.bitrate / 1_000_000.0
-                sb.append(String.format(Locale.getDefault(), "%.1f Mbps  ", mbps))
-            }
-            if (v.frameRate > 0) sb.append("${v.frameRate} fps  ")
-            if (!v.codecs.isNullOrBlank()) sb.append("codecs=${v.codecs}")
-            sb.appendLine()
-        }
-        return sb.toString().trimEnd()
-    }
 }

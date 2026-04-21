@@ -54,10 +54,12 @@ ExoPlayer's built-in `EventLogger` and `DebugTextViewHelper` only surface player
                         + CDN
 ```
 
-Two interception points feed a single in-memory store, which the overlay reads from:
+A single `AnalyticsListener` wired to the player feeds an in-memory session store that the overlay reads from:
 
-- A **`MediaSource.Factory` wrapper** hooks into manifest loading and ABR decisions from the Media3 side.
-- A **`NetworkInspector` abstraction** captures segment- and manifest-level HTTP timing and response headers (with built-in adapter for OkHttp, and planned support for Cronet/HttpEngine).
+- **Manifest info** — read from `ExoPlayer.currentManifest` on `onTimelineChanged`; all variant streams, codecs, resolutions, and bitrates are extracted into SDK-owned models.
+- **Segment metrics and CDN headers** — captured on `onLoadCompleted`; per-segment download duration, size, throughput, and HTTP response headers (including cache hit/miss status) are stored for the session.
+
+A `MediaSource.Factory` wrapper (for ABR event interception) and a `NetworkInspector` abstraction (for OkHttp/Cronet/HttpEngine adapters enabling true TTFB capture) are planned for future milestones.
 
 StreamProbe is distributed as a standard `implementation` dependency. Host apps guard the `attach()` calls behind `BuildConfig.DEBUG` to ensure zero runtime overhead in release builds.
 

@@ -41,13 +41,10 @@ StreamProbe is deliberately *not*:
 
 ### 3.1 Manifest Parsing
 
-When a master playlist (HLS) or MPD (DASH) is loaded, StreamProbe intercepts it before it reaches the player's internal parser. The content is parsed and exposed as a structured object containing:
+When a master playlist (HLS) or MPD (DASH) is loaded, StreamProbe reads the manifest from `ExoPlayer.currentManifest` after the player has loaded it. The content is parsed into a structured object containing:
 
 - All variant streams and renditions
 - Codec, bitrate, and resolution per variant
-- Playlist-level metadata (version, target duration, type, etc.)
-
-The raw manifest text is also retained so it can be viewed verbatim in the overlay.
 
 > **Timing consideration:** `getCurrentManifest()` returns `null` until the player has fetched and parsed the manifest. All consumers (including the overlay) must handle the `null` case — typically by rendering a loading/placeholder state until the manifest is available.
 
@@ -58,7 +55,6 @@ Every available video, audio, and subtitle track is enumerated. For each track, 
 - Bandwidth
 - Resolution
 - Codec
-- Frame rate (where available)
 
 The track currently selected by the player is flagged in real time, so the developer can see at a glance which variant is actually being played.
 
@@ -76,7 +72,7 @@ These metrics are retained for the session and are the primary input for spottin
 
 ### 3.4 CDN Response Headers
 
-Response headers for every segment and manifest request are captured. The overlay highlights:
+Response headers for every segment request are captured. The overlay highlights:
 
 - `Cache-Control`
 - `X-Cache`, `X-Cache-Status`
@@ -105,29 +101,40 @@ At a glance it shows:
 
 - The currently active rendition (or a loading state if the manifest is not yet available)
 - The most recent segment metrics
-- ABR switch count for the session
 - Current CDN cache hit/miss state
 
-Tabs inside the overlay let the developer drill into:
+A **filter chip row** inside the panel lets the developer switch between two views:
 
-- **Manifest view** — structured + raw manifest
-- **Segment timeline** — per-segment metrics over time
-- **ABR log** — chronological switch history
+- **Variants** (default) — per-variant resolution, bitrate, and codec with an active-track indicator.
+- **Segments** — per-segment download duration, size, throughput, and cache-status dot. The segment timeline is shown in the same overlay panel with no Activity transition, so the host player is never backgrounded.
 
-The overlay lifecycle is tied to `attach` / `detach`. When the SDK is not attached, no overlay views exist in the view hierarchy.
+The manifest parsed summary (previously a separate toggle) has been removed — the Variants list already conveys the same information.
+
+#### Orientation-aware layout
+
+- **Portrait** — 280 dp wide vertical stack: stats (Active Track, Latest Segment, CDN Status) → chip row → list.
+- **Landscape** — 440 dp wide horizontal split: left column for stats, right column for chip row + list. The list height is capped at `screenHeight × 0.55`, clamped to `[200 dp, 360 dp]`.
+
+For host apps that declare `android:configChanges` covering orientation, the panel rebuilds in place via `View.onConfigurationChanged`. For apps that don't, the Activity recreates and the new Activity's `show(this)` call re-adds the panel. The selected chip (`viewMode`) is preserved across both rebuild paths.
 
 ### 3.7 Attach / Detach API
 
-The entire SDK is gated behind two calls:
+The SDK is gated behind calls with independent player and Activity lifecycles:
 
 ```kotlin
 val probe = StreamProbe()
-probe.attach(player, activity)  // ExoPlayer instance + host Activity
-// …
-probe.detach()
+
+// In the player owner (e.g. ViewModel) — player-scoped:
+probe.attach(player)   // wires PlayerInterceptor; no Activity needed
+
+// In each Activity onCreate — Activity-scoped, lifecycle-aware:
+probe.show(this)       // adds overlay; auto-hides on Activity onDestroy
+
+// When the player is released:
+probe.detach()         // tears down interceptor, clears session, hides overlay
 ```
 
-No additional setup, configuration files, or initialization is required. `attach` wires the interception points and shows the overlay on the provided `Activity`; `detach` unwinds them cleanly and removes the overlay.
+`show(activity)` subscribes a `DefaultLifecycleObserver` that calls `hide()` automatically on `ON_DESTROY`, preventing stale Activity references if the host forgets to call `hide()`. Calling `show(this)` again on Activity recreation (config change) performs an idempotent replace — the old panel is removed and a fresh one is added for the new Activity.
 
 ---
 
