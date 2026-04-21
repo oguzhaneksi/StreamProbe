@@ -25,8 +25,9 @@ import androidx.recyclerview.widget.RecyclerView
  *   for the chip row and list.
  *
  * When the host Activity declares `android:configChanges` that covers orientation, the system
- * calls [onConfigurationChanged] on all attached views. [OverlayPanelView] forwards that event
- * to [onOrientationChanged] so [OverlayManager] can rebuild the panel in place.
+ * calls [onConfigurationChanged] on all attached views. [OverlayPanelView] forwards only
+ * orientation changes to [onOrientationChanged] so [OverlayManager] can rebuild the panel
+ * in place.
  */
 internal class OverlayPanelView(
     context: Context,
@@ -46,6 +47,7 @@ internal class OverlayPanelView(
 
     /** Set by [OverlayManager] to be notified when the device orientation changes. */
     var onOrientationChanged: (() -> Unit)? = null
+    private var lastKnownOrientation: Int = resources.configuration.orientation
 
     init {
         orientation = VERTICAL
@@ -193,7 +195,11 @@ internal class OverlayPanelView(
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        onOrientationChanged?.invoke()
+        val newOrientation = newConfig.orientation
+        if (newOrientation != lastKnownOrientation) {
+            lastKnownOrientation = newOrientation
+            onOrientationChanged?.invoke()
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
