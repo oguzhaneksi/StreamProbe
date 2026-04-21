@@ -86,15 +86,13 @@ internal class SegmentTimelineItemView(context: Context) : LinearLayout(context)
 
     private fun dp(value: Float) = context.dp(value)
 
-    private fun formatBytes(bytes: Long): String = when {
-        bytes >= 1_000_000 -> String.format(Locale.ROOT, "%.1f MB", bytes / 1_000_000.0)
-        bytes >= 1_000 -> String.format(Locale.ROOT, "%.0f KB", bytes / 1_000.0)
-        else -> "$bytes B"
+    private fun formatScaledBytes(value: Long, suffix: String = ""): String = when {
+        value >= 1_000_000 -> String.format(Locale.ROOT, "%.1f MB%s", value / 1_000_000.0, suffix)
+        value >= 1_000 -> String.format(Locale.ROOT, "%.1f KB%s", value / 1_000.0, suffix)
+        else -> "$value B$suffix"
     }
 
-    private fun formatThroughput(bytesPerSec: Long): String = when {
-        bytesPerSec >= 1_000_000 -> String.format(Locale.ROOT, "%.1f MB/s", bytesPerSec / 1_000_000.0)
-        bytesPerSec >= 1_000 -> String.format(Locale.ROOT, "%.0f KB/s", bytesPerSec / 1_000.0)
-        else -> "$bytesPerSec B/s"
-    }
+    private fun formatBytes(bytes: Long): String = formatScaledBytes(bytes)
+
+    private fun formatThroughput(bytesPerSec: Long): String = formatScaledBytes(bytesPerSec, "/s")
 }
