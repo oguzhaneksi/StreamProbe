@@ -76,7 +76,8 @@ internal class PlayerInterceptor(
     ) {
         val format = mediaLoadData.trackFormat ?: return
         val isVideoTrack = mediaLoadData.trackType == C.TRACK_TYPE_VIDEO ||
-            (mediaLoadData.trackType == C.TRACK_TYPE_DEFAULT && format.width > 0)
+            (mediaLoadData.trackType == C.TRACK_TYPE_DEFAULT &&
+                (format.width > 0 || format.height > 0))
         if (!isVideoTrack) return
 
         val newTrack = ActiveTrackInfo(
