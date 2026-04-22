@@ -1,10 +1,12 @@
 package com.streamprobe.sdk.internal
 
 import com.streamprobe.sdk.model.ActiveTrackInfo
+import com.streamprobe.sdk.model.AbrSwitchEvent
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
 import com.streamprobe.sdk.model.HlsManifestInfo
 import com.streamprobe.sdk.model.SegmentMetric
+import com.streamprobe.sdk.model.SwitchReason
 import com.streamprobe.sdk.model.VariantInfo
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -200,5 +202,67 @@ class SessionStoreTest {
         // The first metric (index 0) should have been dropped; the last remaining is seg1
         assertEquals("https://example.com/seg1.ts", result.first().uri)
         assertEquals("https://example.com/seg500.ts", result.last().uri)
+    }
+
+    // ── ABR switch event tests ────────────────────────────────────────────────
+
+    private fun makeTrack(height: Int = 720, bitrate: Int = 2_500_000) = ActiveTrackInfo(
+        bitrate = bitrate,
+        width = height * 16 / 9,
+        height = height,
+        codecs = "avc1.42e00a",
+    )
+
+    private fun makeAbrEvent(
+        timestampMs: Long = 1_000L,
+        previousTrack: ActiveTrackInfo? = makeTrack(480),
+        newTrack: ActiveTrackInfo = makeTrack(720),
+        reason: SwitchReason = SwitchReason.ADAPTIVE,
+    ) = AbrSwitchEvent(
+        timestampMs = timestampMs,
+        previousTrack = previousTrack,
+        newTrack = newTrack,
+        bufferDurationMs = 5_000L,
+        reason = reason,
+    )
+
+    @Test
+    fun `initial ABR switch events list is empty`() = runTest {
+        assertEquals(emptyList<AbrSwitchEvent>(), store.abrSwitchEvents.first())
+    }
+
+    @Test
+    fun `addAbrSwitchEvent appends to list`() = runTest {
+        val e1 = makeAbrEvent(timestampMs = 1_000L)
+        val e2 = makeAbrEvent(timestampMs = 2_000L)
+
+        store.addAbrSwitchEvent(e1)
+        store.addAbrSwitchEvent(e2)
+
+        val result = store.abrSwitchEvents.first()
+        assertEquals(2, result.size)
+        assertEquals(e1, result[0])
+        assertEquals(e2, result[1])
+    }
+
+    @Test
+    fun `ABR switch events list caps at max size`() = runTest {
+        repeat(201) { i ->
+            store.addAbrSwitchEvent(makeAbrEvent(timestampMs = i.toLong()))
+        }
+
+        val result = store.abrSwitchEvents.first()
+        assertEquals(200, result.size)
+        assertEquals(1L, result.first().timestampMs)
+        assertEquals(200L, result.last().timestampMs)
+    }
+
+    @Test
+    fun `clear resets ABR switch events`() = runTest {
+        store.addAbrSwitchEvent(makeAbrEvent())
+
+        store.clear()
+
+        assertEquals(emptyList<AbrSwitchEvent>(), store.abrSwitchEvents.first())
     }
 }

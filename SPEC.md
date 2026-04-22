@@ -103,16 +103,17 @@ At a glance it shows:
 - The most recent segment metrics
 - Current CDN cache hit/miss state
 
-A **filter chip row** inside the panel lets the developer switch between two views:
+A **filter chip row** inside the panel lets the developer switch between three views:
 
 - **Variants** (default) — per-variant resolution, bitrate, and codec with an active-track indicator.
 - **Segments** — per-segment download duration, size, throughput, and cache-status dot. The segment timeline is shown in the same overlay panel with no Activity transition, so the host player is never backgrounded.
+- **ABR** — chronological list of every quality switch, showing the from→to resolution (or bitrate when resolution is identical), buffer duration at the time of the switch, switch reason (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`), and a relative timestamp from the first event.
 
 The manifest parsed summary (previously a separate toggle) has been removed — the Variants list already conveys the same information.
 
 #### Orientation-aware layout
 
-- **Portrait** — 280 dp wide vertical stack: stats (Active Track, Latest Segment, CDN Status) → chip row → list.
+- **Portrait** — 310 dp wide vertical stack: stats (Active Track, Latest Segment, CDN Status) → chip row → list.
 - **Landscape** — 440 dp wide horizontal split: left column for stats, right column for chip row + list. The list height is capped at `screenHeight × 0.55`, clamped to `[200 dp, 360 dp]`.
 
 For host apps that declare `android:configChanges` covering orientation, the panel rebuilds in place via `View.onConfigurationChanged`. For apps that don't, the Activity recreates and the new Activity's `show(this)` call re-adds the panel. The selected chip (`viewMode`) is preserved across both rebuild paths.

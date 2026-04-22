@@ -2,7 +2,9 @@ package com.streamprobe.sdk.internal.overlay
 
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
+import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.SegmentMetric
+import com.streamprobe.sdk.model.SwitchReason
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -70,6 +72,67 @@ class OverlayFormattingTest {
     fun `formatCdnStatus with null returns placeholder`() {
         val result = OverlayFormatters.formatCdnStatus(null)
         assertEquals("\u2014", result)
+    }
+
+    // ── ABR formatting tests ──────────────────────────────────────────────────
+
+    private fun makeTrack(height: Int, bitrate: Int = 2_500_000) = ActiveTrackInfo(
+        bitrate = bitrate,
+        width = height * 16 / 9,
+        height = height,
+        codecs = "avc1.42e00a",
+    )
+
+    @Test
+    fun `formatAbrSwitch with resolution change shows height labels`() {
+        val from = makeTrack(720)
+        val to = makeTrack(1080)
+        val result = OverlayFormatters.formatAbrSwitch(from, to)
+        assertEquals("720p \u2192 1080p", result)
+    }
+
+    @Test
+    fun `formatAbrSwitch with bitrate-only change shows bitrate labels`() {
+        val from = makeTrack(720, bitrate = 1_500_000)
+        val to = makeTrack(720, bitrate = 5_000_000)
+        val result = OverlayFormatters.formatAbrSwitch(from, to)
+        assertTrue("Expected bitrate labels in: $result", result.contains("Mbps") || result.contains("kbps"))
+    }
+
+    @Test
+    fun `formatAbrSwitch with null from shows dash arrow label`() {
+        val to = makeTrack(720)
+        val result = OverlayFormatters.formatAbrSwitch(null, to)
+        assertTrue("Expected '→ 720p' in: $result", result.contains("720p"))
+    }
+
+    @Test
+    fun `formatBufferDuration formats seconds`() {
+        val result = OverlayFormatters.formatBufferDuration(12_400L)
+        assertEquals("buf: 12.4s", result)
+    }
+
+    @Test
+    fun `formatRelativeTimestamp formats minutes and seconds`() {
+        val base = 1_000L
+        val result = OverlayFormatters.formatRelativeTimestamp(base + 62_000L, base)
+        assertEquals("+1:02", result)
+    }
+
+    @Test
+    fun `formatRelativeTimestamp zero offset returns plus zero`() {
+        val base = 5_000L
+        val result = OverlayFormatters.formatRelativeTimestamp(base, base)
+        assertEquals("+0:00", result)
+    }
+
+    @Test
+    fun `formatSwitchReason returns correct label for each enum value`() {
+        assertEquals("INITIAL", OverlayFormatters.formatSwitchReason(SwitchReason.INITIAL))
+        assertEquals("ADAPTIVE", OverlayFormatters.formatSwitchReason(SwitchReason.ADAPTIVE))
+        assertEquals("MANUAL", OverlayFormatters.formatSwitchReason(SwitchReason.MANUAL))
+        assertEquals("TRICKPLAY", OverlayFormatters.formatSwitchReason(SwitchReason.TRICKPLAY))
+        assertEquals("UNKNOWN", OverlayFormatters.formatSwitchReason(SwitchReason.UNKNOWN))
     }
 
 }

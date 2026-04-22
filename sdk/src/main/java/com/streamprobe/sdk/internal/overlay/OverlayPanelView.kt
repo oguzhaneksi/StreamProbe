@@ -46,6 +46,7 @@ internal class OverlayPanelView(
     val variantList: RecyclerView
     val variantsChip: OverlayFilterChip
     val segmentsChip: OverlayFilterChip
+    val abrChip: OverlayFilterChip
 
     /** Set by [OverlayManager] to be notified when the device orientation changes. */
     var onOrientationChanged: (() -> Unit)? = null
@@ -127,6 +128,10 @@ internal class OverlayPanelView(
             text = "Segments"
             isChecked = false
         }
+        abrChip = OverlayFilterChip(context).apply {
+            text = "ABR"
+            isChecked = false
+        }
         val chipRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -134,6 +139,9 @@ internal class OverlayPanelView(
                 it.marginEnd = dp(6f).toInt()
             })
             addView(segmentsChip, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+            addView(abrChip, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
+                it.marginStart = dp(6f).toInt()
+            })
         }
 
         // ── Bounded RecyclerView ──────────────────────────────────────────────

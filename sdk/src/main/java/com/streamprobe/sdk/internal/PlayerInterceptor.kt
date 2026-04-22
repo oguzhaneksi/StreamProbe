@@ -1,6 +1,7 @@
 package com.streamprobe.sdk.internal
 
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.Player
@@ -13,9 +14,11 @@ import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.hls.HlsManifest
 import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
+import com.streamprobe.sdk.model.AbrSwitchEvent
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.HlsManifestInfo
 import com.streamprobe.sdk.model.SegmentMetric
+import com.streamprobe.sdk.model.SwitchReason
 import com.streamprobe.sdk.model.VariantInfo
 
 /**
@@ -28,6 +31,7 @@ internal class PlayerInterceptor(
 ) : Player.Listener, AnalyticsListener {
 
     private var player: ExoPlayer? = null
+    private var lastDownstreamTrack: ActiveTrackInfo? = null
 
     fun attach(player: ExoPlayer) {
         this.player = player
@@ -43,6 +47,7 @@ internal class PlayerInterceptor(
         player?.removeAnalyticsListener(this)
         player?.removeListener(this)
         player = null
+        lastDownstreamTrack = null
     }
 
     // ── Player.Listener callbacks ───────────────────────────────────────────
@@ -64,7 +69,40 @@ internal class PlayerInterceptor(
         updateActiveTrack(format)
     }
 
-    // AnalyticsListener — fires when a load completes; used for segment metrics + CDN headers.
+    // AnalyticsListener — fires when the downstream selected format/track changes; used to track ABR switches.
+    override fun onDownstreamFormatChanged(
+        eventTime: AnalyticsListener.EventTime,
+        mediaLoadData: MediaLoadData,
+    ) {
+        val format = mediaLoadData.trackFormat ?: return
+        val isVideoTrack = mediaLoadData.trackType == C.TRACK_TYPE_VIDEO ||
+            (mediaLoadData.trackType == C.TRACK_TYPE_DEFAULT &&
+                (format.width > 0 || format.height > 0))
+        if (!isVideoTrack) return
+
+        val newTrack = ActiveTrackInfo(
+            bitrate = format.bitrate,
+            width = format.width,
+            height = format.height,
+            codecs = format.codecs,
+        )
+        val previousTrack = lastDownstreamTrack
+        lastDownstreamTrack = newTrack
+
+        if (previousTrack == newTrack) return
+
+        sessionStore.addAbrSwitchEvent(
+            AbrSwitchEvent(
+                timestampMs = System.currentTimeMillis(),
+                previousTrack = previousTrack,
+                newTrack = newTrack,
+                bufferDurationMs = player?.totalBufferedDuration ?: 0L,
+                reason = mapSelectionReason(mediaLoadData.trackSelectionReason),
+            )
+        )
+        Log.d(TAG, "ABR switch: ${previousTrack?.width}x${previousTrack?.height} → ${newTrack.width}x${newTrack.height} reason=${mediaLoadData.trackSelectionReason}")
+    }
+
     override fun onLoadCompleted(
         eventTime: AnalyticsListener.EventTime,
         loadEventInfo: LoadEventInfo,
@@ -133,6 +171,15 @@ internal class PlayerInterceptor(
             )
         )
         Log.d(TAG, "Active track: ${format.width}x${format.height} @ ${format.bitrate} bps")
+    }
+
+    @VisibleForTesting
+    internal fun mapSelectionReason(reason: Int): SwitchReason = when (reason) {
+        C.SELECTION_REASON_INITIAL    -> SwitchReason.INITIAL
+        C.SELECTION_REASON_ADAPTIVE   -> SwitchReason.ADAPTIVE
+        C.SELECTION_REASON_MANUAL     -> SwitchReason.MANUAL
+        C.SELECTION_REASON_TRICK_PLAY -> SwitchReason.TRICKPLAY
+        else                          -> SwitchReason.UNKNOWN
     }
 
     companion object {
