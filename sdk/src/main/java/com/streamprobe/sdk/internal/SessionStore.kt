@@ -1,5 +1,6 @@
 package com.streamprobe.sdk.internal
 
+import com.streamprobe.sdk.model.AbrSwitchEvent
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.HlsManifestInfo
 import com.streamprobe.sdk.model.SegmentMetric
@@ -27,6 +28,9 @@ internal class SessionStore {
     private val _latestSegmentMetric = MutableStateFlow<SegmentMetric?>(null)
     val latestSegmentMetric: StateFlow<SegmentMetric?> = _latestSegmentMetric.asStateFlow()
 
+    private val _abrSwitchEvents = MutableStateFlow<List<AbrSwitchEvent>>(emptyList())
+    val abrSwitchEvents: StateFlow<List<AbrSwitchEvent>> = _abrSwitchEvents.asStateFlow()
+
     fun updateManifest(info: HlsManifestInfo) {
         _manifestInfo.value = info
     }
@@ -46,14 +50,23 @@ internal class SessionStore {
         _latestSegmentMetric.value = metric
     }
 
+    fun addAbrSwitchEvent(event: AbrSwitchEvent) {
+        _abrSwitchEvents.update { current ->
+            if (current.size >= MAX_ABR_EVENTS) current.drop(1) + event
+            else current + event
+        }
+    }
+
     fun clear() {
         _manifestInfo.value = null
         _activeTrack.value = null
         _segmentMetrics.value = emptyList()
         _latestSegmentMetric.value = null
+        _abrSwitchEvents.value = emptyList()
     }
 
     companion object {
         private const val MAX_SEGMENT_METRICS = 500
+        private const val MAX_ABR_EVENTS = 200
     }
 }

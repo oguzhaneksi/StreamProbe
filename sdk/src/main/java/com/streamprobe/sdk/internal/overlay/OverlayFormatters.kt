@@ -4,6 +4,7 @@ import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
 import com.streamprobe.sdk.model.SegmentMetric
+import com.streamprobe.sdk.model.SwitchReason
 import java.util.Locale
 
 /**
@@ -63,4 +64,32 @@ internal object OverlayFormatters {
         if (track == null) return "Loading\u2026"
         return "${formatResolution(track.width, track.height)}  \u00b7  ${formatBitrate(track.bitrate)}"
     }
+
+    /** "720p → 1080p" or "1.5 Mbps → 5.0 Mbps" when resolution is identical. */
+    fun formatAbrSwitch(from: ActiveTrackInfo?, to: ActiveTrackInfo): String {
+        val toLabel = if (to.height > 0) "${to.height}p" else formatBitrate(to.bitrate)
+        if (from == null) return "\u2014 \u2192 $toLabel"
+        val fromLabel = if (from.height > 0) "${from.height}p" else formatBitrate(from.bitrate)
+        return if (fromLabel == toLabel) {
+            "${formatBitrate(from.bitrate)} \u2192 ${formatBitrate(to.bitrate)}"
+        } else {
+            "$fromLabel \u2192 $toLabel"
+        }
+    }
+
+    /** "buf: 12.4s" */
+    fun formatBufferDuration(bufferMs: Long): String =
+        String.format(Locale.ROOT, "buf: %.1fs", bufferMs / 1000.0)
+
+    /** "+0:42" relative to a base timestamp. */
+    fun formatRelativeTimestamp(timestampMs: Long, baseTimestampMs: Long): String {
+        val diffMs = (timestampMs - baseTimestampMs).coerceAtLeast(0L)
+        val totalSec = diffMs / 1000
+        val minutes = totalSec / 60
+        val seconds = totalSec % 60
+        return String.format(Locale.ROOT, "+%d:%02d", minutes, seconds)
+    }
+
+    /** "ADAPTIVE", "MANUAL", etc. */
+    fun formatSwitchReason(reason: SwitchReason): String = reason.name
 }

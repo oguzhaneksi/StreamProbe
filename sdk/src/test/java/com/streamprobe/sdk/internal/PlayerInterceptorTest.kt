@@ -15,6 +15,7 @@ import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist
 import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
 import com.streamprobe.sdk.model.CacheStatus
+import com.streamprobe.sdk.model.SwitchReason
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -244,5 +245,183 @@ class PlayerInterceptorTest {
 
         val metric = sessionStore.segmentMetrics.first().first()
         assertEquals(CacheStatus.UNKNOWN, metric.cdnInfo.cacheStatus)
+    }
+
+    // ── onDownstreamFormatChanged / ABR tests ─────────────────────────────────
+
+    private fun makeVideoFormat(height: Int = 720, bitrate: Int = 2_500_000) = Format.Builder()
+        .setSampleMimeType(MimeTypes.VIDEO_H264)
+        .setAverageBitrate(bitrate)
+        .setWidth(height * 16 / 9)
+        .setHeight(height)
+        .setCodecs("avc1.42e00a")
+        .build()
+
+    private fun makeVideoMediaLoadData(
+        format: Format,
+        selectionReason: Int = C.SELECTION_REASON_ADAPTIVE,
+    ) = MediaLoadData(
+        C.DATA_TYPE_MEDIA,
+        C.TRACK_TYPE_VIDEO,
+        format,
+        selectionReason,
+        null,
+        0L,
+        0L,
+    )
+
+    @Test
+    fun `onDownstreamFormatChanged with non-video track type is ignored`() = runTest {
+        val format = makeVideoFormat()
+        val mediaLoadData = MediaLoadData(
+            C.DATA_TYPE_MEDIA,
+            C.TRACK_TYPE_AUDIO,
+            format,
+            C.SELECTION_REASON_ADAPTIVE,
+            null,
+            0L,
+            0L,
+        )
+
+        interceptor.onDownstreamFormatChanged(makeEventTime(), mediaLoadData)
+
+        assertTrue(sessionStore.abrSwitchEvents.first().isEmpty())
+    }
+
+    @Test
+    fun `onDownstreamFormatChanged with DEFAULT track type and no video dimensions is ignored`() = runTest {
+        val audioFormat = Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setAverageBitrate(128_000)
+            .setWidth(Format.NO_VALUE)
+            .setHeight(Format.NO_VALUE)
+            .build()
+        val mediaLoadData = MediaLoadData(
+            C.DATA_TYPE_MEDIA,
+            C.TRACK_TYPE_DEFAULT,
+            audioFormat,
+            C.SELECTION_REASON_ADAPTIVE,
+            null,
+            0L,
+            0L,
+        )
+
+        interceptor.onDownstreamFormatChanged(makeEventTime(), mediaLoadData)
+
+        assertTrue(sessionStore.abrSwitchEvents.first().isEmpty())
+    }
+
+    @Test
+    fun `onDownstreamFormatChanged with DEFAULT track type and video dimensions creates ABR event`() = runTest {
+        val format = makeVideoFormat(720)
+        val mediaLoadData = MediaLoadData(
+            C.DATA_TYPE_MEDIA,
+            C.TRACK_TYPE_DEFAULT,
+            format,
+            C.SELECTION_REASON_INITIAL,
+            null,
+            0L,
+            0L,
+        )
+
+        interceptor.onDownstreamFormatChanged(makeEventTime(), mediaLoadData)
+
+        val events = sessionStore.abrSwitchEvents.first()
+        assertEquals(1, events.size)
+        assertEquals(720, events[0].newTrack.height)
+    }
+
+    @Test
+    fun `initial downstream format creates ABR switch event with null previousTrack`() = runTest {
+        val format = makeVideoFormat(720)
+
+        interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(format, C.SELECTION_REASON_INITIAL))
+
+        val events = sessionStore.abrSwitchEvents.first()
+        assertEquals(1, events.size)
+        assertNull(events[0].previousTrack)
+        assertEquals(720, events[0].newTrack.height)
+        assertEquals(SwitchReason.INITIAL, events[0].reason)
+    }
+
+    @Test
+    fun `second downstream format creates ABR switch event with previous track`() = runTest {
+        val format480 = makeVideoFormat(480)
+        val format720 = makeVideoFormat(720)
+
+        interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(format480, C.SELECTION_REASON_INITIAL))
+        interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(format720, C.SELECTION_REASON_ADAPTIVE))
+
+        val events = sessionStore.abrSwitchEvents.first()
+        assertEquals(2, events.size)
+        assertEquals(480, events[1].previousTrack!!.height)
+        assertEquals(720, events[1].newTrack.height)
+        assertEquals(SwitchReason.ADAPTIVE, events[1].reason)
+    }
+
+    @Test
+    fun `same format repeated does not create duplicate ABR switch event`() = runTest {
+        val format = makeVideoFormat(720)
+
+        interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(format, C.SELECTION_REASON_INITIAL))
+        interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(format, C.SELECTION_REASON_ADAPTIVE))
+
+        val events = sessionStore.abrSwitchEvents.first()
+        assertEquals(1, events.size)
+    }
+
+    @Test
+    fun `ABR switch event captures buffer duration`() = runTest {
+        `when`(player.currentManifest).thenReturn(null)
+        `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
+        `when`(player.totalBufferedDuration).thenReturn(12_400L)
+
+        interceptor.attach(player)
+        interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(makeVideoFormat()))
+
+        val events = sessionStore.abrSwitchEvents.first()
+        assertEquals(12_400L, events[0].bufferDurationMs)
+    }
+
+    @Test
+    fun `mapSelectionReason maps all C_SELECTION_REASON constants`() {
+        assertEquals(SwitchReason.INITIAL, interceptor.mapSelectionReason(C.SELECTION_REASON_INITIAL))
+        assertEquals(SwitchReason.ADAPTIVE, interceptor.mapSelectionReason(C.SELECTION_REASON_ADAPTIVE))
+        assertEquals(SwitchReason.MANUAL, interceptor.mapSelectionReason(C.SELECTION_REASON_MANUAL))
+        assertEquals(SwitchReason.TRICKPLAY, interceptor.mapSelectionReason(C.SELECTION_REASON_TRICK_PLAY))
+        assertEquals(SwitchReason.UNKNOWN, interceptor.mapSelectionReason(C.SELECTION_REASON_UNKNOWN))
+        assertEquals(SwitchReason.UNKNOWN, interceptor.mapSelectionReason(999))
+    }
+
+    @Test
+    fun `detach resets lastDownstreamTrack so next event has null previousTrack`() = runTest {
+        `when`(player.currentManifest).thenReturn(null)
+        `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
+
+        interceptor.attach(player)
+        interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(makeVideoFormat(480), C.SELECTION_REASON_INITIAL))
+        interceptor.detach()
+        sessionStore.clear()
+
+        val player2 = mock(ExoPlayer::class.java)
+        `when`(player2.currentManifest).thenReturn(null)
+        `when`(player2.currentTracks).thenReturn(Tracks.EMPTY)
+        interceptor.attach(player2)
+        interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(makeVideoFormat(720), C.SELECTION_REASON_INITIAL))
+
+        val events = sessionStore.abrSwitchEvents.first()
+        assertEquals(1, events.size)
+        assertNull(events[0].previousTrack)
+    }
+
+    @Test
+    fun `onVideoInputFormatChanged still updates active track`() = runTest {
+        val format = makeVideoFormat(1080)
+
+        interceptor.onVideoInputFormatChanged(makeEventTime(), format, null)
+
+        val track = sessionStore.activeTrack.first()
+        assertNotNull(track)
+        assertEquals(1080, track!!.height)
     }
 }

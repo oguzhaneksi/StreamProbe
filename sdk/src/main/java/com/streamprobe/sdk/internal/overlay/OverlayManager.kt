@@ -32,12 +32,13 @@ internal class OverlayManager(
     private val sessionStore: SessionStore,
 ) {
 
-    private enum class ViewMode { VARIANTS, SEGMENTS }
+    private enum class ViewMode { VARIANTS, SEGMENTS, ABR }
 
     private var overlayView: OverlayPanelView? = null
     private var scope: CoroutineScope? = null
     private var variantAdapter: VariantListAdapter? = null
     private var segmentAdapter: SegmentTimelineAdapter? = null
+    private var abrAdapter: AbrTimelineAdapter? = null
     private var isCollapsed = false
     private var viewMode = ViewMode.VARIANTS
 
@@ -63,6 +64,7 @@ internal class OverlayManager(
 
         variantAdapter = VariantListAdapter()
         segmentAdapter = SegmentTimelineAdapter()
+        abrAdapter = AbrTimelineAdapter()
         overlay.variantList.layoutManager = LinearLayoutManager(overlay.context)
 
         setupDrag(overlay)
@@ -77,6 +79,7 @@ internal class OverlayManager(
         scope = null
         variantAdapter = null
         segmentAdapter = null
+        abrAdapter = null
 
         overlayView?.let { view ->
             (view.parent as? ViewGroup)?.removeView(view)
@@ -119,7 +122,7 @@ internal class OverlayManager(
 
     private fun computePanelWidthPx(activity: ComponentActivity, isLandscape: Boolean): Int {
         val density = activity.resources.displayMetrics.density
-        return ((if (isLandscape) 440 else 280) * density).toInt()
+        return ((if (isLandscape) 440 else 310) * density).toInt()
     }
 
     // ── Drag ────────────────────────────────────────────────────────────────
@@ -176,13 +179,21 @@ internal class OverlayManager(
             viewMode = ViewMode.SEGMENTS
             applyViewMode(overlay, viewMode)
         }
+        overlay.abrChip.setOnClickListener {
+            viewMode = ViewMode.ABR
+            applyViewMode(overlay, viewMode)
+        }
     }
 
     private fun applyViewMode(overlay: OverlayPanelView, mode: ViewMode) {
         overlay.variantsChip.isChecked = mode == ViewMode.VARIANTS
         overlay.segmentsChip.isChecked = mode == ViewMode.SEGMENTS
-        overlay.variantList.adapter =
-            if (mode == ViewMode.VARIANTS) variantAdapter else segmentAdapter
+        overlay.abrChip.isChecked = mode == ViewMode.ABR
+        overlay.variantList.adapter = when (mode) {
+            ViewMode.VARIANTS -> variantAdapter
+            ViewMode.SEGMENTS -> segmentAdapter
+            ViewMode.ABR -> abrAdapter
+        }
     }
 
     // ── Observation ─────────────────────────────────────────────────────────
@@ -215,6 +226,12 @@ internal class OverlayManager(
         scope?.launch {
             sessionStore.segmentMetrics.collect { metrics ->
                 segmentAdapter?.submitList(metrics)
+            }
+        }
+
+        scope?.launch {
+            sessionStore.abrSwitchEvents.collect { events ->
+                abrAdapter?.submitList(events)
             }
         }
     }
