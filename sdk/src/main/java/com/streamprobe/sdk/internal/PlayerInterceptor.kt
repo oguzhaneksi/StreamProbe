@@ -69,7 +69,7 @@ internal class PlayerInterceptor(
         updateActiveTrack(format)
     }
 
-    // AnalyticsListener — fires when a load completes; used for segment metrics + CDN headers.
+    // AnalyticsListener — fires when the downstream selected format/track changes; used to track ABR switches.
     override fun onDownstreamFormatChanged(
         eventTime: AnalyticsListener.EventTime,
         mediaLoadData: MediaLoadData,
