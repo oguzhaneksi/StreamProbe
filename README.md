@@ -58,8 +58,9 @@ A single `AnalyticsListener` wired to the player feeds an in-memory session stor
 
 - **Manifest info** — read from `ExoPlayer.currentManifest` on `onTimelineChanged`; all variant streams, codecs, resolutions, and bitrates are extracted into SDK-owned models.
 - **Segment metrics and CDN headers** — captured on `onLoadCompleted`; per-segment download duration, size, throughput, and HTTP response headers (including cache hit/miss status) are stored for the session.
+- **ABR switch events** — captured on `onDownstreamFormatChanged`; every quality change is recorded with the previous/new track, buffer state at switch time, and the reason Media3 reports (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`). Events are kept in a capped chronological list and displayed in the overlay's ABR tab.
 
-A `MediaSource.Factory` wrapper (for ABR event interception) and a `NetworkInspector` abstraction (for OkHttp/Cronet/HttpEngine adapters enabling true TTFB capture) are planned for future milestones.
+A `MediaSource.Factory` wrapper and a `NetworkInspector` abstraction (for OkHttp/Cronet/HttpEngine adapters enabling true TTFB capture) are planned for future milestones.
 
 StreamProbe is distributed as a standard `implementation` dependency. Host apps guard the `attach()` calls behind `BuildConfig.DEBUG` to ensure zero runtime overhead in release builds.
 
@@ -72,7 +73,7 @@ Coarse milestones. Each will be broken down into a TODO checklist as work begins
 - **M0 — Scaffolding** ✅: Gradle module, `implementation` distribution with host-managed gating, empty `attach` / `detach` API surface.
 - **M1 — HLS MVP** ✅: Master playlist parsing, variant/rendition listing, basic overlay with active track display.
 - **M2 — Segment & CDN** ✅: Per-segment timing (total duration, size, throughput) and CDN response header capture with cache hit/miss flagging. TTFB deferred to a future milestone via MediaSource.Factory wrapper.
-- **M3 — ABR Log**: Track switch event recording with buffer state, chronological timeline view in the overlay.
+- **M3 — ABR Log** ✅: Track switch event recording with buffer state, switch reason, and chronological timeline view in the overlay.
 - **M4 — DASH Support**: MPD parsing, feature parity with HLS across all prior milestones.
 - **M5 — Distribution**: JitPack for early releases, then Maven Central for stable distribution.
 
