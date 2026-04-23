@@ -2,7 +2,7 @@ package com.streamprobe.sdk.internal
 
 import com.streamprobe.sdk.model.AbrSwitchEvent
 import com.streamprobe.sdk.model.ActiveTrackInfo
-import com.streamprobe.sdk.model.HlsManifestInfo
+import com.streamprobe.sdk.model.ManifestInfo
 import com.streamprobe.sdk.model.SegmentMetric
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,8 +16,8 @@ import kotlinx.coroutines.flow.update
  */
 internal class SessionStore {
 
-    private val _manifestInfo = MutableStateFlow<HlsManifestInfo?>(null)
-    val manifestInfo: StateFlow<HlsManifestInfo?> = _manifestInfo.asStateFlow()
+    private val _manifestInfo = MutableStateFlow<ManifestInfo?>(null)
+    val manifestInfo: StateFlow<ManifestInfo?> = _manifestInfo.asStateFlow()
 
     private val _activeTrack = MutableStateFlow<ActiveTrackInfo?>(null)
     val activeTrack: StateFlow<ActiveTrackInfo?> = _activeTrack.asStateFlow()
@@ -31,7 +31,7 @@ internal class SessionStore {
     private val _abrSwitchEvents = MutableStateFlow<List<AbrSwitchEvent>>(emptyList())
     val abrSwitchEvents: StateFlow<List<AbrSwitchEvent>> = _abrSwitchEvents.asStateFlow()
 
-    fun updateManifest(info: HlsManifestInfo) {
+    fun updateManifest(info: ManifestInfo) {
         _manifestInfo.value = info
     }
 

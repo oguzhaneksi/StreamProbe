@@ -1,7 +1,7 @@
 package com.streamprobe.sdk.model
 
 /**
- * SDK-owned representation of a single HLS variant stream.
+ * SDK-owned representation of a single stream variant (HLS variant or DASH Representation).
  * Maps from Media3's [androidx.media3.common.Format] without leaking any Media3 types.
  */
 data class VariantInfo(
