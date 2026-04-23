@@ -4,6 +4,7 @@ import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AbrSwitchEvent
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
+import com.streamprobe.sdk.model.DashManifestInfo
 import com.streamprobe.sdk.model.HlsManifestInfo
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SwitchReason
@@ -48,6 +49,28 @@ class SessionStoreTest {
 
         val result = store.manifestInfo.first()
         assertEquals(info, result)
+    }
+
+    @Test
+    fun `updateManifest accepts DashManifestInfo`() = runTest {
+        val info = DashManifestInfo(
+            variants = listOf(
+                VariantInfo(
+                    bitrate = 2_500_000,
+                    width = 1280,
+                    height = 720,
+                    codecs = "avc1.42e00a",
+                    frameRate = 30f,
+                )
+            )
+        )
+
+        store.updateManifest(info)
+
+        val result = store.manifestInfo.first()
+        assertEquals(info, result)
+        assertEquals(1, result!!.variants.size)
+        assertEquals(720, result.variants[0].height)
     }
 
     @Test

@@ -9,12 +9,19 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.dash.manifest.AdaptationSet
+import androidx.media3.exoplayer.dash.manifest.BaseUrl
+import androidx.media3.exoplayer.dash.manifest.DashManifest
+import androidx.media3.exoplayer.dash.manifest.Period
+import androidx.media3.exoplayer.dash.manifest.Representation
+import androidx.media3.exoplayer.dash.manifest.SegmentBase.SingleSegmentBase
 import androidx.media3.exoplayer.hls.HlsManifest
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist
 import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist
 import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
 import com.streamprobe.sdk.model.CacheStatus
+import com.streamprobe.sdk.model.DashManifestInfo
 import com.streamprobe.sdk.model.SwitchReason
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -423,5 +430,156 @@ class PlayerInterceptorTest {
         val track = sessionStore.activeTrack.first()
         assertNotNull(track)
         assertEquals(1080, track!!.height)
+    }
+
+    // ── DASH manifest tests ───────────────────────────────────────────────────
+
+    private fun makeVideoRepresentation(format: Format): Representation =
+        Representation.newInstance(0L, format, listOf(BaseUrl("")), SingleSegmentBase())
+
+    private fun makeAdaptationSet(
+        type: Int,
+        vararg representations: Representation,
+    ): AdaptationSet = AdaptationSet(
+        /* id= */ 0L,
+        /* type= */ type,
+        /* representations= */ representations.toList(),
+        /* accessibilityDescriptors= */ emptyList(),
+        /* essentialProperties= */ emptyList(),
+        /* supplementalProperties= */ emptyList(),
+    )
+
+    private fun makeDashPeriod(vararg adaptationSets: AdaptationSet): Period =
+        Period("period-0", 0L, adaptationSets.toList())
+
+    private fun makeDashManifest(vararg periods: Period): DashManifest = DashManifest(
+        /* availabilityStartTimeMs= */ 0L,
+        /* durationMs= */ 60_000L,
+        /* minBufferTimeMs= */ 1_500L,
+        /* dynamic= */ false,
+        /* minUpdatePeriodMs= */ C.TIME_UNSET,
+        /* timeShiftBufferDepthMs= */ C.TIME_UNSET,
+        /* suggestedPresentationDelayMs= */ C.TIME_UNSET,
+        /* publishTimeMs= */ C.TIME_UNSET,
+        /* programInformation= */ null,
+        /* utcTiming= */ null,
+        /* serviceDescription= */ null,
+        /* location= */ null,
+        /* periods= */ periods.toList(),
+    )
+
+    @Test
+    fun `probes DASH manifest immediately on attach when available`() = runTest {
+        val format1080p = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(5_000_000)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setCodecs("avc1.42e00a")
+            .setFrameRate(30f)
+            .build()
+        val format720p = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(2_500_000)
+            .setWidth(1280)
+            .setHeight(720)
+            .setCodecs("avc1.42e00a")
+            .setFrameRate(30f)
+            .build()
+
+        val adaptationSet = makeAdaptationSet(
+            C.TRACK_TYPE_VIDEO,
+            makeVideoRepresentation(format1080p),
+            makeVideoRepresentation(format720p),
+        )
+        val manifest = makeDashManifest(makeDashPeriod(adaptationSet))
+
+        `when`(player.currentManifest).thenReturn(manifest)
+        `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
+
+        interceptor.attach(player)
+
+        val result = sessionStore.manifestInfo.first()
+        assertNotNull(result)
+        assertTrue(result is DashManifestInfo)
+        assertEquals(2, result!!.variants.size)
+    }
+
+    @Test
+    fun `DASH manifest extracts correct format fields`() = runTest {
+        val format = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(5_000_000)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setCodecs("avc1.64001f")
+            .setFrameRate(60f)
+            .build()
+
+        val manifest = makeDashManifest(
+            makeDashPeriod(makeAdaptationSet(C.TRACK_TYPE_VIDEO, makeVideoRepresentation(format)))
+        )
+
+        `when`(player.currentManifest).thenReturn(manifest)
+        `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
+
+        interceptor.attach(player)
+
+        val variant = sessionStore.manifestInfo.first()!!.variants[0]
+        assertEquals(5_000_000, variant.bitrate)
+        assertEquals(1920, variant.width)
+        assertEquals(1080, variant.height)
+        assertEquals("avc1.64001f", variant.codecs)
+        assertEquals(60f, variant.frameRate)
+    }
+
+    @Test
+    fun `DASH manifest skips audio-only AdaptationSets`() = runTest {
+        val videoFormat = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(2_500_000)
+            .setWidth(1280).setHeight(720)
+            .build()
+        val audioFormat = Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setAverageBitrate(128_000)
+            .build()
+
+        val videoAdaptationSet = makeAdaptationSet(C.TRACK_TYPE_VIDEO, makeVideoRepresentation(videoFormat))
+        val audioAdaptationSet = makeAdaptationSet(C.TRACK_TYPE_AUDIO, makeVideoRepresentation(audioFormat))
+        val manifest = makeDashManifest(makeDashPeriod(videoAdaptationSet, audioAdaptationSet))
+
+        `when`(player.currentManifest).thenReturn(manifest)
+        `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
+
+        interceptor.attach(player)
+
+        val result = sessionStore.manifestInfo.first()!!
+        assertEquals(1, result.variants.size)
+        assertEquals(720, result.variants[0].height)
+    }
+
+    @Test
+    fun `DASH manifest flattens multiple Periods`() = runTest {
+        val format1 = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(1_000_000).setWidth(640).setHeight(360).build()
+        val format2 = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setAverageBitrate(5_000_000).setWidth(1920).setHeight(1080).build()
+
+        val period1 = makeDashPeriod(makeAdaptationSet(C.TRACK_TYPE_VIDEO, makeVideoRepresentation(format1)))
+        val period2 = makeDashPeriod(makeAdaptationSet(C.TRACK_TYPE_VIDEO, makeVideoRepresentation(format2)))
+        val manifest = makeDashManifest(period1, period2)
+
+        `when`(player.currentManifest).thenReturn(manifest)
+        `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
+
+        interceptor.attach(player)
+
+        val result = sessionStore.manifestInfo.first()!!
+        assertEquals(2, result.variants.size)
+        assertEquals(360, result.variants[0].height)
+        assertEquals(1080, result.variants[1].height)
     }
 }

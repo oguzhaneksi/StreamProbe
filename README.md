@@ -74,8 +74,14 @@ Coarse milestones. Each will be broken down into a TODO checklist as work begins
 - **M1 — HLS MVP** ✅: Master playlist parsing, variant/rendition listing, basic overlay with active track display.
 - **M2 — Segment & CDN** ✅: Per-segment timing (total duration, size, throughput) and CDN response header capture with cache hit/miss flagging. TTFB deferred to a future milestone via MediaSource.Factory wrapper.
 - **M3 — ABR Log** ✅: Track switch event recording with buffer state, switch reason, and chronological timeline view in the overlay.
-- **M4 — DASH Support**: MPD parsing, feature parity with HLS across all prior milestones.
+- **M4 — DASH Support** ✅: MPD parsing, feature parity with HLS across all prior milestones.
 - **M5 — Distribution**: JitPack for early releases, then Maven Central for stable distribution.
+
+---
+
+## Known Limitations
+
+- **Multi-period DASH:** Representations from all Periods are flattened into a single variant list. If the same Representation appears in multiple Periods (e.g., around ad boundaries), it will be listed multiple times. Period-aware grouping is a planned future enhancement.
 
 ---
 

@@ -12,10 +12,12 @@ import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.hls.HlsManifest
+import androidx.media3.exoplayer.dash.manifest.DashManifest
 import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
 import com.streamprobe.sdk.model.AbrSwitchEvent
 import com.streamprobe.sdk.model.ActiveTrackInfo
+import com.streamprobe.sdk.model.DashManifestInfo
 import com.streamprobe.sdk.model.HlsManifestInfo
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SwitchReason
@@ -126,22 +128,45 @@ internal class PlayerInterceptor(
     // ── Internal helpers ────────────────────────────────────────────────────
 
     private fun probeManifest(player: ExoPlayer) {
-        val manifest = player.currentManifest
-        if (manifest !is HlsManifest) return
-
-        val variants = manifest.multivariantPlaylist.variants.map { variant ->
-            val fmt = variant.format
-            VariantInfo(
-                bitrate = fmt.bitrate,
-                width = fmt.width,
-                height = fmt.height,
-                codecs = fmt.codecs,
-                frameRate = fmt.frameRate,
-            )
+        when (val manifest = player.currentManifest) {
+            is HlsManifest -> {
+                val variants = manifest.multivariantPlaylist.variants.map { variant ->
+                    val fmt = variant.format
+                    VariantInfo(
+                        bitrate = fmt.bitrate,
+                        width = fmt.width,
+                        height = fmt.height,
+                        codecs = fmt.codecs,
+                        frameRate = fmt.frameRate,
+                    )
+                }
+                sessionStore.updateManifest(HlsManifestInfo(variants))
+                Log.d(TAG, "HLS manifest captured: ${variants.size} variants")
+            }
+            is DashManifest -> {
+                val variants = buildList {
+                    for (i in 0 until manifest.periodCount) {
+                        val period = manifest.getPeriod(i)
+                        for (adaptationSet in period.adaptationSets) {
+                            if (adaptationSet.type != C.TRACK_TYPE_VIDEO) continue
+                            for (representation in adaptationSet.representations) {
+                                val fmt = representation.format
+                                add(VariantInfo(
+                                    bitrate = fmt.bitrate,
+                                    width = fmt.width,
+                                    height = fmt.height,
+                                    codecs = fmt.codecs,
+                                    frameRate = fmt.frameRate,
+                                ))
+                            }
+                        }
+                    }
+                }
+                sessionStore.updateManifest(DashManifestInfo(variants))
+                Log.d(TAG, "DASH manifest captured: ${variants.size} representations")
+            }
+            else -> Log.d(TAG, "Unknown manifest type: ${manifest?.javaClass?.simpleName}")
         }
-
-        sessionStore.updateManifest(HlsManifestInfo(variants))
-        Log.d(TAG, "Manifest captured: ${variants.size} variants")
     }
 
     private fun probeTracks(player: Player) {
