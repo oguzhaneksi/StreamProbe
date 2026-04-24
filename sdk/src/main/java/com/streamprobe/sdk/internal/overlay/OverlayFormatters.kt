@@ -26,6 +26,8 @@ internal object OverlayFormatters {
         val indicator = when (cdnInfo.cacheStatus) {
             CacheStatus.HIT -> "\u25cf HIT"
             CacheStatus.MISS -> "\u25cb MISS"
+            CacheStatus.STALE -> "\u25d4 STALE"
+            CacheStatus.BYPASS -> "\u25a1 BYPASS"
             CacheStatus.UNKNOWN -> "\u25cc UNKNOWN"
         }
         val headerSnippet = when {

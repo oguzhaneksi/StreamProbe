@@ -18,5 +18,14 @@ data class CdnHeaderInfo(
 )
 
 enum class CacheStatus {
-    HIT, MISS, UNKNOWN
+    /** Content served directly from CDN cache. */
+    HIT,
+    /** CDN fetched content from origin. */
+    MISS,
+    /** CDN served stale (expired) content without revalidating. */
+    STALE,
+    /** Cache was intentionally bypassed (e.g. Nginx BYPASS). */
+    BYPASS,
+    /** Cache status could not be determined from available headers. */
+    UNKNOWN,
 }

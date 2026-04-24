@@ -92,4 +92,92 @@ class CdnHeaderParserTest {
         assertTrue(result.cdnSpecificHeaders.isEmpty())
         assertEquals(CacheStatus.UNKNOWN, result.cacheStatus)
     }
+
+    // Akamai live-stream headers: no X-Cache, no CF-Cache-Status, no x-cache-hits → UNKNOWN
+    @Test
+    fun `parse returns UNKNOWN for Akamai live stream with no explicit cache signal`() {
+        val result = CdnHeaderParser.parse(
+            headers(
+                "X-CDN" to "Akamai",
+                "Akamai-GRN" to "0.1e2c1002.1777018113.170fcc53",
+                "Cache-Control" to "max-age=0, no-cache",
+            )
+        )
+        assertEquals(CacheStatus.UNKNOWN, result.cacheStatus)
+    }
+
+    @Test
+    fun `parse captures X-CDN header in cdnSpecificHeaders`() {
+        val result = CdnHeaderParser.parse(headers("X-CDN" to "Akamai"))
+        assertEquals("Akamai", result.cdnSpecificHeaders["x-cdn"])
+    }
+
+    @Test
+    fun `parse captures Akamai-GRN header in cdnSpecificHeaders`() {
+        val result = CdnHeaderParser.parse(headers("Akamai-GRN" to "0.1e2c1002.1777018113.170fcc53"))
+        assertEquals("0.1e2c1002.1777018113.170fcc53", result.cdnSpecificHeaders["akamai-grn"])
+    }
+
+    @Test
+    fun `determineCacheStatus returns UNKNOWN when no actionable cache headers`() {
+        val status = CdnHeaderParser.determineCacheStatus(null, emptyMap())
+        assertEquals(CacheStatus.UNKNOWN, status)
+    }
+
+    @Test
+    fun `determineCacheStatus X-Cache HIT takes precedence over no-cache Cache-Control`() {
+        val status = CdnHeaderParser.determineCacheStatus("HIT", emptyMap())
+        assertEquals(CacheStatus.HIT, status)
+    }
+
+    // STALE
+    @Test
+    fun `determineCacheStatus returns STALE for CF-Cache-Status STALE`() {
+        val status = CdnHeaderParser.determineCacheStatus(null, mapOf("cf-cache-status" to "STALE"))
+        assertEquals(CacheStatus.STALE, status)
+    }
+
+    @Test
+    fun `determineCacheStatus returns STALE for X-Cache STALE`() {
+        val status = CdnHeaderParser.determineCacheStatus("STALE", emptyMap())
+        assertEquals(CacheStatus.STALE, status)
+    }
+
+    @Test
+    fun `determineCacheStatus returns STALE for X-Cache REVALIDATED`() {
+        val status = CdnHeaderParser.determineCacheStatus("REVALIDATED", emptyMap())
+        assertEquals(CacheStatus.STALE, status)
+    }
+
+    // BYPASS
+    @Test
+    fun `determineCacheStatus returns BYPASS for X-Cache BYPASS`() {
+        val status = CdnHeaderParser.determineCacheStatus("BYPASS", emptyMap())
+        assertEquals(CacheStatus.BYPASS, status)
+    }
+
+    @Test
+    fun `determineCacheStatus returns BYPASS for CF-Cache-Status BYPASS`() {
+        val status = CdnHeaderParser.determineCacheStatus(null, mapOf("cf-cache-status" to "BYPASS"))
+        assertEquals(CacheStatus.BYPASS, status)
+    }
+
+    @Test
+    fun `determineCacheStatus returns BYPASS for CF-Cache-Status DYNAMIC`() {
+        val status = CdnHeaderParser.determineCacheStatus(null, mapOf("cf-cache-status" to "DYNAMIC"))
+        assertEquals(CacheStatus.BYPASS, status)
+    }
+
+    // x-cache-hits
+    @Test
+    fun `determineCacheStatus returns HIT for x-cache-hits greater than zero`() {
+        val status = CdnHeaderParser.determineCacheStatus(null, mapOf("x-cache-hits" to "3"))
+        assertEquals(CacheStatus.HIT, status)
+    }
+
+    @Test
+    fun `determineCacheStatus returns MISS for x-cache-hits zero`() {
+        val status = CdnHeaderParser.determineCacheStatus(null, mapOf("x-cache-hits" to "0"))
+        assertEquals(CacheStatus.MISS, status)
+    }
 }

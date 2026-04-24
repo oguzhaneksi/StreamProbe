@@ -21,6 +21,8 @@ internal object CdnHeaderParser {
         "x-served-by",
         "x-cache-hits",
         "x-akamai-request-id",
+        "x-cdn",
+        "akamai-grn",
     )
 
     fun parse(headers: Map<String, List<String>>): CdnHeaderInfo {
@@ -28,7 +30,7 @@ internal object CdnHeaderParser {
         val lower = headers.entries.associate { (k, v) -> k.lowercase(Locale.ROOT) to v }
 
         val cacheControl = lower["cache-control"]?.firstOrNull()
-        val xCache = (lower["x-cache"] ?: lower["x-cache-status"])?.firstOrNull()
+        val xCache = (lower["x-cache"] ?: lower["x-cached"] ?: lower["x-cache-status"])?.firstOrNull()
         val via = lower["via"]?.firstOrNull()
 
         val cdnSpecificHeaders = CDN_SPECIFIC_HEADERS
@@ -55,6 +57,8 @@ internal object CdnHeaderParser {
             return when {
                 v.startsWith("HIT") -> CacheStatus.HIT
                 v.startsWith("MISS") -> CacheStatus.MISS
+                v == "STALE" || v == "REVALIDATED" -> CacheStatus.STALE
+                v == "BYPASS" -> CacheStatus.BYPASS
                 else -> CacheStatus.UNKNOWN
             }
         }
@@ -64,9 +68,17 @@ internal object CdnHeaderParser {
         if (cfCacheStatus != null) {
             return when {
                 cfCacheStatus.startsWith("HIT") -> CacheStatus.HIT
-                cfCacheStatus.startsWith("MISS") || cfCacheStatus == "EXPIRED" || cfCacheStatus == "STALE" -> CacheStatus.MISS
+                cfCacheStatus.startsWith("MISS") || cfCacheStatus == "EXPIRED" -> CacheStatus.MISS
+                cfCacheStatus == "STALE" -> CacheStatus.STALE
+                cfCacheStatus == "BYPASS" || cfCacheStatus == "DYNAMIC" -> CacheStatus.BYPASS
                 else -> CacheStatus.UNKNOWN
             }
+        }
+
+        // x-cache-hits: "0" means not served from cache (MISS), >0 means HIT.
+        val cacheHits = cdnHeaders["x-cache-hits"]
+        if (cacheHits != null) {
+            return if ((cacheHits.toIntOrNull() ?: 0) > 0) CacheStatus.HIT else CacheStatus.MISS
         }
 
         return CacheStatus.UNKNOWN
