@@ -37,7 +37,7 @@ internal class VariantListAdapter :
             }
         }
 
-    private fun findPositionForTrack(track: ActiveTrackInfo?): Int {
+    internal fun findPositionForTrack(track: ActiveTrackInfo?): Int {
         if (track == null) {
             return RecyclerView.NO_POSITION
         }
