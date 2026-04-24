@@ -117,13 +117,13 @@ internal object CdnHeaderParser {
         ) {
             return CdnProvider.AKAMAI
         }
-        // Fallback: scan all via values (each entry may itself be comma-separated)
+        // Fallback: scan all via values (each entry may itself be comma-separated).
+        // Do not infer Fastly from generic "Varnish" tokens alone.
         val viaTokens = viaValues
             .flatMap { it.split(",") }
             .map { it.trim().uppercase(Locale.ROOT) }
         return when {
             viaTokens.any { it.contains("CLOUDFRONT") } -> CdnProvider.CLOUDFRONT
-            viaTokens.any { it.contains("VARNISH") } -> CdnProvider.FASTLY
             else -> CdnProvider.UNKNOWN
         }
     }
