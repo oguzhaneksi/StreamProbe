@@ -66,6 +66,8 @@ internal object OverlayDrawables {
             when (status) {
                 CacheStatus.HIT -> "#30D158".toColorInt()
                 CacheStatus.MISS -> "#FF453A".toColorInt()
+                CacheStatus.STALE -> "#FF9F0A".toColorInt()
+                CacheStatus.BYPASS -> "#BF5AF2".toColorInt()
                 CacheStatus.UNKNOWN -> "#555555".toColorInt()
             }
         )

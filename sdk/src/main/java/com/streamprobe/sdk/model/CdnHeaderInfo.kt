@@ -15,8 +15,27 @@ data class CdnHeaderInfo(
     val cdnSpecificHeaders: Map<String, String>,
     /** Cache status calculated by the SDK. */
     val cacheStatus: CacheStatus,
+    /** Identified CDN provider. Null when constructed manually without detection. */
+    val cdnProvider: CdnProvider?,
 )
 
 enum class CacheStatus {
-    HIT, MISS, UNKNOWN
+    /** Content served directly from CDN cache. */
+    HIT,
+    /** CDN fetched content from origin. */
+    MISS,
+    /** CDN served stale (expired) content without revalidating. */
+    STALE,
+    /** Cache was intentionally bypassed (e.g. Nginx BYPASS). */
+    BYPASS,
+    /** Cache status could not be determined from available headers. */
+    UNKNOWN,
+}
+
+enum class CdnProvider {
+    CLOUDFLARE,
+    CLOUDFRONT,
+    FASTLY,
+    AKAMAI,
+    UNKNOWN,
 }

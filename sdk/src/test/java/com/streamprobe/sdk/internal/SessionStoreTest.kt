@@ -134,6 +134,7 @@ class SessionStoreTest {
         via = null,
         cdnSpecificHeaders = emptyMap(),
         cacheStatus = status,
+        cdnProvider = null,
     )
 
     private fun makeMetric(uri: String = "https://example.com/seg.ts") = SegmentMetric(
@@ -188,6 +189,7 @@ class SessionStoreTest {
             via = "1.1 varnish",
             cdnSpecificHeaders = mapOf("cf-cache-status" to "HIT"),
             cacheStatus = CacheStatus.HIT,
+            cdnProvider = null,
         )
         val metric = SegmentMetric(
             requestTimestampMs = 1_000L,
