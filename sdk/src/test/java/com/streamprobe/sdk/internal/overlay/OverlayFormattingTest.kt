@@ -2,6 +2,7 @@ package com.streamprobe.sdk.internal.overlay
 
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
+import com.streamprobe.sdk.model.CdnProvider
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SwitchReason
@@ -16,12 +17,14 @@ class OverlayFormattingTest {
         xCache: String? = null,
         cacheControl: String? = null,
         cdnSpecificHeaders: Map<String, String> = emptyMap(),
+        cdnProvider: CdnProvider? = null,
     ) = CdnHeaderInfo(
         cacheControl = cacheControl,
         xCache = xCache,
         via = null,
         cdnSpecificHeaders = cdnSpecificHeaders,
         cacheStatus = status,
+        cdnProvider = cdnProvider,
     )
 
     private fun makeMetric(
@@ -73,7 +76,45 @@ class OverlayFormattingTest {
         val result = OverlayFormatters.formatCdnStatus(null)
         assertEquals("\u2014", result)
     }
+    @Test
+    fun `formatCdnStatus with known provider prepends provider tag`() {
+        val result = OverlayFormatters.formatCdnStatus(
+            makeCdnInfo(status = CacheStatus.HIT, cdnProvider = CdnProvider.CLOUDFLARE)
+        )
+        assertTrue("Expected '[CLOUDFLARE]' prefix in: $result", result.startsWith("[CLOUDFLARE]"))
+        assertTrue("Expected 'HIT' in: $result", result.contains("HIT"))
+    }
 
+    @Test
+    fun `formatCdnStatus with UNKNOWN provider omits provider tag`() {
+        val result = OverlayFormatters.formatCdnStatus(
+            makeCdnInfo(status = CacheStatus.HIT, cdnProvider = CdnProvider.UNKNOWN)
+        )
+        assertTrue("Expected no brackets in: $result", !result.startsWith("["))
+    }
+
+    @Test
+    fun `formatCdnStatus with null provider omits provider tag`() {
+        val result = OverlayFormatters.formatCdnStatus(
+            makeCdnInfo(status = CacheStatus.MISS, cdnProvider = null)
+        )
+        assertTrue("Expected no brackets in: $result", !result.startsWith("["))
+    }
+
+    @Test
+    fun `formatCdnStatus includes all provider labels correctly`() {
+        mapOf(
+            CdnProvider.CLOUDFLARE to "[CLOUDFLARE]",
+            CdnProvider.CLOUDFRONT to "[CLOUDFRONT]",
+            CdnProvider.FASTLY to "[FASTLY]",
+            CdnProvider.AKAMAI to "[AKAMAI]",
+        ).forEach { (provider, expectedTag) ->
+            val result = OverlayFormatters.formatCdnStatus(
+                makeCdnInfo(status = CacheStatus.HIT, cdnProvider = provider)
+            )
+            assertTrue("Expected '$expectedTag' in: $result", result.startsWith(expectedTag))
+        }
+    }
     // ── ABR formatting tests ──────────────────────────────────────────────────
 
     private fun makeTrack(height: Int, bitrate: Int = 2_500_000) = ActiveTrackInfo(

@@ -2,6 +2,7 @@ package com.streamprobe.sdk.internal
 
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
+import com.streamprobe.sdk.model.CdnProvider
 import java.util.Locale
 
 /**
@@ -16,6 +17,7 @@ internal object CdnHeaderParser {
 
     private val CDN_SPECIFIC_HEADERS = setOf(
         "cf-cache-status",
+        "cf-ray",
         "x-amz-cf-pop",
         "x-amz-cf-id",
         "x-served-by",
@@ -31,13 +33,15 @@ internal object CdnHeaderParser {
 
         val cacheControl = lower["cache-control"]?.firstOrNull()
         val xCache = (lower["x-cache"] ?: lower["x-cached"] ?: lower["x-cache-status"])?.firstOrNull()
-        val via = lower["via"]?.firstOrNull()
+        val viaValues = lower["via"] ?: emptyList()
+        val via = viaValues.firstOrNull()
 
         val cdnSpecificHeaders = CDN_SPECIFIC_HEADERS
             .mapNotNull { key -> lower[key]?.firstOrNull()?.let { key to it } }
             .toMap()
 
         val cacheStatus = determineCacheStatus(xCache, cdnSpecificHeaders)
+        val cdnProvider = determineCdnProvider(cdnSpecificHeaders, viaValues)
 
         return CdnHeaderInfo(
             cacheControl = cacheControl,
@@ -45,6 +49,7 @@ internal object CdnHeaderParser {
             via = via,
             cdnSpecificHeaders = cdnSpecificHeaders,
             cacheStatus = cacheStatus,
+            cdnProvider = cdnProvider,
         )
     }
 
@@ -53,12 +58,15 @@ internal object CdnHeaderParser {
         cdnHeaders: Map<String, String>,
     ): CacheStatus {
         // Check x-cache / x-cache-status first.
+        // STALE/REVALIDATED/BYPASS are checked before contains("HIT"/"MISS") so that
+        // Akamai tokens like TCP_HIT, TCP_MEM_HIT, TCP_REFRESH_HIT → HIT and
+        // TCP_MISS, TCP_REFRESH_MISS → MISS are correctly classified.
         xCache?.uppercase(Locale.ROOT)?.let { v ->
             return when {
-                v.startsWith("HIT") -> CacheStatus.HIT
-                v.startsWith("MISS") -> CacheStatus.MISS
                 v == "STALE" || v == "REVALIDATED" -> CacheStatus.STALE
                 v == "BYPASS" -> CacheStatus.BYPASS
+                v.contains("HIT") -> CacheStatus.HIT
+                v.contains("MISS") -> CacheStatus.MISS
                 else -> CacheStatus.UNKNOWN
             }
         }
@@ -69,18 +77,54 @@ internal object CdnHeaderParser {
             return when {
                 cfCacheStatus.startsWith("HIT") -> CacheStatus.HIT
                 cfCacheStatus.startsWith("MISS") || cfCacheStatus == "EXPIRED" -> CacheStatus.MISS
-                cfCacheStatus == "STALE" -> CacheStatus.STALE
+                cfCacheStatus == "STALE" || cfCacheStatus == "REVALIDATED" || cfCacheStatus == "UPDATING" -> CacheStatus.STALE
                 cfCacheStatus == "BYPASS" || cfCacheStatus == "DYNAMIC" -> CacheStatus.BYPASS
                 else -> CacheStatus.UNKNOWN
             }
         }
 
         // x-cache-hits: "0" means not served from cache (MISS), >0 means HIT.
+        // Use toLongOrNull to avoid Int overflow on very large hit counts.
         val cacheHits = cdnHeaders["x-cache-hits"]
         if (cacheHits != null) {
-            return if ((cacheHits.toIntOrNull() ?: 0) > 0) CacheStatus.HIT else CacheStatus.MISS
+            return if ((cacheHits.toLongOrNull() ?: 0L) > 0L) CacheStatus.HIT else CacheStatus.MISS
         }
 
         return CacheStatus.UNKNOWN
+    }
+
+    private fun determineCdnProvider(
+        cdnHeaders: Map<String, String>,
+        viaValues: List<String>,
+    ): CdnProvider {
+        // Cloudflare: CF-Cache-Status or CF-Ray
+        if ("cf-cache-status" in cdnHeaders || "cf-ray" in cdnHeaders) {
+            return CdnProvider.CLOUDFLARE
+        }
+        // CloudFront: X-Amz-Cf-Id or X-Amz-Cf-Pop
+        if ("x-amz-cf-id" in cdnHeaders || "x-amz-cf-pop" in cdnHeaders) {
+            return CdnProvider.CLOUDFRONT
+        }
+        // Fastly: X-Served-By + at least one Via value containing "varnish"
+        if ("x-served-by" in cdnHeaders &&
+            viaValues.any { it.contains("varnish", ignoreCase = true) }
+        ) {
+            return CdnProvider.FASTLY
+        }
+        // Akamai: X-Akamai-Request-Id, Akamai-GRN, or X-CDN: Akamai
+        if ("x-akamai-request-id" in cdnHeaders || "akamai-grn" in cdnHeaders ||
+            cdnHeaders["x-cdn"]?.equals("akamai", ignoreCase = true) == true
+        ) {
+            return CdnProvider.AKAMAI
+        }
+        // Fallback: scan all via values (each entry may itself be comma-separated)
+        val viaTokens = viaValues
+            .flatMap { it.split(",") }
+            .map { it.trim().uppercase(Locale.ROOT) }
+        return when {
+            viaTokens.any { it.contains("CLOUDFRONT") } -> CdnProvider.CLOUDFRONT
+            viaTokens.any { it.contains("VARNISH") } -> CdnProvider.FASTLY
+            else -> CdnProvider.UNKNOWN
+        }
     }
 }

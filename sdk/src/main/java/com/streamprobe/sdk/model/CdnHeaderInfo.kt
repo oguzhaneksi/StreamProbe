@@ -15,6 +15,8 @@ data class CdnHeaderInfo(
     val cdnSpecificHeaders: Map<String, String>,
     /** Cache status calculated by the SDK. */
     val cacheStatus: CacheStatus,
+    /** Identified CDN provider. Null when constructed manually without detection. */
+    val cdnProvider: CdnProvider?,
 )
 
 enum class CacheStatus {
@@ -27,5 +29,13 @@ enum class CacheStatus {
     /** Cache was intentionally bypassed (e.g. Nginx BYPASS). */
     BYPASS,
     /** Cache status could not be determined from available headers. */
+    UNKNOWN,
+}
+
+enum class CdnProvider {
+    CLOUDFLARE,
+    CLOUDFRONT,
+    FASTLY,
+    AKAMAI,
     UNKNOWN,
 }

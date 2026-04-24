@@ -3,6 +3,7 @@ package com.streamprobe.sdk.internal.overlay
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
+import com.streamprobe.sdk.model.CdnProvider
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SwitchReason
 import java.util.Locale
@@ -23,6 +24,13 @@ internal object OverlayFormatters {
 
     fun formatCdnStatus(cdnInfo: CdnHeaderInfo?): String {
         if (cdnInfo == null) return "\u2014"
+        val providerPrefix = when (cdnInfo.cdnProvider) {
+            CdnProvider.CLOUDFLARE -> "[CLOUDFLARE]"
+            CdnProvider.CLOUDFRONT -> "[CLOUDFRONT]"
+            CdnProvider.FASTLY -> "[FASTLY]"
+            CdnProvider.AKAMAI -> "[AKAMAI]"
+            CdnProvider.UNKNOWN, null -> null
+        }
         val indicator = when (cdnInfo.cacheStatus) {
             CacheStatus.HIT -> "\u25cf HIT"
             CacheStatus.MISS -> "\u25cb MISS"
@@ -39,7 +47,8 @@ internal object OverlayFormatters {
             cdnInfo.cacheControl != null -> "Cache-Control: ${cdnInfo.cacheControl}"
             else -> null
         }
-        return if (headerSnippet != null) "$indicator  \u00b7  $headerSnippet" else indicator
+        val statusPart = if (headerSnippet != null) "$indicator  \u00b7  $headerSnippet" else indicator
+        return if (providerPrefix != null) "$providerPrefix  $statusPart" else statusPart
     }
 
     private fun formatScaledBytes(value: Long, suffix: String = ""): String = when {
