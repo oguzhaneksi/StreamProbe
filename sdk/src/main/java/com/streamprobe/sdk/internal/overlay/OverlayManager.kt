@@ -140,14 +140,13 @@ internal class OverlayManager(
         val insets: Insets = ViewCompat.getRootWindowInsets(overlay)
             ?.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             ?: Insets.NONE
-        overlay.x = overlay.x.coerceIn(
-            insets.left.toFloat(),
-            (parent.width - overlay.width - insets.right).toFloat()
-        )
-        overlay.y = overlay.y.coerceIn(
-            insets.top.toFloat(),
-            (parent.height - overlay.height - insets.bottom).toFloat()
-        )
+        val minX = insets.left.toFloat()
+        val maxX = (parent.width - overlay.width - insets.right).toFloat().coerceAtLeast(minX)
+        val minY = insets.top.toFloat()
+        val maxY = (parent.height - overlay.height - insets.bottom).toFloat().coerceAtLeast(minY)
+
+        overlay.x = overlay.x.coerceIn(minX, maxX)
+        overlay.y = overlay.y.coerceIn(minY, maxY)
     }
 
     @SuppressLint("ClickableViewAccessibility")
