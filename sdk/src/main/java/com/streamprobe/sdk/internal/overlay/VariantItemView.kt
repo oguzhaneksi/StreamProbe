@@ -70,7 +70,7 @@ internal class VariantItemView(context: Context) : LinearLayout(context) {
             setTextColor("#66FFFFFF".toColorInt())
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
         }
-        addView(codecs, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
+        addView(codecs, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).also {
             it.marginStart = dp(16f).toInt()  // dot(8dp) + dot marginEnd(8dp)
             it.topMargin = dp(2f).toInt()
         })
