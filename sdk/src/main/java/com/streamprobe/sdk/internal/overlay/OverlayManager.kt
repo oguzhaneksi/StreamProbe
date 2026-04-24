@@ -178,7 +178,7 @@ internal class OverlayManager(
     private fun setupCollapseToggle(overlay: OverlayPanelView) {
         fun updateCollapseUi() {
             overlay.body.visibility = if (isCollapsed) View.GONE else View.VISIBLE
-            overlay.collapseBtn.rotation = if (isCollapsed) 180f else 0f
+            overlay.collapseBtn.rotation = if (isCollapsed) 0f else 180f
             overlay.collapseBtn.contentDescription = if (isCollapsed) "Expand" else "Collapse"
         }
 
