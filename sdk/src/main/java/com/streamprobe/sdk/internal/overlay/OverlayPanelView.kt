@@ -148,6 +148,9 @@ internal class OverlayPanelView(
 
         variantList = BoundedRecyclerView(context, bodyMaxHeightPx)
         variantList.isNestedScrollingEnabled = true
+        variantList.isVerticalScrollBarEnabled = true
+        variantList.isVerticalFadingEdgeEnabled = true
+        variantList.setFadingEdgeLength(context.dp(12f).toInt())
 
         // ── Body (collapsible) ────────────────────────────────────────────────
 

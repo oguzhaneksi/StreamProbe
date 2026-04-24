@@ -7,9 +7,13 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.streamprobe.sdk.internal.SessionStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +70,9 @@ internal class OverlayManager(
         segmentAdapter = SegmentTimelineAdapter()
         abrAdapter = AbrTimelineAdapter()
         overlay.variantList.layoutManager = LinearLayoutManager(overlay.context)
+
+        attachAutoScrollToEnd(overlay.variantList, segmentAdapter!!)
+        attachAutoScrollToEnd(overlay.variantList, abrAdapter!!)
 
         setupDrag(overlay)
         setupCollapseToggle(overlay)
@@ -127,6 +134,21 @@ internal class OverlayManager(
 
     // ── Drag ────────────────────────────────────────────────────────────────
 
+    private fun clampToParent(overlay: OverlayPanelView) {
+        val parent = overlay.parent as? ViewGroup ?: return
+        if (parent.width == 0 || parent.height == 0 || overlay.width == 0 || overlay.height == 0) return
+        val insets: Insets = ViewCompat.getRootWindowInsets(overlay)
+            ?.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            ?: Insets.NONE
+        val minX = insets.left.toFloat()
+        val maxX = (parent.width - overlay.width - insets.right).toFloat().coerceAtLeast(minX)
+        val minY = insets.top.toFloat()
+        val maxY = (parent.height - overlay.height - insets.bottom).toFloat().coerceAtLeast(minY)
+
+        overlay.x = overlay.x.coerceIn(minX, maxX)
+        overlay.y = overlay.y.coerceIn(minY, maxY)
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     private fun setupDrag(overlay: OverlayPanelView) {
         var dX = 0f
@@ -142,6 +164,7 @@ internal class OverlayManager(
                 MotionEvent.ACTION_MOVE -> {
                     overlay.x = event.rawX + dX
                     overlay.y = event.rawY + dY
+                    clampToParent(overlay)
                     true
                 }
                 else -> false
@@ -154,7 +177,7 @@ internal class OverlayManager(
     private fun setupCollapseToggle(overlay: OverlayPanelView) {
         fun updateCollapseUi() {
             overlay.body.visibility = if (isCollapsed) View.GONE else View.VISIBLE
-            overlay.collapseBtn.rotation = if (isCollapsed) 180f else 0f
+            overlay.collapseBtn.rotation = if (isCollapsed) 0f else 180f
             overlay.collapseBtn.contentDescription = if (isCollapsed) "Expand" else "Collapse"
         }
 
@@ -163,6 +186,10 @@ internal class OverlayManager(
         overlay.collapseBtn.setOnClickListener {
             isCollapsed = !isCollapsed
             updateCollapseUi()
+        }
+
+        overlay.body.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            clampToParent(overlay)
         }
     }
 
@@ -194,6 +221,27 @@ internal class OverlayManager(
             ViewMode.SEGMENTS -> segmentAdapter
             ViewMode.ABR -> abrAdapter
         }
+        if (mode == ViewMode.VARIANTS) {
+            val pos = variantAdapter?.findPositionForTrack(variantAdapter?.activeTrack)
+                ?: RecyclerView.NO_POSITION
+            if (pos != RecyclerView.NO_POSITION) overlay.variantList.scrollToPosition(pos)
+        }
+    }
+
+    private fun attachAutoScrollToEnd(list: RecyclerView, adapter: RecyclerView.Adapter<*>) {
+        adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
+            override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
+                if (list.adapter !== adapter) return
+                val lm = list.layoutManager as? LinearLayoutManager ?: return
+                val total = adapter.itemCount
+                if (total == 0) return
+                val last = lm.findLastCompletelyVisibleItemPosition()
+                val threshold = total - itemCount - 2
+                if (last !in 0..<threshold) {
+                    list.scrollToPosition(total - 1)
+                }
+            }
+        })
     }
 
     // ── Observation ─────────────────────────────────────────────────────────
@@ -205,6 +253,13 @@ internal class OverlayManager(
             sessionStore.manifestInfo.collect { info ->
                 if (info != null) {
                     variantAdapter?.submitList(info.variants)
+                    overlay.variantList.post {
+                        val pos = variantAdapter?.findPositionForTrack(variantAdapter?.activeTrack)
+                            ?: RecyclerView.NO_POSITION
+                        if (viewMode == ViewMode.VARIANTS && pos != RecyclerView.NO_POSITION) {
+                            overlay.variantList.scrollToPosition(pos)
+                        }
+                    }
                 }
             }
         }
@@ -213,6 +268,10 @@ internal class OverlayManager(
             sessionStore.activeTrack.collect { track ->
                 overlay.activeTrackView.text = OverlayFormatters.formatActiveTrack(track)
                 variantAdapter?.activeTrack = track
+                if (viewMode == ViewMode.VARIANTS) {
+                    val pos = variantAdapter?.findPositionForTrack(track) ?: RecyclerView.NO_POSITION
+                    if (pos != RecyclerView.NO_POSITION) overlay.variantList.scrollToPosition(pos)
+                }
             }
         }
 

@@ -3,15 +3,15 @@ package com.streamprobe.sdk.internal.overlay
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
-import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.graphics.toColorInt
+import androidx.core.view.isVisible
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.VariantInfo
-import androidx.core.graphics.toColorInt
 
 /**
  * Programmatic view representing a single row in the variant list.
@@ -27,17 +27,22 @@ internal class VariantItemView(context: Context) : LinearLayout(context) {
     private val codecs: TextView
 
     init {
-        orientation = HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
+        orientation = VERTICAL
         val hPad = dp(10f).toInt()
         val vPad = dp(6f).toInt()
         setPadding(hPad, vPad, hPad, vPad)
+
+        // First row: dot + resolution + bitrate
+        val firstRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
 
         // Active indicator dot (8×8 dp oval)
         dot = View(context).apply {
             background = OverlayDrawables.dotInactive()
         }
-        addView(dot, LayoutParams(dp(8f).toInt(), dp(8f).toInt()).also {
+        firstRow.addView(dot, LayoutParams(dp(8f).toInt(), dp(8f).toInt()).also {
             it.marginEnd = dp(8f).toInt()
         })
 
@@ -47,27 +52,27 @@ internal class VariantItemView(context: Context) : LinearLayout(context) {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
-        addView(resolution, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        firstRow.addView(resolution, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
 
         // Bitrate ("5.8 Mbps")
         bitrate = TextView(context).apply {
             setTextColor("#99FFFFFF".toColorInt())
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
         }
-        addView(bitrate, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
+        firstRow.addView(bitrate, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
             it.marginStart = dp(6f).toInt()
         })
 
-        // Codecs (truncated)
+        addView(firstRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+
+        // Second row: codec string (full width, no truncation)
         codecs = TextView(context).apply {
             setTextColor("#66FFFFFF".toColorInt())
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
-            maxWidth = dp(80f).toInt()
-            ellipsize = TextUtils.TruncateAt.END
-            isSingleLine = true
         }
-        addView(codecs, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
-            it.marginStart = dp(6f).toInt()
+        addView(codecs, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).also {
+            it.marginStart = dp(16f).toInt()  // dot(8dp) + dot marginEnd(8dp)
+            it.topMargin = dp(2f).toInt()
         })
     }
 
@@ -82,6 +87,7 @@ internal class VariantItemView(context: Context) : LinearLayout(context) {
         resolution.text = OverlayFormatters.formatResolution(variant.width, variant.height)
         bitrate.text = OverlayFormatters.formatBitrate(variant.bitrate)
         codecs.text = variant.codecs ?: ""
+        codecs.isVisible = !variant.codecs.isNullOrEmpty()
     }
 
     private fun dp(value: Float) = context.dp(value)
