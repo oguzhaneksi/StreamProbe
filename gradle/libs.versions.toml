@@ -14,6 +14,8 @@ coroutines = "1.10.2"
 recyclerview = "1.4.0"
 mockito = "5.23.0"
 robolectric = "4.16.1"
+mavenPublish = "0.36.0"
+dokka = "2.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -50,4 +52,6 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+vanniktech-mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublish" }
+jetbrains-dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 
