@@ -143,19 +143,15 @@ probe.detach()         // tears down interceptor, clears session, hides overlay
 
 ### 4.1 Interception Points
 
-> M2 uses `AnalyticsListener.onLoadCompleted` for both segment metrics and CDN response headers. This provides network-stack-independent capture without requiring host app setup changes. The `NetworkInspector` abstraction remains a planned extension for advanced use cases (true TTFB, custom network insights).
+StreamProbe currently instruments a single layer via a standard Media3 `AnalyticsListener` wired to the player:
 
-StreamProbe instruments two layers:
+- **`onTimelineChanged`** — reads `ExoPlayer.currentManifest` to extract manifest info (HLS multivariant playlist or DASH MPD) into SDK-owned models.
+- **`onLoadCompleted`** — captures per-segment download duration, byte count, computed throughput, and HTTP response headers (CDN cache hit/miss). Works regardless of the underlying HTTP stack.
+- **`onDownstreamFormatChanged`** / **`onVideoInputFormatChanged`** — detects ABR switches and records the previous/new track, buffer state, and Media3 selection reason.
 
-1. **`MediaSource.Factory` wrapper** — wraps the host app's factory to observe manifest loading, track selection, and ABR decisions from inside Media3's own pipeline.
-2. **`NetworkInspector`** (abstract) — a network-stack-agnostic contract for capturing HTTP timing and response headers on both manifest and segment requests. Concrete adapters are provided per stack:
-   - **`OkHttpNetworkInspector`** — built-in adapter using an OkHttp `Interceptor`. Ships with the SDK.
-   - **`CronetNetworkInspector`** — adapter for Cronet-based setups. *(Planned)*
-   - **`HttpEngineNetworkInspector`** — adapter for Android's `HttpEngine` stack. *(Planned)*
+All three callbacks feed a single thread-safe in-memory `SessionStore`, which the overlay reads from via `StateFlow`.
 
-   The host app selects (or auto-detects) the adapter matching its player's `DataSource.Factory`. This keeps the SDK scalable across all network stacks ExoPlayer supports.
-
-The two layers feed a single in-memory session store, which the overlay reads from.
+**Planned (future milestone):** A `MediaSource.Factory` wrapper and a `NetworkInspector` abstraction (OkHttp, Cronet, and HttpEngine adapters) to enable true TTFB capture and richer per-request timing beyond what `onLoadCompleted` exposes.
 
 ### 4.2 Build & Dependency Strategy
 
@@ -192,8 +188,8 @@ A no-op stub artifact may be published alongside the real SDK to simplify Option
 
 ### 4.4 Distribution
 
-- **MVP**: JitPack for fast iteration and early releases.
-- **Stable**: Maven Central once the API surface stabilizes.
+- **Current**: Maven Central — `io.github.oguzhaneksi:streamprobe:0.1.0`.
+- **Future**: A no-op stub artifact (`streamprobe-noop`) to simplify release-build exclusion without `BuildConfig` guards.
 
 ---
 
@@ -221,5 +217,5 @@ The following are intentionally left open and will be resolved as the milestones
 
 - Exact shape of the no-op release artifact (stub module vs. empty classes vs. compile-only).
 - Overlay interaction model beyond drag (resize, minimize, snap-to-edge).
-- Export format for session data (JSON dump, shareable file) — may be added post-M5.
-- Auto-detection heuristic for the active network stack vs. explicit adapter selection by the host app.
+- Export format for session data (JSON dump, shareable file) — planned post-M5.
+- Auto-detection heuristic for the active network stack vs. explicit adapter selection by the host app (relevant once `NetworkInspector` adapters are built).

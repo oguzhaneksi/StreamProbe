@@ -6,6 +6,15 @@ A debug SDK for Android apps that inspects HLS and DASH streaming traffic in rea
 
 ---
 
+## Requirements
+
+Before you begin, ensure your project meets the following requirements:
+- **Minimum SDK**: Android 6.0 (API level 23) or higher.
+- **Media3/ExoPlayer**: Version `1.10.0` or higher.
+- **Kotlin**: Version `1.9.0`+ (currently built against `2.3.20`).
+
+---
+
 ## Why This Exists
 
 When something goes wrong with stream delivery in an Android app — the wrong rendition gets picked, an unexpected ABR switch happens, segment latency spikes, or a CDN cache miss slips through — the developer's options today are all awkward:
@@ -23,7 +32,7 @@ ExoPlayer's built-in `EventLogger` and `DebugTextViewHelper` only surface player
 
 ## High-Level Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                      Android App (debug)                    │
 │                                                             │
@@ -37,16 +46,16 @@ ExoPlayer's built-in `EventLogger` and `DebugTextViewHelper` only surface player
 │   ┌─────────────────────────────────────┐  │                │
 │   │         StreamProbe Core            │──┘                │
 │   │                                     │                   │
-│   │  ┌──────────────┐ ┌──────────────┐  │                   │
-│   │  │ MediaSource  │ │   Network    │  │                   │
-│   │  │   Factory    │ │  Inspector   │  │                   │
-│   │  │   Wrapper    │ │  (Abstract)  │  │                   │
-│   │  └──────┬───────┘ └──────┬───────┘  │                   │
-│   └─────────┼────────────────┼──────────┘                   │
-│             │                │                              │
-│             ▼                ▼                              │
-│     manifest parsing    segment timing +                    │
-│     ABR switch events   CDN response headers                │
+│   │  ┌──────────────────────────────┐   │                   │
+│   │  │  AnalyticsListener (Media3)  │   │                   │
+│   │  │  onTimelineChanged           │   │                   │
+│   │  │  onLoadCompleted             │   │                   │
+│   │  │  onDownstreamFormatChanged   │   │                   │
+│   │  └──────────────┬───────────────┘   │                   │
+│   └─────────────────┼─────────────────  ┘                   │
+│                     │                                       │
+│                     ▼                                       │
+│     manifest info · segment metrics · ABR switch events     │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ▼
@@ -60,9 +69,103 @@ A single `AnalyticsListener` wired to the player feeds an in-memory session stor
 - **Segment metrics and CDN headers** — captured on `onLoadCompleted`; per-segment download duration, size, throughput, and HTTP response headers (including cache hit/miss status) are stored for the session.
 - **ABR switch events** — captured on `onDownstreamFormatChanged`; every quality change is recorded with the previous/new track, buffer state at switch time, and the reason Media3 reports (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`). Events are kept in a capped chronological list and displayed in the overlay's ABR tab.
 
-A `MediaSource.Factory` wrapper and a `NetworkInspector` abstraction (for OkHttp/Cronet/HttpEngine adapters enabling true TTFB capture) are planned for future milestones.
-
 StreamProbe is distributed as a standard `implementation` dependency. Host apps guard the `attach()` calls behind `BuildConfig.DEBUG` to ensure zero runtime overhead in release builds.
+
+---
+
+## Installation
+
+StreamProbe is distributed via Maven Central. Add the dependency to your app-level `build.gradle.kts` file:
+
+```kotlin
+dependencies {
+    // Add the core StreamProbe SDK
+    implementation("io.github.oguzhaneksi:streamprobe:0.1.0")
+}
+```
+
+*Note: Even though it is an `implementation` dependency, we recommend gating the SDK activation behind debug checks in the usage step to ensure it remains a development-only tool without compilation errors in release builds.*
+
+---
+
+## Usage
+
+Integrating StreamProbe into your existing Media3/ExoPlayer setup requires only a few lines of code.
+
+### 1. Initialize and Attach to the Player
+
+Create an instance of `StreamProbe` and attach it right after building your player:
+
+```kotlin
+val streamProbe = StreamProbe()
+
+// Inside your ViewModel, PlayerManager, or Activity where the player is created:
+val player = ExoPlayer.Builder(context).build()
+
+if (BuildConfig.DEBUG) {
+    streamProbe.attach(player)
+}
+```
+
+### 2. Show the Overlay in your Activity
+
+In your Activity's `onCreate()`, call `show(activity)` to attach the draggable debug overlay to the view hierarchy. `show()` requires a `ComponentActivity` (which covers `AppCompatActivity` and Jetpack Compose's `ComponentActivity`):
+
+```kotlin
+// Works with AppCompatActivity, ComponentActivity, etc.
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // UI setup (Compose or XML)
+        
+        if (BuildConfig.DEBUG) {
+            streamProbe.show(this)
+        }
+    }
+}
+```
+*Note: The overlay is lifecycle-aware and will automatically clean itself up when the Activity is destroyed. You don't need any special system overlay permissions; it runs entirely within your app's window.*
+
+### 3. Cleanup
+
+When your player is released, don't forget to detach the probe to avoid memory leaks:
+
+```kotlin
+if (BuildConfig.DEBUG) {
+    streamProbe.detach()
+}
+player.release()
+```
+
+---
+
+## Debug Overlay Details
+
+Once attached, the StreamProbe overlay appears as a draggable panel. It displays the **currently active track**, the **latest segment latency**, and the **CDN Cache state** (Hit/Miss) at the top. 
+
+You can toggle between three detailed views using the filter chips:
+
+### 1. Variants
+This view displays a list of all parsed video, audio, and subtitle variants from the HLS `.m3u8` or DASH `.mpd` manifest. 
+- You can instantly see the **Bandwidth**, **Resolution**, and **Codec** for every rendition.
+- The rendition your player is currently streaming is visually highlighted in real-time.
+
+### 2. Segments
+Tracks the actual segment downloads as they happen. Each list item represents a segment chunk:
+- **Download Duration & Size**: See exactly how long a chunk took to fetch and its payload size.
+- **Throughput**: Calculated bandwidth (Bytes / Duration) for that specific segment.
+- **CDN Status**: A color-coded indicator (Green for Cache Hit, Red/Yellow for Cache Miss) based on captured CDN headers like `X-Cache`, `CF-Cache-Status`, or `X-Amz-Cf-Pop`.
+
+The segment list is capped at **500 entries**; older entries are dropped automatically as new ones arrive.
+
+### 3. ABR (Adaptive Bitrate) Log
+A chronological timeline of every quality switch ExoPlayer makes during the session. 
+- **From → To**: The exact track properties (Resolution/Bitrate) before and after the shift.
+- **Switch Reason**: Indicates *why* the player changed quality (e.g., `ADAPTIVE` due to network conditions, `MANUAL` by user selection, `INITIAL` on startup).
+- **Buffer State**: Shows how many seconds of buffer were left when the switch occurred, which helps debug panic-driven drops.
+
+The ABR log is capped at **200 entries**; older events are dropped as new ones arrive.
 
 ---
 
@@ -72,16 +175,51 @@ Coarse milestones. Each will be broken down into a TODO checklist as work begins
 
 - **M0 — Scaffolding** ✅: Gradle module, `implementation` distribution with host-managed gating, empty `attach` / `detach` API surface.
 - **M1 — HLS MVP** ✅: Master playlist parsing, variant/rendition listing, basic overlay with active track display.
-- **M2 — Segment & CDN** ✅: Per-segment timing (total duration, size, throughput) and CDN response header capture with cache hit/miss flagging. TTFB deferred to a future milestone via MediaSource.Factory wrapper.
+- **M2 — Segment & CDN** ✅: Per-segment timing (total duration, size, throughput) and CDN response header capture with cache hit/miss flagging.
 - **M3 — ABR Log** ✅: Track switch event recording with buffer state, switch reason, and chronological timeline view in the overlay.
 - **M4 — DASH Support** ✅: MPD parsing, feature parity with HLS across all prior milestones.
-- **M5 — Distribution**: JitPack for early releases, then Maven Central for stable distribution.
+- **M5 — Distribution** ✅: Published to Maven Central (`io.github.oguzhaneksi:streamprobe:0.1.0`).
+- **M6 — TTFB & Advanced Network Metrics** *(Planned)*: True time-to-first-byte capture via a `MediaSource.Factory` wrapper and a `NetworkInspector` abstraction supporting OkHttp, Cronet, and HttpEngine adapters.
 
 ---
 
 ## Known Limitations
 
 - **Multi-period DASH:** Representations from all Periods are flattened into a single variant list. If the same Representation appears in multiple Periods (e.g., around ad boundaries), it will be listed multiple times. Period-aware grouping is a planned future enhancement.
+- **Audio-Only Streams:** StreamProbe currently focuses heavily on video variant and segment analysis. Audio-only HLS/DASH streams are not officially supported yet and may yield incomplete manifest or ABR logs.
+
+---
+
+## R8 / ProGuard
+
+StreamProbe ships with an empty `consumer-rules.pro`. No additional keep rules are required in your own ProGuard/R8 configuration — Media3 and AndroidX ship their own consumer rules, and StreamProbe's public API surface relies only on those libraries and standard Android APIs.
+
+If you are using R8 in full-mode and notice issues, please open an issue with the relevant diagnostic output.
+
+---
+
+## Demo App
+
+The repository includes a demo application (`app/` module) that shows a complete, real-world integration:
+- Streams are selected from a pre-populated list (HLS and DASH sources).
+- The `StreamProbe` instance lives in a `ViewModel`, with `attach()` called after the player is built and `show()` called from `Activity.onCreate()`.
+- `detach()` is called in `ViewModel.onCleared()`, ensuring the session is torn down when the player is released.
+
+Clone the repository and open it in Android Studio to run the demo directly.
+
+---
+
+## Contributing
+
+We welcome contributions from the community! If you've found a bug, want to add a feature, or improve documentation, follow these standard open-source steps:
+
+1. **Fork** the repository and clone it locally.
+2. **Create a branch** for your feature or bugfix (`git checkout -b feature/awesome-new-tool`).
+3. **Commit** your changes with clear, descriptive messages.
+4. **Push** your branch to your fork (`git push origin feature/awesome-new-tool`).
+5. **Open a Pull Request** against the `main` branch. 
+
+Please ensure any changes pass existing tests or add new ones where applicable.
 
 ---
 
