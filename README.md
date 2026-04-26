@@ -2,6 +2,8 @@
 
 A debug SDK for Android apps that inspects HLS and DASH streaming traffic in real time on top of Media3/ExoPlayer, surfacing manifest contents, segment metrics, CDN headers, and ABR decisions through an in-app overlay.
 
+https://github.com/user-attachments/assets/8e0cebea-bdfa-4c1e-b95c-36a3292618de
+
 > ⚠️ **Development-only tool.** StreamProbe is designed for debug builds and should be omitted from release builds by gating it behind `BuildConfig.DEBUG` or a similar host-managed mechanism. It is not an analytics, QoE, or production monitoring product.
 
 ---
