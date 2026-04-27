@@ -181,7 +181,11 @@ Coarse milestones. Each will be broken down into a TODO checklist as work begins
 - **M3 — ABR Log** ✅: Track switch event recording with buffer state, switch reason, and chronological timeline view in the overlay.
 - **M4 — DASH Support** ✅: MPD parsing, feature parity with HLS across all prior milestones.
 - **M5 — Distribution** ✅: Published to Maven Central (`io.github.oguzhaneksi:streamprobe:0.1.0`).
-- **M6 — TTFB & Advanced Network Metrics** *(Planned)*: True time-to-first-byte capture via a `MediaSource.Factory` wrapper and a `NetworkInspector` abstraction supporting OkHttp, Cronet, and HttpEngine adapters.
+- **M6 — Background Error Tracking** *(Planned)*: Exposing silent, non-fatal background errors such as segment load failures (HTTP 404/5xx), decoder fallbacks (`onVideoCodecError`), and frame drops (`onDroppedVideoFrames`) as real-time notifications in the overlay.
+- **M7 — Audio & Subtitle Tracks** *(Planned)*: Expanding track selection monitoring to include `C.TRACK_TYPE_AUDIO` and `C.TRACK_TYPE_TEXT`, displaying current audio/subtitle language and codec info.
+- **M8 — DRM Monitoring** *(Planned)*: Capturing DRM session lifecycle events, license loading latency, Widevine/PlayReady statuses, and DRM-specific errors.
+- **M9 — SSAI & Timeline Metadata** *(Planned)*: Listening to `onMetadata` for SCTE-35 and ID3 tags to visually distinguish Server-Side Ad Insertion (SSAI) ad breaks from main content.
+- **M10 — TTFB & Advanced Network Metrics** *(Planned)*: True time-to-first-byte capture via a `MediaSource.Factory` wrapper and a `NetworkInspector` abstraction supporting OkHttp, Cronet, and HttpEngine adapters.
 
 ---
 
