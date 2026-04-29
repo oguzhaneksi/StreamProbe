@@ -9,28 +9,47 @@ import com.streamprobe.sdk.model.PlaybackErrorEvent
 internal class ErrorTimelineAdapter :
     ListAdapter<PlaybackErrorEvent, ErrorTimelineAdapter.ViewHolder>(DIFF) {
 
-    private var expandedPosition: Int = RecyclerView.NO_POSITION
+    private var expandedTimestampMs: Long? = null
+
+    override fun onCurrentListChanged(
+        previousList: List<PlaybackErrorEvent>,
+        currentList: List<PlaybackErrorEvent>,
+    ) {
+        super.onCurrentListChanged(previousList, currentList)
+        // If the expanded item was removed from the new list, clear the expansion.
+        val ts = expandedTimestampMs ?: return
+        if (currentList.none { it.timestampMs == ts }) {
+            expandedTimestampMs = null
+        }
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         return ViewHolder(ErrorTimelineItemView(parent.context))
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        val event = getItem(position)
         val baseTimestampMs = currentList.firstOrNull()?.timestampMs ?: 0L
         holder.bind(
             index = position,
-            event = getItem(position),
+            event = event,
             baseTimestampMs = baseTimestampMs,
-            expanded = position == expandedPosition,
-            onToggle = { toggleExpansion(position) },
+            expanded = event.timestampMs == expandedTimestampMs,
+            onToggle = { toggleExpansion(event.timestampMs) },
         )
     }
 
-    private fun toggleExpansion(position: Int) {
-        val previous = expandedPosition
-        expandedPosition = if (previous == position) RecyclerView.NO_POSITION else position
-        if (previous != RecyclerView.NO_POSITION) notifyItemChanged(previous)
-        if (expandedPosition != RecyclerView.NO_POSITION) notifyItemChanged(expandedPosition)
+    private fun toggleExpansion(timestampMs: Long) {
+        val previousTs = expandedTimestampMs
+        expandedTimestampMs = if (previousTs == timestampMs) null else timestampMs
+        if (previousTs != null) {
+            val prevPos = currentList.indexOfFirst { it.timestampMs == previousTs }
+            if (prevPos >= 0) notifyItemChanged(prevPos)
+        }
+        if (expandedTimestampMs != null) {
+            val newPos = currentList.indexOfFirst { it.timestampMs == expandedTimestampMs }
+            if (newPos >= 0) notifyItemChanged(newPos)
+        }
     }
 
     class ViewHolder(private val view: ErrorTimelineItemView) : RecyclerView.ViewHolder(view) {
