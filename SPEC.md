@@ -120,7 +120,7 @@ For host apps that declare `android:configChanges` covering orientation, the pan
 
 ### 3.8 Background Error Tracking
 
-Silent, non-fatal errors that ExoPlayer absorbs are captured and surfaced in a dedicated Errors view reachable from the overlay header. Four categories are tracked:
+Silent, non-fatal errors that ExoPlayer absorbs are captured and surfaced in a dedicated Errors view reachable from the overlay header. Five categories are tracked:
 
 | Category | Trigger | Colour |
 |---|---|---|
