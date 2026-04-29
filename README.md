@@ -174,7 +174,7 @@ The ABR log is capped at **200 entries**; older events are dropped as new ones a
 A dedicated view for silent, non-fatal errors that ExoPlayer absorbs without triggering a fatal `PlaybackException`. Activated via the **`⚠ N`** pill indicator in the overlay header.
 
 - **`⚠ N` header indicator**: appears as soon as the first error is captured, with a count of total errors. Tap to open the Errors view from any active tab.
-- **Four captured categories**:
+- **Five captured categories**:
   - `LOAD` (red) — segment or manifest HTTP errors (`onLoadError` for `DATA_TYPE_MEDIA` / `DATA_TYPE_MANIFEST`).
   - `CODEC` (orange) — video codec failures (`onVideoCodecError`).
   - `FRAMES` (yellow) — dropped video frame bursts ≥ 3 frames (`onDroppedVideoFrames`).
