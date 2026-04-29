@@ -69,10 +69,12 @@ internal class SessionStore {
             val last = current.lastOrNull()
             val lastDrop = last?.categoryDetail as? ErrorDetail.DroppedFrames
             val incomingDrop = event.categoryDetail as? ErrorDetail.DroppedFrames
+            val timestampDiffMs = lastDrop?.let { event.timestampMs - it.lastUpdateMs }
             val canMerge = event.category == ErrorCategory.DROPPED_FRAMES &&
                 last?.category == ErrorCategory.DROPPED_FRAMES &&
                 lastDrop != null && incomingDrop != null &&
-                (event.timestampMs - lastDrop.lastUpdateMs) <= DROPPED_FRAMES_DEDUP_WINDOW_MS
+                timestampDiffMs != null &&
+                timestampDiffMs in 0..DROPPED_FRAMES_DEDUP_WINDOW_MS
 
             when {
                 canMerge -> {
