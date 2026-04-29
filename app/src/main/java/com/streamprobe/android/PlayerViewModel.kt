@@ -44,6 +44,7 @@ class PlayerViewModel(
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState
 
+    private var initJob: Job? = null
     private var updateJob: Job? = null
 
     fun selectStream(stream: Stream) {
@@ -59,7 +60,7 @@ class PlayerViewModel(
         streamProbe.show(activity)
         val stream = _selectedStream.value ?: return
         if (player != null) return
-        viewModelScope.launch {
+        initJob = viewModelScope.launch {
             val injectErrors = repo.injectErrorsFlow.first()
             buildPlayer(stream, injectErrors)
         }
@@ -110,6 +111,8 @@ class PlayerViewModel(
     }
 
     fun releasePlayer() {
+        initJob?.cancel()
+        initJob = null
         updateJob?.cancel()
         updateJob = null
         streamProbe.detach()
