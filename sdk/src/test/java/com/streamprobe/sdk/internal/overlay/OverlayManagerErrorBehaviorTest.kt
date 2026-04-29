@@ -80,7 +80,7 @@ class OverlayManagerErrorBehaviorTest {
         overlay().errorIndicator.performClick()
 
         assertEquals(View.VISIBLE, overlay().errorsViewHeader.visibility)
-        assertEquals(View.GONE, overlay().variantsChip.visibility)
+        assertEquals(View.GONE, (overlay().variantsChip.parent as View).visibility) // Check chipRow's visibility status
     }
 
     @Test
