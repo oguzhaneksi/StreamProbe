@@ -18,6 +18,7 @@ internal class ErrorTimelineItemView(context: Context) : LinearLayout(context) {
     private val categoryView: TextView
     private val messageView: TextView
     private val timestampView: TextView
+    private val chevronView: TextView
 
     val detailContainer: LinearLayout
     private val fullMessageView: TextView
@@ -82,6 +83,16 @@ internal class ErrorTimelineItemView(context: Context) : LinearLayout(context) {
             it.marginStart = dp(4f).toInt()
         })
 
+        chevronView = TextView(context).apply {
+            text = "▾"
+            setTextColor("#66FFFFFF".toColorInt())
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            gravity = Gravity.CENTER
+        }
+        summaryRow.addView(chevronView, LayoutParams(dp(20f).toInt(), LayoutParams.WRAP_CONTENT).also {
+            it.marginStart = dp(2f).toInt()
+        })
+
         addView(summaryRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
         // ── Detail container (collapsible) ────────────────────────────────────
@@ -131,6 +142,7 @@ internal class ErrorTimelineItemView(context: Context) : LinearLayout(context) {
         categoryView.text = OverlayFormatters.formatErrorCategory(event.category)
         messageView.text = event.message
         timestampView.text = OverlayFormatters.formatRelativeTimestamp(event.timestampMs, baseTimestampMs)
+        chevronView.text = if (expanded) "▴" else "▾"
         detailContainer.visibility = if (expanded) VISIBLE else GONE
         if (expanded) {
             fullMessageView.text = event.message

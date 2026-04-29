@@ -129,7 +129,13 @@ internal object OverlayFormatters {
         val rows = errors.mapIndexed { i, e ->
             val rel = formatRelativeTimestamp(e.timestampMs, baseTimestampMs)
             val cat = formatErrorCategory(e.category)
-            "#${i + 1} $rel $cat ${e.message}"
+            val abs = formatAbsoluteTimestamp(e.timestampMs)
+            buildString {
+                append("#${i + 1} $rel $cat ${e.message} [$abs]")
+                if (!e.detail.isNullOrBlank()) {
+                    append("\n    ${e.detail}")
+                }
+            }
         }
         return (listOf(header) + rows).joinToString("\n")
     }

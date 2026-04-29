@@ -7,7 +7,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.runtime.getValue
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -35,9 +34,9 @@ class MainActivity : ComponentActivity() {
                     }
                     composable<Settings> {
                         val vm: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(app))
-                        val checked by vm.injectErrors.collectAsStateWithLifecycle()
+                        val checkedState = vm.injectErrors.collectAsStateWithLifecycle()
                         SettingsScreen(
-                            injectErrors = checked,
+                            injectErrors = checkedState.value,
                             onToggle = vm::setInjectErrors,
                             onBack = { nav.popBackStack() },
                         )
