@@ -52,26 +52,26 @@ class ErrorTimelineAdapterTest {
             rv.adapter = adapter
         }
 
-        adapter.submitList(makeErrors(3))
+        adapter.submitList(makeErrors(3)) {
+            // Create a ViewHolder and simulate toggle
+            val holder = adapter.onCreateViewHolder(parent, 0)
+            adapter.onBindViewHolder(holder, 0)
 
-        // Create a ViewHolder and simulate toggle
-        val holder = adapter.onCreateViewHolder(parent, 0)
-        adapter.onBindViewHolder(holder, 0)
+            // Initial state: no expansion
+            val itemView = holder.itemView as ErrorTimelineItemView
+            assertEquals(android.view.View.GONE, itemView.detailContainer.visibility)
 
-        // Initial state: no expansion
-        val itemView = holder.itemView as ErrorTimelineItemView
-        assertEquals(android.view.View.GONE, itemView.detailContainer.visibility)
+            // Click to expand
+            itemView.performClick()
+            // Re-bind at position 0 after notifyItemChanged would have been called
+            adapter.onBindViewHolder(holder, 0)
+            assertEquals(android.view.View.VISIBLE, itemView.detailContainer.visibility)
 
-        // Click to expand
-        itemView.performClick()
-        // Re-bind at position 0 after notifyItemChanged would have been called
-        adapter.onBindViewHolder(holder, 0)
-        assertEquals(android.view.View.VISIBLE, itemView.detailContainer.visibility)
-
-        // Click again to collapse
-        itemView.performClick()
-        adapter.onBindViewHolder(holder, 0)
-        assertEquals(android.view.View.GONE, itemView.detailContainer.visibility)
+            // Click again to collapse
+            itemView.performClick()
+            adapter.onBindViewHolder(holder, 0)
+            assertEquals(android.view.View.GONE, itemView.detailContainer.visibility)
+        }
     }
 
     @Test
