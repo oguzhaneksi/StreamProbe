@@ -1,12 +1,14 @@
 package com.streamprobe.sdk.internal.overlay
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.res.Configuration
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
+import androidx.annotation.VisibleForTesting
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -36,15 +38,17 @@ internal class OverlayManager(
     private val sessionStore: SessionStore,
 ) {
 
-    private enum class ViewMode { VARIANTS, SEGMENTS, ABR }
+    private enum class ViewMode { VARIANTS, SEGMENTS, ABR, ERRORS }
 
     private var overlayView: OverlayPanelView? = null
     private var scope: CoroutineScope? = null
     private var variantAdapter: VariantListAdapter? = null
     private var segmentAdapter: SegmentTimelineAdapter? = null
     private var abrAdapter: AbrTimelineAdapter? = null
+    private var errorAdapter: ErrorTimelineAdapter? = null
     private var isCollapsed = false
     private var viewMode = ViewMode.VARIANTS
+    private var previousViewMode = ViewMode.VARIANTS
 
     private var currentActivity: ComponentActivity? = null
     private var lifecycleObserver: DefaultLifecycleObserver? = null
@@ -69,10 +73,12 @@ internal class OverlayManager(
         variantAdapter = VariantListAdapter()
         segmentAdapter = SegmentTimelineAdapter()
         abrAdapter = AbrTimelineAdapter()
+        errorAdapter = ErrorTimelineAdapter()
         overlay.variantList.layoutManager = LinearLayoutManager(overlay.context)
 
         attachAutoScrollToEnd(overlay.variantList, segmentAdapter!!)
         attachAutoScrollToEnd(overlay.variantList, abrAdapter!!)
+        attachAutoScrollToEnd(overlay.variantList, errorAdapter!!)
 
         setupDrag(overlay)
         setupCollapseToggle(overlay)
@@ -87,6 +93,7 @@ internal class OverlayManager(
         variantAdapter = null
         segmentAdapter = null
         abrAdapter = null
+        errorAdapter = null
 
         overlayView?.let { view ->
             (view.parent as? ViewGroup)?.removeView(view)
@@ -100,6 +107,10 @@ internal class OverlayManager(
         currentActivity = null
         isCollapsed = false
     }
+
+    @VisibleForTesting
+    internal fun overlayViewForTest(): OverlayPanelView = overlayView
+        ?: error("overlay not shown")
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -174,18 +185,18 @@ internal class OverlayManager(
 
     // ── Collapse / Expand ───────────────────────────────────────────────────
 
-    private fun setupCollapseToggle(overlay: OverlayPanelView) {
-        fun updateCollapseUi() {
-            overlay.body.visibility = if (isCollapsed) View.GONE else View.VISIBLE
-            overlay.collapseBtn.rotation = if (isCollapsed) 0f else 180f
-            overlay.collapseBtn.contentDescription = if (isCollapsed) "Expand" else "Collapse"
-        }
+    private fun updateCollapseUi(overlay: OverlayPanelView) {
+        overlay.body.visibility = if (isCollapsed) View.GONE else View.VISIBLE
+        overlay.collapseBtn.rotation = if (isCollapsed) 0f else 180f
+        overlay.collapseBtn.contentDescription = if (isCollapsed) "Expand" else "Collapse"
+    }
 
-        updateCollapseUi()
+    private fun setupCollapseToggle(overlay: OverlayPanelView) {
+        updateCollapseUi(overlay)
 
         overlay.collapseBtn.setOnClickListener {
             isCollapsed = !isCollapsed
-            updateCollapseUi()
+            updateCollapseUi(overlay)
         }
 
         overlay.body.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
@@ -210,16 +221,69 @@ internal class OverlayManager(
             viewMode = ViewMode.ABR
             applyViewMode(overlay, viewMode)
         }
+
+        setupErrorIndicator(overlay)
+    }
+
+    private fun setupErrorIndicator(overlay: OverlayPanelView) {
+        overlay.errorIndicator.setOnClickListener {
+            if (isCollapsed) {
+                isCollapsed = false
+                updateCollapseUi(overlay)
+            }
+            if (viewMode != ViewMode.ERRORS) {
+                previousViewMode = viewMode
+                viewMode = ViewMode.ERRORS
+                applyViewMode(overlay, viewMode)
+            }
+        }
+
+        overlay.backButton.setOnClickListener {
+            viewMode = previousViewMode
+            applyViewMode(overlay, viewMode)
+        }
+
+        overlay.clearButton.setOnClickListener {
+            sessionStore.clearPlaybackErrors()
+        }
+
+        overlay.shareButton.setOnClickListener {
+            val activity = currentActivity ?: return@setOnClickListener
+            val errors = sessionStore.playbackErrors.value
+            val text = OverlayFormatters.formatErrorsForExport(
+                errors = errors,
+                baseTimestampMs = errors.firstOrNull()?.timestampMs ?: 0L,
+            )
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+            activity.startActivity(Intent.createChooser(intent, "Share errors"))
+        }
     }
 
     private fun applyViewMode(overlay: OverlayPanelView, mode: ViewMode) {
+        val isErrors = mode == ViewMode.ERRORS
         overlay.variantsChip.isChecked = mode == ViewMode.VARIANTS
         overlay.segmentsChip.isChecked = mode == ViewMode.SEGMENTS
         overlay.abrChip.isChecked = mode == ViewMode.ABR
+
+        // Show chip row or errors header
+        val chipRowVisible = if (isErrors) View.GONE else View.VISIBLE
+        overlay.variantsChip.visibility = chipRowVisible
+        overlay.segmentsChip.visibility = chipRowVisible
+        overlay.abrChip.visibility = chipRowVisible
+        overlay.errorsViewHeader.visibility = if (isErrors) View.VISIBLE else View.GONE
+
         overlay.variantList.adapter = when (mode) {
             ViewMode.VARIANTS -> variantAdapter
             ViewMode.SEGMENTS -> segmentAdapter
             ViewMode.ABR -> abrAdapter
+            ViewMode.ERRORS -> errorAdapter
+        }
+        if (mode == ViewMode.ERRORS) {
+            val errorCount = sessionStore.playbackErrors.value.size
+            overlay.errorsTitle.text = "Errors ($errorCount)"
         }
         if (mode == ViewMode.VARIANTS) {
             val pos = variantAdapter?.findPositionForTrack(variantAdapter?.activeTrack)
@@ -291,6 +355,27 @@ internal class OverlayManager(
         scope?.launch {
             sessionStore.abrSwitchEvents.collect { events ->
                 abrAdapter?.submitList(events)
+            }
+        }
+
+        scope?.launch {
+            sessionStore.playbackErrors.collect { errors ->
+                errorAdapter?.submitList(errors)
+
+                // Update the header indicator
+                if (errors.isEmpty()) {
+                    overlay.errorIndicator.visibility = View.GONE
+                } else {
+                    overlay.errorIndicator.text = "⚠ ${errors.size}"
+                    overlay.errorIndicator.contentDescription =
+                        "${errors.size} background errors. Tap to view."
+                    overlay.errorIndicator.visibility = View.VISIBLE
+                }
+
+                // Keep errors title in sync when in errors mode
+                if (viewMode == ViewMode.ERRORS) {
+                    overlay.errorsTitle.text = "Errors (${errors.size})"
+                }
             }
         }
     }

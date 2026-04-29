@@ -144,9 +144,9 @@ player.release()
 
 ## Debug Overlay Details
 
-Once attached, the StreamProbe overlay appears as a draggable panel. It displays the **currently active track**, the **latest segment latency**, and the **CDN Cache state** (Hit/Miss) at the top. 
+Once attached, the StreamProbe overlay appears as a draggable panel. It displays the **currently active track**, the **latest segment latency**, and the **CDN Cache state** (Hit/Miss) at the top.
 
-You can toggle between three detailed views using the filter chips:
+Three filter-chip views (Variants / Segments / ABR) plus a dedicated **Errors view** reachable from the header indicator provide a complete picture of what the player is doing at any moment.
 
 ### 1. Variants
 This view displays a list of all parsed video, audio, and subtitle variants from the HLS `.m3u8` or DASH `.mpd` manifest. 
@@ -169,6 +169,21 @@ A chronological timeline of every quality switch ExoPlayer makes during the sess
 
 The ABR log is capped at **200 entries**; older events are dropped as new ones arrive.
 
+### 4. Errors
+
+A dedicated view for silent, non-fatal errors that ExoPlayer absorbs without triggering a fatal `PlaybackException`. Activated via the **`⚠ N`** pill indicator in the overlay header.
+
+- **`⚠ N` header indicator**: appears as soon as the first error is captured, with a count of total errors. Tap to open the Errors view from any active tab.
+- **Four captured categories**:
+  - `LOAD` (red) — segment or manifest HTTP errors (`onLoadError` for `DATA_TYPE_MEDIA` / `DATA_TYPE_MANIFEST`).
+  - `CODEC` (orange) — video codec failures (`onVideoCodecError`).
+  - `FRAMES` (yellow) — dropped video frame bursts ≥ 3 frames (`onDroppedVideoFrames`).
+  - `AUDIO` (purple) — audio sink errors (`onAudioSinkError`).
+- **Back / Clear / Share**: the errors view header has a ← Back button to restore the previous tab, a Clear button to empty the list, and a ↗ Share button that fires an `ACTION_SEND` intent with the full error list as plain text.
+- **Inline expand**: tap any row to reveal the full URI, exception text, and absolute timestamp.
+- **Dropped-frames dedup**: consecutive `DROPPED_FRAMES` events within a 5-second window are merged into a single entry — the message updates to `"X frames dropped (N bursts)"` so slow devices don't flood the list.
+- The error list is capped at **200 entries**; oldest entries are dropped when the cap is reached (except when the newest event merges into the last entry).
+
 ---
 
 ## Roadmap
@@ -181,7 +196,7 @@ Coarse milestones. Each will be broken down into a TODO checklist as work begins
 - **M3 — ABR Log** ✅: Track switch event recording with buffer state, switch reason, and chronological timeline view in the overlay.
 - **M4 — DASH Support** ✅: MPD parsing, feature parity with HLS across all prior milestones.
 - **M5 — Distribution** ✅: Published to Maven Central (`io.github.oguzhaneksi:streamprobe:0.1.0`).
-- **M6 — Background Error Tracking** *(Planned)*: Exposing silent, non-fatal background errors such as segment load failures (HTTP 404/5xx), decoder fallbacks (`onVideoCodecError`), and frame drops (`onDroppedVideoFrames`) as real-time notifications in the overlay.
+- **M6 — Background Error Tracking** ✅: Exposing silent, non-fatal background errors — segment load failures (HTTP 404/5xx), video codec errors (`onVideoCodecError`), dropped frame bursts (`onDroppedVideoFrames`), and audio sink errors (`onAudioSinkError`) — as a real-time Errors view in the overlay, reachable via a header `⚠ N` indicator.
 - **M7 — Audio & Subtitle Tracks** *(Planned)*: Expanding track selection monitoring to include `C.TRACK_TYPE_AUDIO` and `C.TRACK_TYPE_TEXT`, displaying current audio/subtitle language and codec info.
 - **M8 — DRM Monitoring** *(Planned)*: Capturing DRM session lifecycle events, license loading latency, Widevine/PlayReady statuses, and DRM-specific errors.
 - **M9 — SSAI & Timeline Metadata** *(Planned)*: Listening to `onMetadata` for SCTE-35 and ID3 tags to visually distinguish Server-Side Ad Insertion (SSAI) ad breaks from main content.

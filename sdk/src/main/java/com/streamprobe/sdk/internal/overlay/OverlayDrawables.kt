@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import androidx.core.graphics.toColorInt
 import com.streamprobe.sdk.model.CacheStatus
+import com.streamprobe.sdk.model.ErrorCategory
 import kotlin.math.roundToInt
 
 /**
@@ -71,6 +72,29 @@ internal object OverlayDrawables {
                 CacheStatus.UNKNOWN -> "#555555".toColorInt()
             }
         )
+    }
+
+    /** Oval dot color-coded by [ErrorCategory]. */
+    fun errorCategoryDot(category: ErrorCategory): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(
+            when (category) {
+                ErrorCategory.LOAD_ERROR        -> "#FF453A".toColorInt()   // Red
+                ErrorCategory.VIDEO_CODEC_ERROR -> "#FF9F0A".toColorInt()   // Orange
+                ErrorCategory.DROPPED_FRAMES    -> "#FFD60A".toColorInt()   // Yellow
+                ErrorCategory.AUDIO_SINK_ERROR  -> "#BF5AF2".toColorInt()   // Purple
+            }
+        )
+    }
+
+    /**
+     * Solid red pill for the header error indicator. Caller must set the corner radius via
+     * [GradientDrawable.setCornerRadius] after measuring (consistent with how the rest of the
+     * file avoids Context-bound dp conversion in factory functions).
+     */
+    fun errorIndicatorBackground(): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        setColor("#FF453A".toColorInt())
     }
 }
 

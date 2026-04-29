@@ -1,26 +1,38 @@
 package com.streamprobe.android
 
-import android.app.Application
+import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import com.streamprobe.android.data.DebugSettingsRepository
 import com.streamprobe.sdk.StreamProbe
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-class PlayerViewModel(application: Application) : AndroidViewModel(application) {
+class PlayerViewModel(
+    private val appContext: Context,
+    private val repo: DebugSettingsRepository,
+) : ViewModel() {
 
     private val streamProbe = StreamProbe()
 
@@ -28,7 +40,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         private set
 
     private val _selectedStream = MutableStateFlow<Stream?>(null)
-    val selectedStream: StateFlow<Stream?> = _selectedStream
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState
@@ -43,26 +54,42 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _selectedStream.value = null
     }
 
+    @OptIn(UnstableApi::class)
     fun initializePlayer(activity: ComponentActivity) {
         streamProbe.show(activity)
-
         val stream = _selectedStream.value ?: return
         if (player != null) return
-
-        player = ExoPlayer.Builder(getApplication()).build().apply {
-            streamProbe.attach(this)
-            val mediaItem = if (stream.mimeType != null) {
-                MediaItem.Builder()
-                    .setUri(stream.url)
-                    .setMimeType(stream.mimeType)
-                    .build()
-            } else {
-                MediaItem.fromUri(stream.url)
-            }
-            setMediaItem(mediaItem)
-            prepare()
-            playWhenReady = true
+        viewModelScope.launch {
+            val injectErrors = repo.injectErrorsFlow.first()
+            buildPlayer(stream, injectErrors)
         }
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun buildPlayer(stream: Stream, injectErrors: Boolean) {
+        val dataSourceFactory: DataSource.Factory = if (injectErrors) {
+            DebugDataSourceFactory(DefaultHttpDataSource.Factory(), errorRate = 0.2f)
+        } else {
+            DefaultHttpDataSource.Factory()
+        }
+        val mediaSourceFactory = DefaultMediaSourceFactory(appContext).setDataSourceFactory(dataSourceFactory)
+
+        player = ExoPlayer.Builder(appContext)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build().apply {
+                streamProbe.attach(this)
+                val mediaItem = if (stream.mimeType != null) {
+                    MediaItem.Builder()
+                        .setUri(stream.url)
+                        .setMimeType(stream.mimeType)
+                        .build()
+                } else {
+                    MediaItem.fromUri(stream.url)
+                }
+                setMediaItem(mediaItem)
+                prepare()
+                playWhenReady = true
+            }
 
         updateJob = viewModelScope.launch {
             while (isActive) {
@@ -137,5 +164,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     override fun onCleared() {
         releasePlayer()
         super.onCleared()
+    }
+
+    companion object {
+        fun factory(app: StreamProbeApplication) = viewModelFactory {
+            initializer { PlayerViewModel(app.applicationContext, app.debugSettings) }
+        }
     }
 }

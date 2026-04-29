@@ -4,8 +4,12 @@ import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
 import com.streamprobe.sdk.model.CdnProvider
+import com.streamprobe.sdk.model.ErrorCategory
+import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SwitchReason
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 /**
@@ -103,4 +107,30 @@ internal object OverlayFormatters {
 
     /** "ADAPTIVE", "MANUAL", etc. */
     fun formatSwitchReason(reason: SwitchReason): String = reason.name
+
+    fun formatErrorCategory(category: ErrorCategory): String = when (category) {
+        ErrorCategory.LOAD_ERROR        -> "LOAD"
+        ErrorCategory.VIDEO_CODEC_ERROR -> "CODEC"
+        ErrorCategory.DROPPED_FRAMES    -> "FRAMES"
+        ErrorCategory.AUDIO_SINK_ERROR  -> "AUDIO"
+    }
+
+    /** "HH:mm:ss.SSS" absolute wall-clock timestamp. */
+    fun formatAbsoluteTimestamp(timestampMs: Long): String {
+        val sdf = SimpleDateFormat("HH:mm:ss.SSS", Locale.ROOT)
+        return sdf.format(Date(timestampMs))
+    }
+
+    fun formatErrorsForExport(
+        errors: List<PlaybackErrorEvent>,
+        baseTimestampMs: Long,
+    ): String {
+        val header = "[StreamProbe] ${errors.size} errors"
+        val rows = errors.mapIndexed { i, e ->
+            val rel = formatRelativeTimestamp(e.timestampMs, baseTimestampMs)
+            val cat = formatErrorCategory(e.category)
+            "#${i + 1} $rel $cat ${e.message}"
+        }
+        return (listOf(header) + rows).joinToString("\n")
+    }
 }
