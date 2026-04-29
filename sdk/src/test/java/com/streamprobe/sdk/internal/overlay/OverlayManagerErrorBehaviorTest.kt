@@ -41,6 +41,7 @@ class OverlayManagerErrorBehaviorTest {
 
     @After
     fun tearDown() {
+        manager.hide()
         Dispatchers.resetMain()
     }
 
@@ -53,13 +54,13 @@ class OverlayManagerErrorBehaviorTest {
     )
 
     @Test
-    fun `header indicator hidden when errors empty`() = runTest {
+    fun `header indicator hidden when errors empty`() = runTest(testDispatcher) {
         advanceUntilIdle()
         assertEquals(View.GONE, overlay().errorIndicator.visibility)
     }
 
     @Test
-    fun `header indicator visible and counted when errors present`() = runTest {
+    fun `header indicator visible and counted when errors present`() = runTest(testDispatcher) {
         sessionStore.addPlaybackError(makeError("Error 1"))
         sessionStore.addPlaybackError(makeError("Error 2"))
         sessionStore.addPlaybackError(makeError("Error 3"))
@@ -72,7 +73,7 @@ class OverlayManagerErrorBehaviorTest {
     }
 
     @Test
-    fun `tapping indicator switches to errors view`() = runTest {
+    fun `tapping indicator switches to errors view`() = runTest(testDispatcher) {
         sessionStore.addPlaybackError(makeError())
         advanceUntilIdle()
 
@@ -83,7 +84,7 @@ class OverlayManagerErrorBehaviorTest {
     }
 
     @Test
-    fun `tapping indicator while collapsed expands body`() = runTest {
+    fun `tapping indicator while collapsed expands body`() = runTest(testDispatcher) {
         overlay().collapseBtn.performClick()
         assertEquals(View.GONE, overlay().body.visibility)
 
@@ -97,7 +98,7 @@ class OverlayManagerErrorBehaviorTest {
     }
 
     @Test
-    fun `back button restores previousViewMode`() = runTest {
+    fun `back button restores previousViewMode`() = runTest(testDispatcher) {
         overlay().segmentsChip.performClick()
         assertEquals(true, overlay().segmentsChip.isChecked)
 
@@ -114,7 +115,7 @@ class OverlayManagerErrorBehaviorTest {
     }
 
     @Test
-    fun `clear button empties errors and hides indicator`() = runTest {
+    fun `clear button empties errors and hides indicator`() = runTest(testDispatcher) {
         sessionStore.addPlaybackError(makeError())
         advanceUntilIdle()
 
