@@ -7,9 +7,10 @@ import androidx.media3.datasource.HttpDataSource
 import kotlin.random.Random
 
 /**
- * A [DataSource.Factory] wrapper that, when [injectErrors] is true, throws a synthetic
- * HTTP 404 [HttpDataSource.InvalidResponseCodeException] on a random percentage of
- * segment (.ts / .m4s) requests. Manifest and key requests pass through untouched.
+ * A [DataSource.Factory] wrapper that throws a synthetic HTTP 404
+ * [HttpDataSource.InvalidResponseCodeException] for a random percentage of segment
+ * (.ts / .m4s) requests, as controlled by [errorRate]. Manifest and key requests pass
+ * through untouched.
  */
 @UnstableApi
 internal class DebugDataSourceFactory(
