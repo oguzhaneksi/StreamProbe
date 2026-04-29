@@ -269,10 +269,15 @@ internal class OverlayManager(
         overlay.abrChip.isChecked = mode == ViewMode.ABR
 
         // Show chip row or errors header
-        val chipRowVisible = if (isErrors) View.GONE else View.VISIBLE
-        overlay.variantsChip.visibility = chipRowVisible
-        overlay.segmentsChip.visibility = chipRowVisible
-        overlay.abrChip.visibility = chipRowVisible
+        val chipRowVisibility = if (isErrors) View.GONE else View.VISIBLE
+        val chipRow = overlay.variantsChip.parent as? View
+        if (chipRow != null) {
+            chipRow.visibility = chipRowVisibility
+        } else {
+            overlay.variantsChip.visibility = chipRowVisibility
+            overlay.segmentsChip.visibility = chipRowVisibility
+            overlay.abrChip.visibility = chipRowVisibility
+        }
         overlay.errorsViewHeader.visibility = if (isErrors) View.VISIBLE else View.GONE
 
         overlay.variantList.adapter = when (mode) {
