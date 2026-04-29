@@ -116,10 +116,13 @@ internal object OverlayFormatters {
         ErrorCategory.AUDIO_CODEC_ERROR -> "ACODEC"
     }
 
+    private val absoluteTimestampFormatter = ThreadLocal.withInitial<SimpleDateFormat> {
+        SimpleDateFormat("HH:mm:ss.SSS", Locale.ROOT)
+    }
+
     /** "HH:mm:ss.SSS" absolute wall-clock timestamp. */
     fun formatAbsoluteTimestamp(timestampMs: Long): String {
-        val sdf = SimpleDateFormat("HH:mm:ss.SSS", Locale.ROOT)
-        return sdf.format(Date(timestampMs))
+        return absoluteTimestampFormatter.get().format(Date(timestampMs))
     }
 
     fun formatErrorsForExport(
