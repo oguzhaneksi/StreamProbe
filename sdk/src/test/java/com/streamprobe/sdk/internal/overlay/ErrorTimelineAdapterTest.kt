@@ -106,13 +106,8 @@ class ErrorTimelineAdapterTest {
 
     @Test
     fun `dropped-frames merge DiffUtil stability - change not remove plus insert`() {
-        // Submit a list with a single dropped-frames entry
         val t = 1000L
         val original = makeDropFrameEvent(t, frames = 5)
-        adapter.submitList(listOf(original))
-
-        // Wait for async diff (use awaitPendingData)
-        // Create a merged version with same timestampMs but updated message
         val merged = original.copy(
             // timestampMs unchanged - same DiffUtil identity
             message = "8 frames dropped (2 bursts)",
@@ -123,11 +118,16 @@ class ErrorTimelineAdapterTest {
             ),
         )
 
-        // Both items have the same timestampMs, so areItemsTheSame returns true
-        // and areContentsTheSame returns false -> results in a change, not remove+insert
-        adapter.submitList(listOf(merged))
-
-        // Verify adapter has 1 item with updated content
-        assertEquals(1, adapter.itemCount)
+        // Nest submitList calls inside commit callbacks so each diff is fully
+        // applied before the next one starts, avoiding async-diff race conditions.
+        // Both items share the same timestampMs, so areItemsTheSame returns true
+        // and areContentsTheSame returns false → DiffUtil issues a change, not
+        // a remove+insert pair.
+        adapter.submitList(listOf(original)) {
+            adapter.submitList(listOf(merged)) {
+                assertEquals(1, adapter.itemCount)
+                assertEquals("8 frames dropped (2 bursts)", adapter.currentList[0].message)
+            }
+        }
     }
 }
