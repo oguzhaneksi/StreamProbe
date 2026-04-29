@@ -8,7 +8,12 @@ import com.streamprobe.sdk.model.ErrorCategory
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SwitchReason
+import android.os.Build
+import androidx.annotation.RequiresApi
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 
@@ -120,9 +125,18 @@ internal object OverlayFormatters {
         SimpleDateFormat("HH:mm:ss.SSS", Locale.ROOT)
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    private val dateTimeFormatter: DateTimeFormatter by lazy {
+        DateTimeFormatter.ofPattern("HH:mm:ss.SSS").withZone(ZoneId.systemDefault())
+    }
+
     /** "HH:mm:ss.SSS" absolute wall-clock timestamp. */
     fun formatAbsoluteTimestamp(timestampMs: Long): String {
-        return absoluteTimestampFormatter.get().format(Date(timestampMs))
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            dateTimeFormatter.format(Instant.ofEpochMilli(timestampMs))
+        } else {
+            absoluteTimestampFormatter.get().format(Date(timestampMs))
+        }
     }
 
     fun formatErrorsForExport(
