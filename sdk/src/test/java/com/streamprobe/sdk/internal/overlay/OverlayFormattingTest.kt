@@ -1,9 +1,11 @@
 package com.streamprobe.sdk.internal.overlay
 
+import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
 import com.streamprobe.sdk.model.CdnProvider
-import com.streamprobe.sdk.model.ActiveTrackInfo
+import com.streamprobe.sdk.model.ErrorCategory
+import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SwitchReason
 import org.junit.Assert.assertEquals
@@ -174,6 +176,78 @@ class OverlayFormattingTest {
         assertEquals("MANUAL", OverlayFormatters.formatSwitchReason(SwitchReason.MANUAL))
         assertEquals("TRICKPLAY", OverlayFormatters.formatSwitchReason(SwitchReason.TRICKPLAY))
         assertEquals("UNKNOWN", OverlayFormatters.formatSwitchReason(SwitchReason.UNKNOWN))
+    }
+
+    // ── Error formatter tests ─────────────────────────────────────────────────
+
+    @Test
+    fun `formatErrorCategory returns short label for each category`() {
+        assertEquals("LOAD", OverlayFormatters.formatErrorCategory(ErrorCategory.LOAD_ERROR))
+        assertEquals("CODEC", OverlayFormatters.formatErrorCategory(ErrorCategory.VIDEO_CODEC_ERROR))
+        assertEquals("FRAMES", OverlayFormatters.formatErrorCategory(ErrorCategory.DROPPED_FRAMES))
+        assertEquals("AUDIO", OverlayFormatters.formatErrorCategory(ErrorCategory.AUDIO_SINK_ERROR))
+        assertEquals("ACODEC", OverlayFormatters.formatErrorCategory(ErrorCategory.AUDIO_CODEC_ERROR))
+    }
+
+    @Test
+    fun `formatAbsoluteTimestamp returns HH mm ss SSS format`() {
+        // Just verify the format shape: HH:mm:ss.SSS (length 12 with separators)
+        val result = OverlayFormatters.formatAbsoluteTimestamp(0L)
+        // Should match HH:mm:ss.SSS
+        assertTrue("Expected HH:mm:ss.SSS format in: $result", result.matches(Regex("\\d{2}:\\d{2}:\\d{2}\\.\\d{3}")))
+    }
+
+    @Test
+    fun `formatErrorsForExport produces correct header and rows`() {
+        val base = 1_000L
+        val errors = listOf(
+            PlaybackErrorEvent(
+                timestampMs = base + 23_000L,
+                category = ErrorCategory.LOAD_ERROR,
+                message = "HTTP 404: seg_42.ts",
+            ),
+            PlaybackErrorEvent(
+                timestampMs = base + 65_000L,
+                category = ErrorCategory.DROPPED_FRAMES,
+                message = "5 frames in 100ms",
+            ),
+        )
+
+        val result = OverlayFormatters.formatErrorsForExport(errors, base)
+
+        assertTrue("Expected header", result.startsWith("[StreamProbe] 2 errors"))
+        assertTrue("Expected first row", result.contains("#1"))
+        assertTrue("Expected LOAD category", result.contains("LOAD"))
+        assertTrue("Expected HTTP 404 message", result.contains("HTTP 404: seg_42.ts"))
+        assertTrue("Expected second row", result.contains("#2"))
+        assertTrue("Expected FRAMES category", result.contains("FRAMES"))
+        assertTrue(
+            "Expected absolute timestamp in [HH:mm:ss.SSS] format",
+            result.contains(Regex("\\[\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\]"))
+        )
+    }
+
+    @Test
+    fun `formatErrorsForExport includes detail on second line when present`() {
+        val base = 1_000L
+        val errors = listOf(
+            PlaybackErrorEvent(
+                timestampMs = base + 5_000L,
+                category = ErrorCategory.LOAD_ERROR,
+                message = "HTTP 500: seg_1.ts",
+                detail = "java.io.IOException: connection reset",
+            ),
+        )
+
+        val result = OverlayFormatters.formatErrorsForExport(errors, base)
+
+        assertTrue("Expected detail indented on next line", result.contains("    java.io.IOException: connection reset"))
+    }
+
+    @Test
+    fun `formatErrorsForExport with empty list returns just header`() {
+        val result = OverlayFormatters.formatErrorsForExport(emptyList(), 0L)
+        assertEquals("[StreamProbe] 0 errors", result)
     }
 
 }

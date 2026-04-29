@@ -8,6 +8,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
@@ -18,10 +19,14 @@ import androidx.media3.exoplayer.source.MediaLoadData
 import com.streamprobe.sdk.model.AbrSwitchEvent
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.DashManifestInfo
+import com.streamprobe.sdk.model.ErrorCategory
+import com.streamprobe.sdk.model.ErrorDetail
 import com.streamprobe.sdk.model.HlsManifestInfo
+import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SwitchReason
 import com.streamprobe.sdk.model.VariantInfo
+import java.io.IOException
 
 /**
  * Listens to a [Player] for manifest availability and track selection changes,
@@ -103,6 +108,104 @@ internal class PlayerInterceptor(
             )
         )
         Log.d(TAG, "ABR switch: ${previousTrack?.width}x${previousTrack?.height} → ${newTrack.width}x${newTrack.height} reason=${mediaLoadData.trackSelectionReason}")
+    }
+
+    override fun onLoadError(
+        eventTime: AnalyticsListener.EventTime,
+        loadEventInfo: LoadEventInfo,
+        mediaLoadData: MediaLoadData,
+        error: IOException,
+        wasCanceled: Boolean,
+    ) {
+        if (wasCanceled) return  // Filtered: cancellations from seeks / track switches are not errors.
+
+        // DRM data type is deferred to M8; ignore here to avoid scope overlap.
+        val dataTypePrefix = when (mediaLoadData.dataType) {
+            C.DATA_TYPE_MEDIA    -> ""
+            C.DATA_TYPE_MANIFEST -> "MANIFEST "
+            else                 -> return
+        }
+
+        val httpStatus = (error as? HttpDataSource.InvalidResponseCodeException)?.responseCode
+        val uriPath = loadEventInfo.uri.lastPathSegment ?: loadEventInfo.uri.toString()
+        val errorPrefix = if (httpStatus != null) "HTTP $httpStatus" else error::class.simpleName ?: "Error"
+
+        sessionStore.addPlaybackError(
+            PlaybackErrorEvent(
+                timestampMs = System.currentTimeMillis(),
+                category = ErrorCategory.LOAD_ERROR,
+                message = "$dataTypePrefix$errorPrefix: $uriPath",
+                detail = error.message ?: error::class.qualifiedName,
+            )
+        )
+        Log.d(TAG, "Load error: $dataTypePrefix$errorPrefix — $uriPath")
+    }
+
+    override fun onVideoCodecError(
+        eventTime: AnalyticsListener.EventTime,
+        videoCodecError: Exception,
+    ) {
+        sessionStore.addPlaybackError(
+            PlaybackErrorEvent(
+                timestampMs = System.currentTimeMillis(),
+                category = ErrorCategory.VIDEO_CODEC_ERROR,
+                message = videoCodecError.message ?: videoCodecError::class.simpleName ?: "Codec error",
+                detail = videoCodecError.toString(),
+            )
+        )
+        Log.d(TAG, "Video codec error: ${videoCodecError.message}")
+    }
+
+    override fun onDroppedVideoFrames(
+        eventTime: AnalyticsListener.EventTime,
+        droppedFrames: Int,
+        elapsedMs: Long,
+    ) {
+        if (droppedFrames < DROPPED_FRAME_THRESHOLD) return
+        val now = System.currentTimeMillis()
+        sessionStore.addPlaybackError(
+            PlaybackErrorEvent(
+                timestampMs = now,
+                category = ErrorCategory.DROPPED_FRAMES,
+                message = "$droppedFrames frames in ${elapsedMs}ms",
+                categoryDetail = ErrorDetail.DroppedFrames(
+                    totalFrames = droppedFrames,
+                    burstCount = 1,
+                    lastUpdateMs = now,
+                ),
+            )
+        )
+        Log.d(TAG, "Dropped $droppedFrames frames in ${elapsedMs}ms")
+    }
+
+    override fun onAudioCodecError(
+        eventTime: AnalyticsListener.EventTime,
+        audioCodecError: Exception,
+    ) {
+        sessionStore.addPlaybackError(
+            PlaybackErrorEvent(
+                timestampMs = System.currentTimeMillis(),
+                category = ErrorCategory.AUDIO_CODEC_ERROR,
+                message = audioCodecError.message ?: audioCodecError::class.simpleName ?: "Audio codec error",
+                detail = audioCodecError.toString(),
+            )
+        )
+        Log.d(TAG, "Audio codec error: ${audioCodecError.message}")
+    }
+
+    override fun onAudioSinkError(
+        eventTime: AnalyticsListener.EventTime,
+        audioSinkError: Exception,
+    ) {
+        sessionStore.addPlaybackError(
+            PlaybackErrorEvent(
+                timestampMs = System.currentTimeMillis(),
+                category = ErrorCategory.AUDIO_SINK_ERROR,
+                message = audioSinkError.message ?: audioSinkError::class.simpleName ?: "Audio sink error",
+                detail = audioSinkError.toString(),
+            )
+        )
+        Log.d(TAG, "Audio sink error: ${audioSinkError.message}")
     }
 
     override fun onLoadCompleted(
@@ -209,5 +312,7 @@ internal class PlayerInterceptor(
 
     companion object {
         private const val TAG = "StreamProbe"
+        @VisibleForTesting
+        internal const val DROPPED_FRAME_THRESHOLD = 3
     }
 }

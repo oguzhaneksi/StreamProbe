@@ -39,6 +39,12 @@ internal class OverlayPanelView(
 
     val header: LinearLayout
     val collapseBtn: TextView
+    val errorIndicator: TextView
+    val errorsViewHeader: LinearLayout
+    val backButton: TextView
+    val errorsTitle: TextView
+    val clearButton: TextView
+    val shareButton: TextView
     val body: LinearLayout
     val activeTrackView: TextView
     val latestSegmentView: TextView
@@ -76,6 +82,26 @@ internal class OverlayPanelView(
             letterSpacing = 0.04f
         }
         header.addView(titleView, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+
+        // ── Error indicator pill ──────────────────────────────────────────────
+
+        errorIndicator = TextView(context).apply {
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            visibility = View.GONE
+            minWidth = dp(48f).toInt()
+            minHeight = dp(44f).toInt()
+            gravity = Gravity.CENTER
+            val hPad = dp(6f).toInt()
+            setPadding(hPad, 0, hPad, 0)
+            val bg = OverlayDrawables.errorIndicatorBackground()
+            bg.cornerRadius = dp(10f)
+            background = bg
+        }
+        header.addView(errorIndicator, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
+            it.marginEnd = dp(4f).toInt()
+        })
 
         collapseBtn = TextView(context).apply {
             text = "▾"
@@ -144,6 +170,56 @@ internal class OverlayPanelView(
             })
         }
 
+        // ── Errors view header (replaces chip row when in ERRORS mode) ─────────
+
+        backButton = TextView(context).apply {
+            text = "← Back"
+            setTextColor("#66B2FF".toColorInt())
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            contentDescription = "Back to previous view"
+            minWidth = dp(48f).toInt()
+            minHeight = dp(32f).toInt()
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        errorsTitle = TextView(context).apply {
+            text = "Errors"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            gravity = Gravity.CENTER
+        }
+
+        clearButton = TextView(context).apply {
+            text = "Clear"
+            setTextColor("#66B2FF".toColorInt())
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            contentDescription = "Clear errors"
+            minWidth = dp(48f).toInt()
+            minHeight = dp(32f).toInt()
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        shareButton = TextView(context).apply {
+            text = "↗"
+            setTextColor("#66B2FF".toColorInt())
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            contentDescription = "Share errors"
+            minWidth = dp(48f).toInt()
+            minHeight = dp(32f).toInt()
+            gravity = Gravity.CENTER
+        }
+
+        errorsViewHeader = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            visibility = View.GONE
+            addView(backButton, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+            addView(errorsTitle, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+            addView(clearButton, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+            addView(shareButton, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        }
+
         // ── Bounded RecyclerView ──────────────────────────────────────────────
 
         variantList = BoundedRecyclerView(context, bodyMaxHeightPx)
@@ -180,6 +256,7 @@ internal class OverlayPanelView(
         body.addView(sectionLabel(context, "CDN STATUS"), marginBottom = dp(4f).toInt())
         body.addView(cdnStatusView, marginBottom = dp(12f).toInt())
         body.addView(chipRow, marginBottom = dp(6f).toInt())
+        body.addView(errorsViewHeader, marginBottom = dp(6f).toInt())
         body.addView(variantList, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
     }
 
@@ -196,6 +273,7 @@ internal class OverlayPanelView(
         // Right column — chip row + list
         val rightCol = LinearLayout(context).apply { orientation = VERTICAL }
         rightCol.addView(chipRow, marginBottom = dp(6f).toInt())
+        rightCol.addView(errorsViewHeader, marginBottom = dp(6f).toInt())
         rightCol.addView(variantList, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
         body.addView(leftCol, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).also {

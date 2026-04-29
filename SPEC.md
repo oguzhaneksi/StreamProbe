@@ -109,14 +109,36 @@ A **filter chip row** inside the panel lets the developer switch between three v
 - **Segments** — per-segment download duration, size, throughput, and cache-status dot. The segment timeline is shown in the same overlay panel with no Activity transition, so the host player is never backgrounded.
 - **ABR** — chronological list of every quality switch, showing the from→to resolution (or bitrate when resolution is identical), buffer duration at the time of the switch, switch reason (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`), and a relative timestamp from the first event.
 
-The manifest parsed summary (previously a separate toggle) has been removed — the Variants list already conveys the same information.
+A fourth view, **Errors**, is reachable via a `⚠ N` header indicator pill (hidden when no errors are present) and is described in §3.8.
 
 #### Orientation-aware layout
 
 - **Portrait** — 310 dp wide vertical stack: stats (Active Track, Latest Segment, CDN Status) → chip row → list.
 - **Landscape** — 440 dp wide horizontal split: left column for stats, right column for chip row + list. The list height is capped at `screenHeight × 0.55`, clamped to `[200 dp, 360 dp]`.
 
-For host apps that declare `android:configChanges` covering orientation, the panel rebuilds in place via `View.onConfigurationChanged`. For apps that don't, the Activity recreates and the new Activity's `show(this)` call re-adds the panel. The selected chip (`viewMode`) is preserved across both rebuild paths.
+For host apps that declare `android:configChanges` covering orientation, the panel rebuilds in place via `View.onConfigurationChanged`. For apps that don't, the Activity recreates and the new Activity's `show(this)` call re-adds the panel. The selected chip (`viewMode`) is preserved across both rebuild paths — including when the user is in the Errors view.
+
+### 3.8 Background Error Tracking
+
+Silent, non-fatal errors that ExoPlayer absorbs are captured and surfaced in a dedicated Errors view reachable from the overlay header. Five categories are tracked:
+
+| Category | Trigger | Colour |
+|---|---|---|
+| `LOAD_ERROR` | `onLoadError` for `DATA_TYPE_MEDIA` or `DATA_TYPE_MANIFEST`; `wasCanceled=true` is filtered out; `DATA_TYPE_DRM` is deferred to M8 | Red |
+| `VIDEO_CODEC_ERROR` | `onVideoCodecError` | Orange |
+| `DROPPED_FRAMES` | `onDroppedVideoFrames` with ≥ 3 frames dropped | Yellow |
+| `AUDIO_SINK_ERROR` | `onAudioSinkError` | Purple |
+| `AUDIO_CODEC_ERROR` | `onAudioCodecError` | Green |
+
+**Header indicator** — a `⚠ N` pill appears in the overlay header (between the title and the collapse arrow) as soon as the first error is captured. Tapping it switches the body to the Errors view; if the body is collapsed, it auto-expands first.
+
+**Errors view** — replaces the chip row with a back/title/clear/share header and renders a chronological error timeline. Each row shows index, category dot, category label, one-line message, relative timestamp, and a `▾`/`▴` chevron that signals expand/collapse affordance. Tapping a row expands an inline detail container showing the full message, exception text, and absolute wall-clock timestamp.
+
+**Dropped-frames dedup** — consecutive `DROPPED_FRAMES` events within a 5-second window are merged into a single entry. The merged entry updates its message to `"X frames dropped (N bursts)"`. The original `timestampMs` is preserved (stable DiffUtil identity; no flicker).
+
+**Error cap** — 200 entries, matching `MAX_ABR_EVENTS`. Oldest entries are dropped at the cap boundary, except when the newest event merges into the existing last entry.
+
+**Share export** — the Share button fires `Intent.ACTION_SEND` with a plain-text listing of all captured errors, formatted as `[StreamProbe] N errors` followed by one row per error. Each row includes the absolute wall-clock timestamp in `[HH:mm:ss.SSS]` format. When a `detail` field is present (e.g. exception text), it is appended on an indented second line.
 
 ### 3.7 Attach / Detach API
 
@@ -143,13 +165,18 @@ probe.detach()         // tears down interceptor, clears session, hides overlay
 
 ### 4.1 Interception Points
 
-StreamProbe currently instruments a single layer via a standard Media3 `AnalyticsListener` wired to the player:
+StreamProbe instruments a single layer via a standard Media3 `AnalyticsListener` wired to the player:
 
 - **`onTimelineChanged`** — reads `ExoPlayer.currentManifest` to extract manifest info (HLS multivariant playlist or DASH MPD) into SDK-owned models.
 - **`onLoadCompleted`** — captures per-segment download duration, byte count, computed throughput, and HTTP response headers (CDN cache hit/miss). Works regardless of the underlying HTTP stack.
 - **`onDownstreamFormatChanged`** / **`onVideoInputFormatChanged`** — detects ABR switches and records the previous/new track, buffer state, and Media3 selection reason.
+- **`onLoadError`** — captures segment and manifest HTTP errors; cancellations (`wasCanceled=true`) and DRM data types are filtered out.
+- **`onVideoCodecError`** — captures hardware/software codec failures.
+- **`onDroppedVideoFrames`** — captures dropped-frame bursts ≥ 3 frames with dedup logic.
+- **`onAudioSinkError`** — captures audio sink failures.
+- **`onAudioCodecError`** — captures audio codec failures.
 
-All three callbacks feed a single thread-safe in-memory `SessionStore`, which the overlay reads from via `StateFlow`.
+All callbacks feed a single thread-safe in-memory `SessionStore`, which the overlay reads from via `StateFlow`.
 
 **Planned (future milestone):** A `MediaSource.Factory` wrapper and a `NetworkInspector` abstraction (OkHttp, Cronet, and HttpEngine adapters) to enable true TTFB capture and richer per-request timing beyond what `onLoadCompleted` exposes.
 

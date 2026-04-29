@@ -2,10 +2,15 @@ package com.streamprobe.android
 
 import android.app.Application
 import android.os.StrictMode
+import com.streamprobe.android.data.DebugSettingsRepository
 
 class StreamProbeApplication : Application() {
+    lateinit var debugSettings: DebugSettingsRepository
+        private set
+
     override fun onCreate() {
         super.onCreate()
+        debugSettings = DebugSettingsRepository(this)
 
         if (BuildConfig.DEBUG) {
             StrictMode.setThreadPolicy(
