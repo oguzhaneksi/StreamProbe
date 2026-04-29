@@ -8,12 +8,7 @@ import com.streamprobe.sdk.model.ErrorCategory
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SwitchReason
-import android.os.Build
-import androidx.annotation.RequiresApi
 import java.text.SimpleDateFormat
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 
@@ -121,22 +116,23 @@ internal object OverlayFormatters {
         ErrorCategory.AUDIO_CODEC_ERROR -> "ACODEC"
     }
 
-    private val absoluteTimestampFormatter = ThreadLocal.withInitial<SimpleDateFormat> {
-        SimpleDateFormat("HH:mm:ss.SSS", Locale.ROOT)
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private val dateTimeFormatter: DateTimeFormatter by lazy {
-        DateTimeFormatter.ofPattern("HH:mm:ss.SSS").withZone(ZoneId.systemDefault())
+    /**
+     * Thread-local [SimpleDateFormat] avoids allocating a new formatter on every call
+     * (reducing GC pressure) while remaining thread-safe — [SimpleDateFormat] is not
+     * thread-safe and must not be shared across threads.
+     *
+     * Uses an anonymous subclass instead of [ThreadLocal.withInitial] to remain compatible
+     * with API levels below 26.
+     */
+    private val TIME_FORMATTER: ThreadLocal<SimpleDateFormat> = object : ThreadLocal<SimpleDateFormat>() {
+        override fun initialValue(): SimpleDateFormat =
+            SimpleDateFormat("HH:mm:ss.SSS", Locale.ROOT)
     }
 
     /** "HH:mm:ss.SSS" absolute wall-clock timestamp. */
     fun formatAbsoluteTimestamp(timestampMs: Long): String {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            dateTimeFormatter.format(Instant.ofEpochMilli(timestampMs))
-        } else {
-            absoluteTimestampFormatter.get().format(Date(timestampMs))
-        }
+        val formatter = TIME_FORMATTER.get() ?: SimpleDateFormat("HH:mm:ss.SSS", Locale.ROOT)
+        return formatter.format(Date(timestampMs))
     }
 
     fun formatErrorsForExport(
