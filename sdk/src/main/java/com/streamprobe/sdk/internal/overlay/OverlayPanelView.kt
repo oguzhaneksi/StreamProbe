@@ -91,7 +91,7 @@ internal class OverlayPanelView(
             typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
             visibility = View.GONE
             minWidth = dp(48f).toInt()
-            minHeight = dp(48f).toInt()
+            minHeight = dp(44f).toInt()
             gravity = Gravity.CENTER
             val hPad = dp(6f).toInt()
             setPadding(hPad, 0, hPad, 0)
