@@ -186,6 +186,7 @@ class OverlayFormattingTest {
         assertEquals("CODEC", OverlayFormatters.formatErrorCategory(ErrorCategory.VIDEO_CODEC_ERROR))
         assertEquals("FRAMES", OverlayFormatters.formatErrorCategory(ErrorCategory.DROPPED_FRAMES))
         assertEquals("AUDIO", OverlayFormatters.formatErrorCategory(ErrorCategory.AUDIO_SINK_ERROR))
+        assertEquals("ACODEC", OverlayFormatters.formatErrorCategory(ErrorCategory.AUDIO_CODEC_ERROR))
     }
 
     @Test
@@ -220,6 +221,27 @@ class OverlayFormattingTest {
         assertTrue("Expected HTTP 404 message", result.contains("HTTP 404: seg_42.ts"))
         assertTrue("Expected second row", result.contains("#2"))
         assertTrue("Expected FRAMES category", result.contains("FRAMES"))
+        assertTrue(
+            "Expected absolute timestamp in [HH:mm:ss.SSS] format",
+            result.contains(Regex("\\[\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\]"))
+        )
+    }
+
+    @Test
+    fun `formatErrorsForExport includes detail on second line when present`() {
+        val base = 1_000L
+        val errors = listOf(
+            PlaybackErrorEvent(
+                timestampMs = base + 5_000L,
+                category = ErrorCategory.LOAD_ERROR,
+                message = "HTTP 500: seg_1.ts",
+                detail = "java.io.IOException: connection reset",
+            ),
+        )
+
+        val result = OverlayFormatters.formatErrorsForExport(errors, base)
+
+        assertTrue("Expected detail indented on next line", result.contains("    java.io.IOException: connection reset"))
     }
 
     @Test

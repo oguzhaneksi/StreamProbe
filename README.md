@@ -179,8 +179,9 @@ A dedicated view for silent, non-fatal errors that ExoPlayer absorbs without tri
   - `CODEC` (orange) — video codec failures (`onVideoCodecError`).
   - `FRAMES` (yellow) — dropped video frame bursts ≥ 3 frames (`onDroppedVideoFrames`).
   - `AUDIO` (purple) — audio sink errors (`onAudioSinkError`).
+  - `ACODEC` (green) — audio codec failures (`onAudioCodecError`).
 - **Back / Clear / Share**: the errors view header has a ← Back button to restore the previous tab, a Clear button to empty the list, and a ↗ Share button that fires an `ACTION_SEND` intent with the full error list as plain text.
-- **Inline expand**: tap any row to reveal the full URI, exception text, and absolute timestamp.
+- **Inline expand**: each row shows a `▾`/`▴` chevron to signal tap-to-expand; tapping reveals the full URI, exception text, and absolute timestamp.
 - **Dropped-frames dedup**: consecutive `DROPPED_FRAMES` events within a 5-second window are merged into a single entry — the message updates to `"X frames dropped (N bursts)"` so slow devices don't flood the list.
 - The error list is capped at **200 entries**; oldest entries are dropped when the cap is reached (except when the newest event merges into the last entry).
 
@@ -196,7 +197,7 @@ Coarse milestones. Each will be broken down into a TODO checklist as work begins
 - **M3 — ABR Log** ✅: Track switch event recording with buffer state, switch reason, and chronological timeline view in the overlay.
 - **M4 — DASH Support** ✅: MPD parsing, feature parity with HLS across all prior milestones.
 - **M5 — Distribution** ✅: Published to Maven Central (`io.github.oguzhaneksi:streamprobe:0.1.0`).
-- **M6 — Background Error Tracking** ✅: Exposing silent, non-fatal background errors — segment load failures (HTTP 404/5xx), video codec errors (`onVideoCodecError`), dropped frame bursts (`onDroppedVideoFrames`), and audio sink errors (`onAudioSinkError`) — as a real-time Errors view in the overlay, reachable via a header `⚠ N` indicator.
+- **M6 — Background Error Tracking** ✅: Exposing silent, non-fatal background errors — segment load failures (HTTP 404/5xx), video codec errors (`onVideoCodecError`), audio codec errors (`onAudioCodecError`), dropped frame bursts (`onDroppedVideoFrames`), and audio sink errors (`onAudioSinkError`) — as a real-time Errors view in the overlay, reachable via a header `⚠ N` indicator.
 - **M7 — Audio & Subtitle Tracks** *(Planned)*: Expanding track selection monitoring to include `C.TRACK_TYPE_AUDIO` and `C.TRACK_TYPE_TEXT`, displaying current audio/subtitle language and codec info.
 - **M8 — DRM Monitoring** *(Planned)*: Capturing DRM session lifecycle events, license loading latency, Widevine/PlayReady statuses, and DRM-specific errors.
 - **M9 — SSAI & Timeline Metadata** *(Planned)*: Listening to `onMetadata` for SCTE-35 and ID3 tags to visually distinguish Server-Side Ad Insertion (SSAI) ad breaks from main content.

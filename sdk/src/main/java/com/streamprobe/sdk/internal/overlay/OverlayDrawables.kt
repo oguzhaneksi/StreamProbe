@@ -83,6 +83,7 @@ internal object OverlayDrawables {
                 ErrorCategory.VIDEO_CODEC_ERROR -> "#FF9F0A".toColorInt()   // Orange
                 ErrorCategory.DROPPED_FRAMES    -> "#FFD60A".toColorInt()   // Yellow
                 ErrorCategory.AUDIO_SINK_ERROR  -> "#BF5AF2".toColorInt()   // Purple
+                ErrorCategory.AUDIO_CODEC_ERROR -> "#30D158".toColorInt()   // Green
             }
         )
     }

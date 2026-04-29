@@ -128,16 +128,17 @@ Silent, non-fatal errors that ExoPlayer absorbs are captured and surfaced in a d
 | `VIDEO_CODEC_ERROR` | `onVideoCodecError` | Orange |
 | `DROPPED_FRAMES` | `onDroppedVideoFrames` with ≥ 3 frames dropped | Yellow |
 | `AUDIO_SINK_ERROR` | `onAudioSinkError` | Purple |
+| `AUDIO_CODEC_ERROR` | `onAudioCodecError` | Green |
 
 **Header indicator** — a `⚠ N` pill appears in the overlay header (between the title and the collapse arrow) as soon as the first error is captured. Tapping it switches the body to the Errors view; if the body is collapsed, it auto-expands first.
 
-**Errors view** — replaces the chip row with a back/title/clear/share header and renders a chronological error timeline. Each row shows index, category dot, category label, one-line message, and relative timestamp. Tapping a row expands an inline detail container showing the full message, exception text, and absolute wall-clock timestamp.
+**Errors view** — replaces the chip row with a back/title/clear/share header and renders a chronological error timeline. Each row shows index, category dot, category label, one-line message, relative timestamp, and a `▾`/`▴` chevron that signals expand/collapse affordance. Tapping a row expands an inline detail container showing the full message, exception text, and absolute wall-clock timestamp.
 
 **Dropped-frames dedup** — consecutive `DROPPED_FRAMES` events within a 5-second window are merged into a single entry. The merged entry updates its message to `"X frames dropped (N bursts)"`. The original `timestampMs` is preserved (stable DiffUtil identity; no flicker).
 
 **Error cap** — 200 entries, matching `MAX_ABR_EVENTS`. Oldest entries are dropped at the cap boundary, except when the newest event merges into the existing last entry.
 
-**Share export** — the Share button fires `Intent.ACTION_SEND` with a plain-text listing of all captured errors, formatted as `[StreamProbe] N errors` followed by one row per error.
+**Share export** — the Share button fires `Intent.ACTION_SEND` with a plain-text listing of all captured errors, formatted as `[StreamProbe] N errors` followed by one row per error. Each row includes the absolute wall-clock timestamp in `[HH:mm:ss.SSS]` format. When a `detail` field is present (e.g. exception text), it is appended on an indented second line.
 
 ### 3.7 Attach / Detach API
 
@@ -173,6 +174,7 @@ StreamProbe instruments a single layer via a standard Media3 `AnalyticsListener`
 - **`onVideoCodecError`** — captures hardware/software codec failures.
 - **`onDroppedVideoFrames`** — captures dropped-frame bursts ≥ 3 frames with dedup logic.
 - **`onAudioSinkError`** — captures audio sink failures.
+- **`onAudioCodecError`** — captures audio codec failures.
 
 All callbacks feed a single thread-safe in-memory `SessionStore`, which the overlay reads from via `StateFlow`.
 

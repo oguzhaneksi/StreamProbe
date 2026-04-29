@@ -113,6 +113,7 @@ internal object OverlayFormatters {
         ErrorCategory.VIDEO_CODEC_ERROR -> "CODEC"
         ErrorCategory.DROPPED_FRAMES    -> "FRAMES"
         ErrorCategory.AUDIO_SINK_ERROR  -> "AUDIO"
+        ErrorCategory.AUDIO_CODEC_ERROR -> "ACODEC"
     }
 
     /** "HH:mm:ss.SSS" absolute wall-clock timestamp. */

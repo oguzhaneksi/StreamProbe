@@ -178,6 +178,21 @@ internal class PlayerInterceptor(
         Log.d(TAG, "Dropped $droppedFrames frames in ${elapsedMs}ms")
     }
 
+    override fun onAudioCodecError(
+        eventTime: AnalyticsListener.EventTime,
+        audioCodecError: Exception,
+    ) {
+        sessionStore.addPlaybackError(
+            PlaybackErrorEvent(
+                timestampMs = System.currentTimeMillis(),
+                category = ErrorCategory.AUDIO_CODEC_ERROR,
+                message = audioCodecError.message ?: audioCodecError::class.simpleName ?: "Audio codec error",
+                detail = audioCodecError.toString(),
+            )
+        )
+        Log.d(TAG, "Audio codec error: ${audioCodecError.message}")
+    }
+
     override fun onAudioSinkError(
         eventTime: AnalyticsListener.EventTime,
         audioSinkError: Exception,

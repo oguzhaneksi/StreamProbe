@@ -9,4 +9,6 @@ enum class ErrorCategory {
     DROPPED_FRAMES,
     /** Audio sink error (onAudioSinkError). */
     AUDIO_SINK_ERROR,
+    /** Hardware/software audio codec error (onAudioCodecError). */
+    AUDIO_CODEC_ERROR,
 }

@@ -158,6 +158,21 @@ class PlaybackErrorTrackingTest {
         assertTrue(errors[0].message.contains("MediaCodec failed"))
     }
 
+    // ── onAudioCodecError tests ──────────────────────────────────────────────────
+
+    @Test
+    fun `onAudioCodecError creates AUDIO_CODEC_ERROR event`() = runTest {
+        val error = Exception("AudioCodec decode failed")
+
+        interceptor.onAudioCodecError(makeEventTime(), error)
+
+        val errors = sessionStore.playbackErrors.first()
+        assertEquals(1, errors.size)
+        assertEquals(ErrorCategory.AUDIO_CODEC_ERROR, errors[0].category)
+        assertTrue(errors[0].message.contains("AudioCodec decode failed"))
+        assertEquals(error.toString(), errors[0].detail)
+    }
+
     // ── onDroppedVideoFrames tests ─────────────────────────────────────────────
 
     @Test
