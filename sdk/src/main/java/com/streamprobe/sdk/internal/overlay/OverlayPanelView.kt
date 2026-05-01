@@ -47,6 +47,8 @@ internal class OverlayPanelView(
     val shareButton: TextView
     val body: LinearLayout
     val activeTrackView: TextView
+    val activeAudioView: TextView
+    val activeSubtitleView: TextView
     val latestSegmentView: TextView
     val cdnStatusView: TextView
     val variantList: RecyclerView
@@ -89,7 +91,7 @@ internal class OverlayPanelView(
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-            visibility = View.GONE
+            visibility = GONE
             minWidth = dp(48f).toInt()
             minHeight = dp(44f).toInt()
             gravity = Gravity.CENTER
@@ -130,6 +132,20 @@ internal class OverlayPanelView(
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
 
+        activeAudioView = TextView(context).apply {
+            text = "Loading\u2026"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }
+
+        activeSubtitleView = TextView(context).apply {
+            text = "Loading\u2026"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }
+
         latestSegmentView = TextView(context).apply {
             text = "\u2014"
             setTextColor(Color.WHITE)
@@ -147,7 +163,7 @@ internal class OverlayPanelView(
         // ── Filter chip row ───────────────────────────────────────────────────
 
         variantsChip = OverlayFilterChip(context).apply {
-            text = "Variants"
+            text = "Tracks"
             isChecked = true
         }
         segmentsChip = OverlayFilterChip(context).apply {
@@ -155,7 +171,7 @@ internal class OverlayPanelView(
             isChecked = false
         }
         abrChip = OverlayFilterChip(context).apply {
-            text = "ABR"
+            text = "Switches"
             isChecked = false
         }
         val chipRow = LinearLayout(context).apply {
@@ -250,7 +266,11 @@ internal class OverlayPanelView(
 
     private fun buildPortraitBody(body: LinearLayout, chipRow: LinearLayout) {
         body.addView(sectionLabel(context, "ACTIVE TRACK"), marginBottom = dp(4f).toInt())
-        body.addView(activeTrackView, marginBottom = dp(12f).toInt())
+        body.addView(activeTrackView, marginBottom = dp(8f).toInt())
+        body.addView(sectionLabel(context, "AUDIO"), marginBottom = dp(4f).toInt())
+        body.addView(activeAudioView, marginBottom = dp(8f).toInt())
+        body.addView(sectionLabel(context, "SUBTITLE"), marginBottom = dp(4f).toInt())
+        body.addView(activeSubtitleView, marginBottom = dp(12f).toInt())
         body.addView(sectionLabel(context, "LATEST SEGMENT"), marginBottom = dp(4f).toInt())
         body.addView(latestSegmentView, marginBottom = dp(8f).toInt())
         body.addView(sectionLabel(context, "CDN STATUS"), marginBottom = dp(4f).toInt())
@@ -264,7 +284,11 @@ internal class OverlayPanelView(
         // Left column — stat sections
         val leftCol = LinearLayout(context).apply { orientation = VERTICAL }
         leftCol.addView(sectionLabel(context, "ACTIVE TRACK"), marginBottom = dp(4f).toInt())
-        leftCol.addView(activeTrackView, marginBottom = dp(12f).toInt())
+        leftCol.addView(activeTrackView, marginBottom = dp(8f).toInt())
+        leftCol.addView(sectionLabel(context, "AUDIO"), marginBottom = dp(4f).toInt())
+        leftCol.addView(activeAudioView, marginBottom = dp(8f).toInt())
+        leftCol.addView(sectionLabel(context, "SUBTITLE"), marginBottom = dp(4f).toInt())
+        leftCol.addView(activeSubtitleView, marginBottom = dp(8f).toInt())
         leftCol.addView(sectionLabel(context, "LATEST SEGMENT"), marginBottom = dp(4f).toInt())
         leftCol.addView(latestSegmentView, marginBottom = dp(8f).toInt())
         leftCol.addView(sectionLabel(context, "CDN STATUS"), marginBottom = dp(4f).toInt())

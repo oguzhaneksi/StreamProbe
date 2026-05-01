@@ -42,9 +42,9 @@ internal class OverlayManager(
 
     private var overlayView: OverlayPanelView? = null
     private var scope: CoroutineScope? = null
-    private var variantAdapter: VariantListAdapter? = null
+    private var renditionAdapter: RenditionListAdapter? = null
     private var segmentAdapter: SegmentTimelineAdapter? = null
-    private var abrAdapter: AbrTimelineAdapter? = null
+    private var switchAdapter: SwitchTimelineAdapter? = null
     private var errorAdapter: ErrorTimelineAdapter? = null
     private var isCollapsed = false
     private var viewMode = ViewMode.VARIANTS
@@ -70,14 +70,14 @@ internal class OverlayManager(
 
         overlay.onOrientationChanged = { currentActivity?.let { show(it) } }
 
-        variantAdapter = VariantListAdapter()
+        renditionAdapter = RenditionListAdapter()
         segmentAdapter = SegmentTimelineAdapter()
-        abrAdapter = AbrTimelineAdapter()
+        switchAdapter = SwitchTimelineAdapter()
         errorAdapter = ErrorTimelineAdapter()
         overlay.variantList.layoutManager = LinearLayoutManager(overlay.context)
 
         attachAutoScrollToEnd(overlay.variantList, segmentAdapter!!)
-        attachAutoScrollToEnd(overlay.variantList, abrAdapter!!)
+        attachAutoScrollToEnd(overlay.variantList, switchAdapter!!)
         attachAutoScrollToEnd(overlay.variantList, errorAdapter!!)
 
         setupDrag(overlay)
@@ -90,9 +90,9 @@ internal class OverlayManager(
     fun hide() {
         scope?.cancel()
         scope = null
-        variantAdapter = null
+        renditionAdapter = null
         segmentAdapter = null
-        abrAdapter = null
+        switchAdapter = null
         errorAdapter = null
 
         overlayView?.let { view ->
@@ -281,9 +281,9 @@ internal class OverlayManager(
         overlay.errorsViewHeader.visibility = if (isErrors) View.VISIBLE else View.GONE
 
         overlay.variantList.adapter = when (mode) {
-            ViewMode.VARIANTS -> variantAdapter
+            ViewMode.VARIANTS -> renditionAdapter
             ViewMode.SEGMENTS -> segmentAdapter
-            ViewMode.ABR -> abrAdapter
+            ViewMode.ABR -> switchAdapter
             ViewMode.ERRORS -> errorAdapter
         }
         if (mode == ViewMode.ERRORS) {
@@ -291,7 +291,7 @@ internal class OverlayManager(
             overlay.errorsTitle.text = "Errors ($errorCount)"
         }
         if (mode == ViewMode.VARIANTS) {
-            val pos = variantAdapter?.findPositionForTrack(variantAdapter?.activeTrack)
+            val pos = renditionAdapter?.findPositionForVideo(renditionAdapter?.activeVideo)
                 ?: RecyclerView.NO_POSITION
             if (pos != RecyclerView.NO_POSITION) overlay.variantList.scrollToPosition(pos)
         }
@@ -321,9 +321,23 @@ internal class OverlayManager(
         scope?.launch {
             sessionStore.manifestInfo.collect { info ->
                 if (info != null) {
-                    variantAdapter?.submitList(info.variants)
+                    val items = buildList {
+                        if (info.variants.isNotEmpty()) {
+                            add(RenditionListItem.SectionHeader("VIDEO"))
+                            info.variants.forEach { add(RenditionListItem.Video(it)) }
+                        }
+                        if (info.audioTracks.isNotEmpty()) {
+                            add(RenditionListItem.SectionHeader("AUDIO"))
+                            info.audioTracks.forEach { add(RenditionListItem.Audio(it)) }
+                        }
+                        if (info.subtitleTracks.isNotEmpty()) {
+                            add(RenditionListItem.SectionHeader("SUBTITLES"))
+                            info.subtitleTracks.forEach { add(RenditionListItem.Subtitle(it)) }
+                        }
+                    }
+                    renditionAdapter?.submitList(items)
                     overlay.variantList.post {
-                        val pos = variantAdapter?.findPositionForTrack(variantAdapter?.activeTrack)
+                        val pos = renditionAdapter?.findPositionForVideo(renditionAdapter?.activeVideo)
                             ?: RecyclerView.NO_POSITION
                         if (viewMode == ViewMode.VARIANTS && pos != RecyclerView.NO_POSITION) {
                             overlay.variantList.scrollToPosition(pos)
@@ -336,11 +350,25 @@ internal class OverlayManager(
         scope?.launch {
             sessionStore.activeTrack.collect { track ->
                 overlay.activeTrackView.text = OverlayFormatters.formatActiveTrack(track)
-                variantAdapter?.activeTrack = track
+                renditionAdapter?.activeVideo = track
                 if (viewMode == ViewMode.VARIANTS) {
-                    val pos = variantAdapter?.findPositionForTrack(track) ?: RecyclerView.NO_POSITION
+                    val pos = renditionAdapter?.findPositionForVideo(track) ?: RecyclerView.NO_POSITION
                     if (pos != RecyclerView.NO_POSITION) overlay.variantList.scrollToPosition(pos)
                 }
+            }
+        }
+
+        scope?.launch {
+            sessionStore.activeAudioTrack.collect { audio ->
+                overlay.activeAudioView.text = OverlayFormatters.formatActiveAudio(audio)
+                renditionAdapter?.activeAudio = audio
+            }
+        }
+
+        scope?.launch {
+            sessionStore.activeSubtitleTrack.collect { subtitle ->
+                overlay.activeSubtitleView.text = OverlayFormatters.formatActiveSubtitle(subtitle)
+                renditionAdapter?.activeSubtitle = subtitle
             }
         }
 
@@ -358,8 +386,8 @@ internal class OverlayManager(
         }
 
         scope?.launch {
-            sessionStore.abrSwitchEvents.collect { events ->
-                abrAdapter?.submitList(events)
+            sessionStore.trackSwitchEvents.collect { events ->
+                switchAdapter?.submitList(events)
             }
         }
 

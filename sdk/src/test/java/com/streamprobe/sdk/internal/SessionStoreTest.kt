@@ -1,13 +1,16 @@
 package com.streamprobe.sdk.internal
 
 import com.streamprobe.sdk.model.ActiveTrackInfo
-import com.streamprobe.sdk.model.AbrSwitchEvent
+import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
 import com.streamprobe.sdk.model.DashManifestInfo
 import com.streamprobe.sdk.model.HlsManifestInfo
 import com.streamprobe.sdk.model.SegmentMetric
+import com.streamprobe.sdk.model.SubtitleKind
+import com.streamprobe.sdk.model.SubtitleTrackInfo
 import com.streamprobe.sdk.model.SwitchReason
+import com.streamprobe.sdk.model.TrackSwitchEvent
 import com.streamprobe.sdk.model.VariantInfo
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -229,7 +232,7 @@ class SessionStoreTest {
         assertEquals("https://example.com/seg500.ts", result.last().uri)
     }
 
-    // ── ABR switch event tests ────────────────────────────────────────────────
+    // ── Track switch event tests ─────────────────────────────────────────────
 
     private fun makeTrack(height: Int = 720, bitrate: Int = 2_500_000) = ActiveTrackInfo(
         bitrate = bitrate,
@@ -238,12 +241,12 @@ class SessionStoreTest {
         codecs = "avc1.42e00a",
     )
 
-    private fun makeAbrEvent(
+    private fun makeVideoSwitchEvent(
         timestampMs: Long = 1_000L,
         previousTrack: ActiveTrackInfo? = makeTrack(480),
         newTrack: ActiveTrackInfo = makeTrack(720),
         reason: SwitchReason = SwitchReason.ADAPTIVE,
-    ) = AbrSwitchEvent(
+    ) = TrackSwitchEvent.VideoSwitch(
         timestampMs = timestampMs,
         previousTrack = previousTrack,
         newTrack = newTrack,
@@ -252,42 +255,108 @@ class SessionStoreTest {
     )
 
     @Test
-    fun `initial ABR switch events list is empty`() = runTest {
-        assertEquals(emptyList<AbrSwitchEvent>(), store.abrSwitchEvents.first())
+    fun `initial track switch events list is empty`() = runTest {
+        assertEquals(emptyList<TrackSwitchEvent>(), store.trackSwitchEvents.first())
     }
 
     @Test
-    fun `addAbrSwitchEvent appends to list`() = runTest {
-        val e1 = makeAbrEvent(timestampMs = 1_000L)
-        val e2 = makeAbrEvent(timestampMs = 2_000L)
+    fun `addTrackSwitchEvent appends to list`() = runTest {
+        val e1 = makeVideoSwitchEvent(timestampMs = 1_000L)
+        val e2 = makeVideoSwitchEvent(timestampMs = 2_000L)
 
-        store.addAbrSwitchEvent(e1)
-        store.addAbrSwitchEvent(e2)
+        store.addTrackSwitchEvent(e1)
+        store.addTrackSwitchEvent(e2)
 
-        val result = store.abrSwitchEvents.first()
+        val result = store.trackSwitchEvents.first()
         assertEquals(2, result.size)
         assertEquals(e1, result[0])
         assertEquals(e2, result[1])
     }
 
     @Test
-    fun `ABR switch events list caps at max size`() = runTest {
-        repeat(201) { i ->
-            store.addAbrSwitchEvent(makeAbrEvent(timestampMs = i.toLong()))
-        }
+    fun `addTrackSwitchEvent accepts AudioSwitch and SubtitleSwitch`() = runTest {
+        val audioSwitch = TrackSwitchEvent.AudioSwitch(
+            timestampMs = 1_000L,
+            bufferDurationMs = 3_000L,
+            reason = SwitchReason.MANUAL,
+            previousTrack = null,
+            newTrack = AudioTrackInfo(
+                language = "en", label = "English", codecs = "mp4a.40.2",
+                bitrate = 128_000, channelCount = 2, sampleRate = 48_000,
+            ),
+        )
+        val subtitleSwitch = TrackSwitchEvent.SubtitleSwitch(
+            timestampMs = 2_000L,
+            bufferDurationMs = 3_000L,
+            reason = SwitchReason.MANUAL,
+            previousTrack = null,
+            newTrack = SubtitleTrackInfo(
+                language = "tr", label = "Turkish",
+                mimeType = "text/vtt", kind = SubtitleKind.SIDECAR,
+            ),
+        )
 
-        val result = store.abrSwitchEvents.first()
-        assertEquals(200, result.size)
-        assertEquals(1L, result.first().timestampMs)
-        assertEquals(200L, result.last().timestampMs)
+        store.addTrackSwitchEvent(audioSwitch)
+        store.addTrackSwitchEvent(subtitleSwitch)
+
+        val result = store.trackSwitchEvents.first()
+        assertEquals(2, result.size)
+        assertEquals(audioSwitch, result[0])
+        assertEquals(subtitleSwitch, result[1])
     }
 
     @Test
-    fun `clear resets ABR switch events`() = runTest {
-        store.addAbrSwitchEvent(makeAbrEvent())
+    fun `track switch events list caps at MAX_TRACK_SWITCH_EVENTS`() = runTest {
+        repeat(SessionStore.MAX_TRACK_SWITCH_EVENTS + 1) { i ->
+            store.addTrackSwitchEvent(makeVideoSwitchEvent(timestampMs = i.toLong()))
+        }
+
+        val result = store.trackSwitchEvents.first()
+        assertEquals(SessionStore.MAX_TRACK_SWITCH_EVENTS, result.size)
+        assertEquals(1L, (result.first() as TrackSwitchEvent.VideoSwitch).timestampMs)
+        assertEquals(SessionStore.MAX_TRACK_SWITCH_EVENTS.toLong(), (result.last() as TrackSwitchEvent.VideoSwitch).timestampMs)
+    }
+
+    @Test
+    fun `updateActiveAudioTrack emits and can be set to null`() = runTest {
+        val audio = AudioTrackInfo(
+            language = "en", label = null, codecs = "mp4a.40.2",
+            bitrate = 128_000, channelCount = 2, sampleRate = 48_000,
+        )
+        store.updateActiveAudioTrack(audio)
+        assertEquals(audio, store.activeAudioTrack.first())
+
+        store.updateActiveAudioTrack(null)
+        assertNull(store.activeAudioTrack.first())
+    }
+
+    @Test
+    fun `updateActiveSubtitleTrack emits and can be set to null`() = runTest {
+        val subtitle = SubtitleTrackInfo(
+            language = "tr", label = "Turkish", mimeType = "text/vtt", kind = SubtitleKind.SIDECAR,
+        )
+        store.updateActiveSubtitleTrack(subtitle)
+        assertEquals(subtitle, store.activeSubtitleTrack.first())
+
+        store.updateActiveSubtitleTrack(null)
+        assertNull(store.activeSubtitleTrack.first())
+    }
+
+    @Test
+    fun `clear resets track switch events and audio+subtitle state`() = runTest {
+        store.addTrackSwitchEvent(makeVideoSwitchEvent())
+        store.updateActiveAudioTrack(AudioTrackInfo(
+            language = "en", label = null, codecs = null,
+            bitrate = 128_000, channelCount = 2, sampleRate = 48_000,
+        ))
+        store.updateActiveSubtitleTrack(SubtitleTrackInfo(
+            language = "tr", label = null, mimeType = null, kind = SubtitleKind.SIDECAR,
+        ))
 
         store.clear()
 
-        assertEquals(emptyList<AbrSwitchEvent>(), store.abrSwitchEvents.first())
+        assertEquals(emptyList<TrackSwitchEvent>(), store.trackSwitchEvents.first())
+        assertNull(store.activeAudioTrack.first())
+        assertNull(store.activeSubtitleTrack.first())
     }
 }

@@ -161,6 +161,41 @@ probe.detach()         // tears down interceptor, clears session, hides overlay
 
 ---
 
+### 3.9 Audio & Subtitle Track Monitoring
+
+**Captured per session:**
+
+- **`ManifestInfo.audioTracks: List<AudioTrackInfo>`** — audio renditions parsed from the manifest. For HLS, explicit `#EXT-X-MEDIA:TYPE=AUDIO` entries plus one synthetic `isMuxed = true` entry when the primary variant stream carries muxed audio. For DASH, `AdaptationSet` elements with `TRACK_TYPE_AUDIO`.
+- **`ManifestInfo.subtitleTracks: List<SubtitleTrackInfo>`** — subtitle/CC renditions. For HLS, `#EXT-X-MEDIA:TYPE=SUBTITLES` entries (`SubtitleKind.SIDECAR`), `#EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS` entries (`SubtitleKind.CC_DECLARED`), and inline muxed caption formats (`SubtitleKind.CC_MUXED`). For DASH, `AdaptationSet` elements with `TRACK_TYPE_TEXT`.
+
+**Active track state (real-time `StateFlow`):**
+
+| Field | Type | Description |
+|---|---|---|
+| `SessionStore.activeAudioTrack` | `StateFlow<AudioTrackInfo?>` | Currently rendering audio rendition |
+| `SessionStore.activeSubtitleTrack` | `StateFlow<SubtitleTrackInfo?>` | Currently rendering subtitle/CC track; `null` when disabled |
+
+Both flows are updated in `onDownstreamFormatChanged` via the `AnalyticsListener` interface.
+
+**`TrackSwitchEvent` — unified sealed interface (replaces `AbrSwitchEvent`):**
+
+```
+sealed interface TrackSwitchEvent
+  ├── VideoSwitch(timestampMs, bufferDurationMs, reason, previousTrack?, newTrack)
+  ├── AudioSwitch(timestampMs, bufferDurationMs, reason, previousTrack?, newTrack)
+  └── SubtitleSwitch(timestampMs, bufferDurationMs, reason, previousTrack?, newTrack?)
+```
+
+`SubtitleSwitch.newTrack` is `null` when the user disables subtitles. `reason` is the same `SwitchReason` enum used for video ABR switches (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`).
+
+**Overlay representation:**
+
+- **Summary panel** — two new rows: "AUDIO" (`formatActiveAudio()`) and "SUBTITLE" (`formatActiveSubtitle()`) between the active video track row and the latest segment row.
+- **Tracks tab** — the former "Variants" tab is now "Tracks". Renditions are grouped into three sections (`VIDEO`, `AUDIO`, `SUBTITLES`) via `RenditionListAdapter`. An active-dot indicator marks the currently selected rendition in each section.
+- **Switches tab** — the former "ABR" tab is now "Switches". `SwitchTimelineAdapter` renders all `TrackSwitchEvent` subtypes with colour-coded type labels: `VID` (blue), `AUD` (green), `SUB` (purple).
+
+---
+
 ## 4. Technical Design
 
 ### 4.1 Interception Points
