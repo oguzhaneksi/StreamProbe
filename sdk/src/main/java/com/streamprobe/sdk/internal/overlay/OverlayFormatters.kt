@@ -111,7 +111,7 @@ internal object OverlayFormatters {
         val lang = subtitle.label
             ?: subtitle.language?.let { Locale.forLanguageTag(it).displayLanguage.takeIf { l -> l.isNotBlank() } }
         if (!lang.isNullOrBlank()) parts += lang
-        if (subtitle.kind != SubtitleKind.SIDECAR) parts += "(CC)"
+        if (subtitle.kind == SubtitleKind.CC) parts += "(CC)"
         val mimeShort = when (subtitle.mimeType) {
             "text/vtt", "application/x-media3-webvtt" -> "WebVTT"
             "application/ttml+xml"                    -> "TTML"

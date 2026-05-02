@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.media3.common.C
 import androidx.media3.common.Format
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
@@ -108,7 +109,7 @@ internal class PlayerInterceptor(
                 Log.d(TAG, "Video switch: ${lastVideoTrack?.width}x${lastVideoTrack?.height} → ${newTrack.width}x${newTrack.height} reason=${mediaLoadData.trackSelectionReason}")
             }
             C.TRACK_TYPE_AUDIO -> {
-                val newTrack = format.toAudioTrackInfo(isMuxed = false)
+                val newTrack = format.toAudioTrackInfo()
                 if (lastAudioTrack == newTrack) return
                 sessionStore.addTrackSwitchEvent(
                     TrackSwitchEvent.AudioSwitch(timestamp, buffer, reason, lastAudioTrack, newTrack)
@@ -117,7 +118,7 @@ internal class PlayerInterceptor(
                 Log.d(TAG, "Audio switch: ${newTrack.language} ${newTrack.codecs}")
             }
             C.TRACK_TYPE_TEXT -> {
-                val newTrack = format.toSubtitleTrackInfo(SubtitleKind.SIDECAR)
+                val newTrack = format.toSubtitleTrackInfo()
                 if (lastSubtitleTrack == newTrack) return
                 sessionStore.addTrackSwitchEvent(
                     TrackSwitchEvent.SubtitleSwitch(timestamp, buffer, reason, lastSubtitleTrack, newTrack)
@@ -273,10 +274,10 @@ internal class PlayerInterceptor(
                         add(rendition.format.toSubtitleTrackInfo(SubtitleKind.SIDECAR))
                     }
                     playlist.closedCaptions.forEach { rendition ->
-                        add(rendition.format.toSubtitleTrackInfo(SubtitleKind.CC_DECLARED))
+                        add(rendition.format.toSubtitleTrackInfo(SubtitleKind.CC))
                     }
                     playlist.muxedCaptionFormats?.forEach { fmt ->
-                        add(fmt.toSubtitleTrackInfo(SubtitleKind.CC_MUXED))
+                        add(fmt.toSubtitleTrackInfo(SubtitleKind.CC))
                     }
                 }
                 sessionStore.updateManifest(HlsManifestInfo(variants, audioTracks, subtitleTracks))
@@ -335,8 +336,8 @@ internal class PlayerInterceptor(
 
             when (group.type) {
                 C.TRACK_TYPE_VIDEO -> foundVideo = format
-                C.TRACK_TYPE_AUDIO -> foundAudio = format.toAudioTrackInfo(isMuxed = false)
-                C.TRACK_TYPE_TEXT  -> foundSubtitle = format.toSubtitleTrackInfo(SubtitleKind.SIDECAR)
+                C.TRACK_TYPE_AUDIO -> foundAudio = format.toAudioTrackInfo()
+                C.TRACK_TYPE_TEXT  -> foundSubtitle = format.toSubtitleTrackInfo()
             }
         }
 
@@ -381,6 +382,7 @@ internal class PlayerInterceptor(
         channelCount = channelCount,
         sampleRate = sampleRate,
         isMuxed = isMuxed,
+        id = id,
     )
 
     internal fun Format.toSubtitleTrackInfo(kind: SubtitleKind) = SubtitleTrackInfo(
@@ -388,7 +390,18 @@ internal class PlayerInterceptor(
         label = labels.firstOrNull()?.value,
         mimeType = sampleMimeType,
         kind = kind,
+        id = id,
     )
+
+    private fun Format.toAudioTrackInfo() =
+        toAudioTrackInfo(isMuxed = containerMimeType?.startsWith("video/") == true)
+
+    private fun Format.toSubtitleTrackInfo(): SubtitleTrackInfo {
+        val kind = if (sampleMimeType == MimeTypes.APPLICATION_CEA608 ||
+                       sampleMimeType == MimeTypes.APPLICATION_CEA708) SubtitleKind.CC
+                   else SubtitleKind.SIDECAR
+        return toSubtitleTrackInfo(kind)
+    }
 
     @VisibleForTesting
     internal fun mapSelectionReason(reason: Int): SwitchReason = when (reason) {

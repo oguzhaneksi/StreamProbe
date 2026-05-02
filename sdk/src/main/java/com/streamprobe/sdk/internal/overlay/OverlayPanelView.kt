@@ -51,10 +51,10 @@ internal class OverlayPanelView(
     val activeSubtitleView: TextView
     val latestSegmentView: TextView
     val cdnStatusView: TextView
-    val variantList: RecyclerView
-    val variantsChip: OverlayFilterChip
+    val trackList: RecyclerView
+    val tracksChip: OverlayFilterChip
     val segmentsChip: OverlayFilterChip
-    val abrChip: OverlayFilterChip
+    val switchesChip: OverlayFilterChip
 
     /** Set by [OverlayManager] to be notified when the device orientation changes. */
     var onOrientationChanged: (() -> Unit)? = null
@@ -162,7 +162,7 @@ internal class OverlayPanelView(
 
         // ── Filter chip row ───────────────────────────────────────────────────
 
-        variantsChip = OverlayFilterChip(context).apply {
+        tracksChip = OverlayFilterChip(context).apply {
             text = "Tracks"
             isChecked = true
         }
@@ -170,18 +170,18 @@ internal class OverlayPanelView(
             text = "Segments"
             isChecked = false
         }
-        abrChip = OverlayFilterChip(context).apply {
+        switchesChip = OverlayFilterChip(context).apply {
             text = "Switches"
             isChecked = false
         }
         val chipRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(variantsChip, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
+            addView(tracksChip, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
                 it.marginEnd = dp(6f).toInt()
             })
             addView(segmentsChip, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
-            addView(abrChip, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
+            addView(switchesChip, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
                 it.marginStart = dp(6f).toInt()
             })
         }
@@ -238,11 +238,11 @@ internal class OverlayPanelView(
 
         // ── Bounded RecyclerView ──────────────────────────────────────────────
 
-        variantList = BoundedRecyclerView(context, bodyMaxHeightPx)
-        variantList.isNestedScrollingEnabled = true
-        variantList.isVerticalScrollBarEnabled = true
-        variantList.isVerticalFadingEdgeEnabled = true
-        variantList.setFadingEdgeLength(context.dp(12f).toInt())
+        trackList = BoundedRecyclerView(context, bodyMaxHeightPx)
+        trackList.isNestedScrollingEnabled = true
+        trackList.isVerticalScrollBarEnabled = true
+        trackList.isVerticalFadingEdgeEnabled = true
+        trackList.setFadingEdgeLength(context.dp(12f).toInt())
 
         // ── Body (collapsible) ────────────────────────────────────────────────
 
@@ -277,7 +277,7 @@ internal class OverlayPanelView(
         body.addView(cdnStatusView, marginBottom = dp(12f).toInt())
         body.addView(chipRow, marginBottom = dp(6f).toInt())
         body.addView(errorsViewHeader, marginBottom = dp(6f).toInt())
-        body.addView(variantList, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        body.addView(trackList, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
     }
 
     private fun buildLandscapeBody(body: LinearLayout, chipRow: LinearLayout) {
@@ -298,7 +298,7 @@ internal class OverlayPanelView(
         val rightCol = LinearLayout(context).apply { orientation = VERTICAL }
         rightCol.addView(chipRow, marginBottom = dp(6f).toInt())
         rightCol.addView(errorsViewHeader, marginBottom = dp(6f).toInt())
-        rightCol.addView(variantList, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        rightCol.addView(trackList, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
         body.addView(leftCol, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).also {
             it.marginEnd = dp(12f).toInt()

@@ -6,10 +6,8 @@ package com.streamprobe.sdk.model
 enum class SubtitleKind {
     /** Sidecar WebVTT/TTML rendition declared in the manifest. */
     SIDECAR,
-    /** CEA-608/708 closed caption explicitly declared at manifest level. */
-    CC_DECLARED,
-    /** Closed caption embedded inside a video variant (HLS muxedCaptionFormats). */
-    CC_MUXED,
+    /** CEA-608/708 closed caption (declared in manifest or muxed in a video variant). */
+    CC,
 }
 
 /**
@@ -23,4 +21,11 @@ data class SubtitleTrackInfo(
     val label: String?,
     val mimeType: String?,
     val kind: SubtitleKind,
+    /** Format id from the manifest; used for reliable active-track matching. Null if unavailable. */
+    val id: String? = null,
 )
+
+/** Returns true if [other] refers to the same subtitle rendition. Prefers [id] when both are non-null. */
+internal fun SubtitleTrackInfo.isSameRenditionAs(other: SubtitleTrackInfo): Boolean =
+    if (id != null && other.id != null) id == other.id
+    else language == other.language && mimeType == other.mimeType

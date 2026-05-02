@@ -14,4 +14,11 @@ data class AudioTrackInfo(
     val sampleRate: Int,
     /** True if this audio is muxed inside a video variant (HLS muxedAudioFormat). */
     val isMuxed: Boolean = false,
+    /** Format id from the manifest; used for reliable active-track matching. Null if unavailable. */
+    val id: String? = null,
 )
+
+/** Returns true if [other] refers to the same audio rendition. Prefers [id] when both are non-null. */
+internal fun AudioTrackInfo.isSameRenditionAs(other: AudioTrackInfo): Boolean =
+    if (id != null && other.id != null) id == other.id
+    else language == other.language && codecs == other.codecs

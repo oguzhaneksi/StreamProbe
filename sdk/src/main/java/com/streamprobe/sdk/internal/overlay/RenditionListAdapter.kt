@@ -8,6 +8,7 @@ import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.SubtitleTrackInfo
 import com.streamprobe.sdk.model.VariantInfo
+import com.streamprobe.sdk.model.isSameRenditionAs
 
 /**
  * Sealed item type for the unified rendition list (video variants, audio tracks, subtitles).
@@ -72,20 +73,14 @@ internal class RenditionListAdapter :
     internal fun findPositionForAudio(track: AudioTrackInfo?): Int {
         if (track == null) return RecyclerView.NO_POSITION
         return currentList.indexOfFirst { item ->
-            item is RenditionListItem.Audio &&
-                item.info.language == track.language &&
-                item.info.codecs == track.codecs &&
-                item.info.isMuxed == track.isMuxed
+            item is RenditionListItem.Audio && item.info.isSameRenditionAs(track)
         }.takeIf { it >= 0 } ?: RecyclerView.NO_POSITION
     }
 
     internal fun findPositionForSubtitle(track: SubtitleTrackInfo?): Int {
         if (track == null) return RecyclerView.NO_POSITION
         return currentList.indexOfFirst { item ->
-            item is RenditionListItem.Subtitle &&
-                item.info.language == track.language &&
-                item.info.kind == track.kind &&
-                item.info.mimeType == track.mimeType
+            item is RenditionListItem.Subtitle && item.info.isSameRenditionAs(track)
         }.takeIf { it >= 0 } ?: RecyclerView.NO_POSITION
     }
 
@@ -128,21 +123,21 @@ internal class RenditionListAdapter :
 
         private val DIFF = object : DiffUtil.ItemCallback<RenditionListItem>() {
             override fun areItemsTheSame(old: RenditionListItem, new: RenditionListItem): Boolean =
-                when {
-                    old is RenditionListItem.SectionHeader && new is RenditionListItem.SectionHeader ->
+                when (old) {
+                    is RenditionListItem.SectionHeader if new is RenditionListItem.SectionHeader ->
                         old.title == new.title
-                    old is RenditionListItem.Video && new is RenditionListItem.Video ->
+
+                    is RenditionListItem.Video if new is RenditionListItem.Video ->
                         old.info.bitrate == new.info.bitrate &&
-                            old.info.width == new.info.width &&
-                            old.info.height == new.info.height
-                    old is RenditionListItem.Audio && new is RenditionListItem.Audio ->
-                        old.info.language == new.info.language &&
-                            old.info.codecs == new.info.codecs &&
-                            old.info.isMuxed == new.info.isMuxed
-                    old is RenditionListItem.Subtitle && new is RenditionListItem.Subtitle ->
-                        old.info.language == new.info.language &&
-                            old.info.kind == new.info.kind &&
-                            old.info.mimeType == new.info.mimeType
+                                old.info.width == new.info.width &&
+                                old.info.height == new.info.height
+
+                    is RenditionListItem.Audio if new is RenditionListItem.Audio ->
+                        old.info.isSameRenditionAs(new.info)
+
+                    is RenditionListItem.Subtitle if new is RenditionListItem.Subtitle ->
+                        old.info.isSameRenditionAs(new.info)
+
                     else -> false
                 }
 

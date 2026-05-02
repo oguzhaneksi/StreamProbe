@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.TrackGroup
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
@@ -22,6 +23,7 @@ import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.DashManifestInfo
+import com.streamprobe.sdk.model.SubtitleKind
 import com.streamprobe.sdk.model.SwitchReason
 import com.streamprobe.sdk.model.TrackSwitchEvent
 import kotlinx.coroutines.flow.first
@@ -596,5 +598,129 @@ class PlayerInterceptorTest {
         assertEquals(2, result.variants.size)
         assertEquals(360, result.variants[0].height)
         assertEquals(1080, result.variants[1].height)
+    }
+
+    // ── probeTracks / onDownstreamFormatChanged track type inference ──────────
+
+    private fun makeSingleSelectedTrackGroup(format: Format): Tracks {
+        val trackGroup = TrackGroup(format)
+        val group = Tracks.Group(
+            trackGroup,
+            /* adaptiveSupported= */ false,
+            /* trackSupport= */ intArrayOf(C.FORMAT_HANDLED),
+            /* trackSelected= */ booleanArrayOf(true),
+        )
+        return Tracks(listOf(group))
+    }
+
+    @Test
+    fun `probeTracks infers isMuxed true when audio containerMimeType starts with video`() = runTest {
+        val muxedAudioFormat = Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setContainerMimeType(MimeTypes.VIDEO_MP2T)
+            .setLanguage("en")
+            .setAverageBitrate(128_000)
+            .setChannelCount(2)
+            .setSampleRate(48_000)
+            .build()
+
+        `when`(player.currentManifest).thenReturn(null)
+        `when`(player.currentTracks).thenReturn(makeSingleSelectedTrackGroup(muxedAudioFormat))
+
+        interceptor.attach(player)
+
+        val audio = sessionStore.activeAudioTrack.first()
+        assertNotNull(audio)
+        assertTrue(audio!!.isMuxed)
+    }
+
+    @Test
+    fun `probeTracks infers isMuxed false when audio containerMimeType is non-video`() = runTest {
+        val audioFormat = Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setLanguage("en")
+            .setAverageBitrate(128_000)
+            .setChannelCount(2)
+            .setSampleRate(48_000)
+            .build()
+
+        `when`(player.currentManifest).thenReturn(null)
+        `when`(player.currentTracks).thenReturn(makeSingleSelectedTrackGroup(audioFormat))
+
+        interceptor.attach(player)
+
+        val audio = sessionStore.activeAudioTrack.first()
+        assertNotNull(audio)
+        assertTrue(!audio!!.isMuxed)
+    }
+
+    @Test
+    fun `probeTracks infers CC for any CEA-608 subtitle`() = runTest {
+        val ccFormat = Format.Builder()
+            .setSampleMimeType(MimeTypes.APPLICATION_CEA608)
+            .setLanguage("en")
+            .build()
+
+        `when`(player.currentManifest).thenReturn(null)
+        `when`(player.currentTracks).thenReturn(makeSingleSelectedTrackGroup(ccFormat))
+
+        interceptor.attach(player)
+
+        val subtitle = sessionStore.activeSubtitleTrack.first()
+        assertNotNull(subtitle)
+        assertEquals(SubtitleKind.CC, subtitle!!.kind)
+    }
+
+    @Test
+    fun `probeTracks infers SIDECAR for non-CEA subtitle`() = runTest {
+        val sidecarFormat = Format.Builder()
+            .setSampleMimeType(MimeTypes.TEXT_VTT)
+            .setLanguage("fr")
+            .build()
+
+        `when`(player.currentManifest).thenReturn(null)
+        `when`(player.currentTracks).thenReturn(makeSingleSelectedTrackGroup(sidecarFormat))
+
+        interceptor.attach(player)
+
+        val subtitle = sessionStore.activeSubtitleTrack.first()
+        assertNotNull(subtitle)
+        assertEquals(SubtitleKind.SIDECAR, subtitle!!.kind)
+    }
+
+    @Test
+    fun `onDownstreamFormatChanged infers isMuxed true for audio in video container`() = runTest {
+        val muxedAudioFormat = Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setContainerMimeType(MimeTypes.VIDEO_MP2T)
+            .setLanguage("en")
+            .setAverageBitrate(128_000)
+            .build()
+        val mediaLoadData = MediaLoadData(
+            C.DATA_TYPE_MEDIA, C.TRACK_TYPE_AUDIO, muxedAudioFormat,
+            C.SELECTION_REASON_INITIAL, null, 0L, 0L,
+        )
+
+        interceptor.onDownstreamFormatChanged(makeEventTime(), mediaLoadData)
+
+        val event = sessionStore.trackSwitchEvents.first()[0] as TrackSwitchEvent.AudioSwitch
+        assertTrue(event.newTrack.isMuxed)
+    }
+
+    @Test
+    fun `onDownstreamFormatChanged infers CC for any CEA-608 subtitle`() = runTest {
+        val ccFormat = Format.Builder()
+            .setSampleMimeType(MimeTypes.APPLICATION_CEA608)
+            .setLanguage("en")
+            .build()
+        val mediaLoadData = MediaLoadData(
+            C.DATA_TYPE_MEDIA, C.TRACK_TYPE_TEXT, ccFormat,
+            C.SELECTION_REASON_INITIAL, null, 0L, 0L,
+        )
+
+        interceptor.onDownstreamFormatChanged(makeEventTime(), mediaLoadData)
+
+        val event = sessionStore.trackSwitchEvents.first()[0] as TrackSwitchEvent.SubtitleSwitch
+        assertEquals(SubtitleKind.CC, event.newTrack!!.kind)
     }
 }

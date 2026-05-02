@@ -338,8 +338,8 @@ class OverlayFormattingTest {
     }
 
     @Test
-    fun `formatActiveSubtitle CC_DECLARED adds (CC) suffix`() {
-        val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(kind = SubtitleKind.CC_DECLARED))
+    fun `formatActiveSubtitle CC adds (CC) suffix`() {
+        val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(kind = SubtitleKind.CC))
         assertTrue("Expected '(CC)' in: $result", result.contains("(CC)"))
     }
 

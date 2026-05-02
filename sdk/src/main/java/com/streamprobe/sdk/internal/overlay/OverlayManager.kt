@@ -38,7 +38,7 @@ internal class OverlayManager(
     private val sessionStore: SessionStore,
 ) {
 
-    private enum class ViewMode { VARIANTS, SEGMENTS, ABR, ERRORS }
+    private enum class ViewMode { TRACKS, SEGMENTS, SWITCHES, ERRORS }
 
     private var overlayView: OverlayPanelView? = null
     private var scope: CoroutineScope? = null
@@ -47,8 +47,8 @@ internal class OverlayManager(
     private var switchAdapter: SwitchTimelineAdapter? = null
     private var errorAdapter: ErrorTimelineAdapter? = null
     private var isCollapsed = false
-    private var viewMode = ViewMode.VARIANTS
-    private var previousViewMode = ViewMode.VARIANTS
+    private var viewMode = ViewMode.TRACKS
+    private var previousViewMode = ViewMode.TRACKS
 
     private var currentActivity: ComponentActivity? = null
     private var lifecycleObserver: DefaultLifecycleObserver? = null
@@ -74,11 +74,11 @@ internal class OverlayManager(
         segmentAdapter = SegmentTimelineAdapter()
         switchAdapter = SwitchTimelineAdapter()
         errorAdapter = ErrorTimelineAdapter()
-        overlay.variantList.layoutManager = LinearLayoutManager(overlay.context)
+        overlay.trackList.layoutManager = LinearLayoutManager(overlay.context)
 
-        attachAutoScrollToEnd(overlay.variantList, segmentAdapter!!)
-        attachAutoScrollToEnd(overlay.variantList, switchAdapter!!)
-        attachAutoScrollToEnd(overlay.variantList, errorAdapter!!)
+        attachAutoScrollToEnd(overlay.trackList, segmentAdapter!!)
+        attachAutoScrollToEnd(overlay.trackList, switchAdapter!!)
+        attachAutoScrollToEnd(overlay.trackList, errorAdapter!!)
 
         setupDrag(overlay)
         setupCollapseToggle(overlay)
@@ -209,16 +209,16 @@ internal class OverlayManager(
     private fun setupChips(overlay: OverlayPanelView) {
         applyViewMode(overlay, viewMode)
 
-        overlay.variantsChip.setOnClickListener {
-            viewMode = ViewMode.VARIANTS
+        overlay.tracksChip.setOnClickListener {
+            viewMode = ViewMode.TRACKS
             applyViewMode(overlay, viewMode)
         }
         overlay.segmentsChip.setOnClickListener {
             viewMode = ViewMode.SEGMENTS
             applyViewMode(overlay, viewMode)
         }
-        overlay.abrChip.setOnClickListener {
-            viewMode = ViewMode.ABR
+        overlay.switchesChip.setOnClickListener {
+            viewMode = ViewMode.SWITCHES
             applyViewMode(overlay, viewMode)
         }
 
@@ -264,36 +264,31 @@ internal class OverlayManager(
 
     private fun applyViewMode(overlay: OverlayPanelView, mode: ViewMode) {
         val isErrors = mode == ViewMode.ERRORS
-        overlay.variantsChip.isChecked = mode == ViewMode.VARIANTS
+        overlay.tracksChip.isChecked = mode == ViewMode.TRACKS
         overlay.segmentsChip.isChecked = mode == ViewMode.SEGMENTS
-        overlay.abrChip.isChecked = mode == ViewMode.ABR
+        overlay.switchesChip.isChecked = mode == ViewMode.SWITCHES
 
         // Show chip row or errors header
         val chipRowVisibility = if (isErrors) View.GONE else View.VISIBLE
-        val chipRow = overlay.variantsChip.parent as? View
+        val chipRow = overlay.tracksChip.parent as? View
         if (chipRow != null) {
             chipRow.visibility = chipRowVisibility
         } else {
-            overlay.variantsChip.visibility = chipRowVisibility
+            overlay.tracksChip.visibility = chipRowVisibility
             overlay.segmentsChip.visibility = chipRowVisibility
-            overlay.abrChip.visibility = chipRowVisibility
+            overlay.switchesChip.visibility = chipRowVisibility
         }
         overlay.errorsViewHeader.visibility = if (isErrors) View.VISIBLE else View.GONE
 
-        overlay.variantList.adapter = when (mode) {
-            ViewMode.VARIANTS -> renditionAdapter
+        overlay.trackList.adapter = when (mode) {
+            ViewMode.TRACKS -> renditionAdapter
             ViewMode.SEGMENTS -> segmentAdapter
-            ViewMode.ABR -> switchAdapter
+            ViewMode.SWITCHES -> switchAdapter
             ViewMode.ERRORS -> errorAdapter
         }
         if (mode == ViewMode.ERRORS) {
             val errorCount = sessionStore.playbackErrors.value.size
             overlay.errorsTitle.text = "Errors ($errorCount)"
-        }
-        if (mode == ViewMode.VARIANTS) {
-            val pos = renditionAdapter?.findPositionForVideo(renditionAdapter?.activeVideo)
-                ?: RecyclerView.NO_POSITION
-            if (pos != RecyclerView.NO_POSITION) overlay.variantList.scrollToPosition(pos)
         }
     }
 
@@ -336,13 +331,6 @@ internal class OverlayManager(
                         }
                     }
                     renditionAdapter?.submitList(items)
-                    overlay.variantList.post {
-                        val pos = renditionAdapter?.findPositionForVideo(renditionAdapter?.activeVideo)
-                            ?: RecyclerView.NO_POSITION
-                        if (viewMode == ViewMode.VARIANTS && pos != RecyclerView.NO_POSITION) {
-                            overlay.variantList.scrollToPosition(pos)
-                        }
-                    }
                 }
             }
         }
@@ -351,10 +339,6 @@ internal class OverlayManager(
             sessionStore.activeTrack.collect { track ->
                 overlay.activeTrackView.text = OverlayFormatters.formatActiveTrack(track)
                 renditionAdapter?.activeVideo = track
-                if (viewMode == ViewMode.VARIANTS) {
-                    val pos = renditionAdapter?.findPositionForVideo(track) ?: RecyclerView.NO_POSITION
-                    if (pos != RecyclerView.NO_POSITION) overlay.variantList.scrollToPosition(pos)
-                }
             }
         }
 

@@ -14,6 +14,7 @@ import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.SubtitleKind
 import com.streamprobe.sdk.model.SubtitleTrackInfo
+import com.streamprobe.sdk.model.isSameRenditionAs
 
 /**
  * A single row in the rendition list — handles video, audio and subtitle items.
@@ -96,10 +97,7 @@ internal class RenditionItemView(context: Context) : LinearLayout(context) {
 
     private fun bindAudio(item: RenditionListItem.Audio, active: AudioTrackInfo?) {
         val info = item.info
-        val isActive = active != null &&
-            info.language == active.language &&
-            info.codecs == active.codecs &&
-            info.isMuxed == active.isMuxed
+        val isActive = active != null && info.isSameRenditionAs(active)
 
         dot.background = if (isActive) OverlayDrawables.dotActive() else OverlayDrawables.dotInactive()
 
@@ -127,10 +125,7 @@ internal class RenditionItemView(context: Context) : LinearLayout(context) {
 
     private fun bindSubtitle(item: RenditionListItem.Subtitle, active: SubtitleTrackInfo?) {
         val info = item.info
-        val isActive = active != null &&
-            info.language == active.language &&
-            info.kind == active.kind &&
-            info.mimeType == active.mimeType
+        val isActive = active != null && info.isSameRenditionAs(active)
 
         dot.background = if (isActive) OverlayDrawables.dotActive() else OverlayDrawables.dotInactive()
 
@@ -138,7 +133,7 @@ internal class RenditionItemView(context: Context) : LinearLayout(context) {
         val displayName = info.label
             ?: info.language?.let { java.util.Locale.forLanguageTag(it).displayLanguage.takeIf { l -> l.isNotBlank() } }
         if (!displayName.isNullOrBlank()) topParts += displayName
-        if (info.kind != SubtitleKind.SIDECAR) topParts += "(CC)"
+        if (info.kind == SubtitleKind.CC) topParts += "(CC)"
         topLine.text = topParts.joinToString("  ").ifBlank { "Subtitle" }
 
         val mimeShort = when (info.mimeType) {
