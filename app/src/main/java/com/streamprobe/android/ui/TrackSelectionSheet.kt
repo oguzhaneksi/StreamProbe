@@ -1,5 +1,6 @@
 package com.streamprobe.android.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -87,15 +89,9 @@ fun TrackSelectionSheet(
                     modifier = Modifier
                         .width(36.dp)
                         .height(4.dp)
-                        .padding(0.dp),
-                )
-                // Manual handle bar
-                Box(
-                    modifier = Modifier
-                        .width(36.dp)
-                        .height(4.dp)
-                        .then(
-                            Modifier.padding(0.dp)
+                        .background(
+                            color = ON_SURFACE_DIM,
+                            shape = RoundedCornerShape(percent = 50),
                         ),
                 )
             }
