@@ -222,8 +222,13 @@ class PlayerViewModel(
             .firstOrNull { it.mediaTrackGroup.type == C.TRACK_TYPE_VIDEO }
             ?: return VideoTrackOption.Auto
         val overriddenTrackIndex = override.trackIndices.firstOrNull() ?: return VideoTrackOption.Auto
+        val overriddenGroupIndex = player.currentTracks.groups.indexOfFirst { group ->
+            group.type == C.TRACK_TYPE_VIDEO && group.mediaTrackGroup == override.mediaTrackGroup
+        }
+        if (overriddenGroupIndex == -1) return VideoTrackOption.Auto
         return options.filterIsInstance<VideoTrackOption.Fixed>()
-            .find { it.trackIndex == overriddenTrackIndex } ?: VideoTrackOption.Auto
+            .find { it.groupIndex == overriddenGroupIndex && it.trackIndex == overriddenTrackIndex }
+            ?: VideoTrackOption.Auto
     }
 
     private fun resolveCurrentAudio(player: ExoPlayer, options: List<AudioTrackOption>): AudioTrackOption? {
