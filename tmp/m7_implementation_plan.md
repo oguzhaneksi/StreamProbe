@@ -15,11 +15,11 @@ StreamProbe'un track izlemesini `C.TRACK_TYPE_AUDIO` ve `C.TRACK_TYPE_TEXT` ile 
 ### Mimari dokunuş noktaları
 | Bileşen | Dosya | Rol |
 |---|---|---|
-| Public API | [StreamProbe.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/main/java/com/streamprobe/sdk/StreamProbe.kt) | Giriş noktası — değişmez |
-| Yakalama | [PlayerInterceptor.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/main/java/com/streamprobe/sdk/internal/PlayerInterceptor.kt) | `AnalyticsListener` + `Player.Listener` |
-| State | [SessionStore.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/main/java/com/streamprobe/sdk/internal/SessionStore.kt) | Thread-safe `StateFlow` store |
-| Modeller | [model/](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/main/java/com/streamprobe/sdk/model) | SDK-owned data classes |
-| Overlay | [overlay/](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/main/java/com/streamprobe/sdk/internal/overlay) | Programmatik view'lar, adapter'lar, formatter'lar |
+| Public API | [StreamProbe.kt] | Giriş noktası — değişmez |
+| Yakalama | [PlayerInterceptor.kt] | `AnalyticsListener` + `Player.Listener` |
+| State | [SessionStore.kt] | Thread-safe `StateFlow` store |
+| Modeller | [model/] | SDK-owned data classes |
+| Overlay | [overlay/] | Programmatik view'lar, adapter'lar, formatter'lar |
 
 ### M7'nin gidereceği eksiklikler
 1. `probeManifest()` — DASH parsing yalnızca `TRACK_TYPE_VIDEO` adaptation set'lerini alıyor; HLS parsing yalnızca `multivariantPlaylist.variants`'ı alıyor (audios/subtitles/closedCaptions/muxedAudio/muxedCaption göz ardı).
@@ -35,7 +35,7 @@ StreamProbe'un track izlemesini `C.TRACK_TYPE_AUDIO` ve `C.TRACK_TYPE_TEXT` ile 
 
 ### Modeller
 
-#### [NEW] [AudioTrackInfo.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/main/java/com/streamprobe/sdk/model/AudioTrackInfo.kt)
+#### [NEW] [AudioTrackInfo.kt]
 
 ```kotlin
 data class AudioTrackInfo(
@@ -56,7 +56,7 @@ data class AudioTrackInfo(
 
 ---
 
-#### [NEW] [SubtitleTrackInfo.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/main/java/com/streamprobe/sdk/model/SubtitleTrackInfo.kt)
+#### [NEW] [SubtitleTrackInfo.kt]
 
 ```kotlin
 enum class SubtitleKind {
@@ -80,7 +80,7 @@ Manifest'in üç altyazı kaynağı (`subtitles`, `closedCaptions`, `muxedCaptio
 
 ---
 
-#### [MODIFY] [ManifestInfo.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/main/java/com/streamprobe/sdk/model/ManifestInfo.kt)
+#### [MODIFY] [ManifestInfo.kt]
 
 ```diff
  sealed interface ManifestInfo {
@@ -297,7 +297,7 @@ override fun onDownstreamFormatChanged(
 
 ### Overlay UI
 
-#### [MODIFY] [OverlayPanelView.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/main/java/com/streamprobe/sdk/internal/overlay/OverlayPanelView.kt)
+#### [MODIFY] [OverlayPanelView.kt]
 
 Yeni public `TextView` alanları:
 ```kotlin
@@ -327,7 +327,7 @@ Default text üç view için de `"Loading…"` (mevcut `activeTrackView` ile tut
 
 ---
 
-#### [MODIFY] [OverlayManager.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/main/java/com/streamprobe/sdk/internal/overlay/OverlayManager.kt)
+#### [MODIFY] [OverlayManager.kt]
 
 `startObserving()` içine iki yeni `collect` bloğu ve mevcut ABR collect'in adaptasyonu:
 
@@ -357,7 +357,7 @@ scope?.launch {
 
 ---
 
-#### [MODIFY] [OverlayFormatters.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/main/java/com/streamprobe/sdk/internal/overlay/OverlayFormatters.kt)
+#### [MODIFY] [OverlayFormatters.kt]
 
 Üç state ayrı: probe öncesi → "Loading…" (default text); format eksik → "Unknown"; subtitle disable → "Off"; tam veri → formatlanmış string.
 
@@ -409,7 +409,7 @@ fun formatActiveSubtitle(subtitle: SubtitleTrackInfo?): String {
 
 ---
 
-#### [REPLACEMENT] [VariantListAdapter.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/main/java/com/streamprobe/sdk/internal/overlay/VariantListAdapter.kt) → `RenditionListAdapter`
+#### [REPLACEMENT] [VariantListAdapter.kt] → `RenditionListAdapter`
 
 Multi-type sealed wrapper:
 ```kotlin
@@ -440,7 +440,7 @@ DIFF callback `RenditionListItem` üstünde polymorphic; her subtype için stabl
 
 ---
 
-#### [REPLACEMENT] [VariantItemView.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/main/java/com/streamprobe/sdk/internal/overlay/VariantItemView.kt) → `RenditionItemView`
+#### [REPLACEMENT] [VariantItemView.kt] → `RenditionItemView`
 
 Mevcut `VariantItemView` mimarisi (dot + üst satır + alt satır) tek view'da korunur; `bind(item: RenditionListItem, ...)` polymorphic. Section header için ayrı küçük `RenditionSectionView` (sade başlık).
 
@@ -463,20 +463,20 @@ Mevcut `VariantItemView` mimarisi (dot + üst satır + alt satır) tek view'da k
 
 ### Demo App
 
-[Stream.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/app/src/main/java/com/streamprobe/android/Stream.kt) çoklu audio/subtitle test stream'i kullanıcı tarafından eklenecek (M7 implementation kapsamı dışında).
+[Stream.kt] çoklu audio/subtitle test stream'i kullanıcı tarafından eklenecek (M7 implementation kapsamı dışında).
 
 ---
 
 ### Documentation
 
-#### [MODIFY] [README.md](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/README.md) satır 201
+#### [MODIFY] [README.md] satır 201
 
 `*(Planned)*` etiketi `✅` ile değiştirilir + bir cümle özet:
 ```
 - **M7 — Audio & Subtitle Tracks** ✅: Audio/subtitle rendition enumeration (HLS muxed sources dahil) + active audio/subtitle overlay; ABR switch event'leri sealed TrackSwitchEvent altında video/audio/subtitle'a genişledi.
 ```
 
-#### [MODIFY] [SPEC.md](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/SPEC.md)
+#### [MODIFY] [SPEC.md]
 
 Yeni `§3.9 Audio & Subtitle Track Monitoring` section'ı:
 - Yakalanan veri (HLS audios + muxedAudioFormat + subtitles + closedCaptions + muxedCaptionFormats; DASH AUDIO/TEXT adaptation sets)
@@ -496,9 +496,9 @@ Mevcut üç test dosyası Robolectric kullanmaya devam eder; yeni case'ler **mev
 
 | Dosya | Eklenecek case'ler |
 |---|---|
-| [PlayerInterceptorTest.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/test/java/com/streamprobe/sdk/internal/PlayerInterceptorTest.kt) | HLS `muxedAudioFormat` → `AudioTrackInfo(isMuxed = true)`; HLS `closedCaptions` + `muxedCaptionFormats` → `SubtitleTrackInfo(kind = CC_*)`; DASH AUDIO/TEXT adaptation set → `audioTracks`/`subtitleTracks`; `probeTracks` audio + subtitle dispatch; subtitle disable → `activeSubtitleTrack` null + `SubtitleSwitch(newTrack = null)`; `onDownstreamFormatChanged` audio + subtitle dedup; mevcut ABR testleri `TrackSwitchEvent.VideoSwitch` filtresine adapte |
-| [SessionStoreTest.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/test/java/com/streamprobe/sdk/internal/SessionStoreTest.kt) | `updateActiveAudioTrack` / `updateActiveSubtitleTrack` emit + null reset; `addTrackSwitchEvent` her subtype için round-trip; `clear()` yeni alanları sıfırlar; `MAX_TRACK_SWITCH_EVENTS` cap |
-| [OverlayFormattingTest.kt](file:///Users/oguzhaneksi/StudioProjects/StreamProbe/sdk/src/test/java/com/streamprobe/sdk/internal/overlay/OverlayFormattingTest.kt) | `formatActiveAudio`: null → "Loading…", partial → "Unknown", full + sampleRate; `formatActiveSubtitle`: null → "Off", `kind != SIDECAR` → "(CC)" suffix, WebVTT/TTML/SRT mime kısaltma; `Locale.forLanguageTag` doğru dönüşüm |
+| [PlayerInterceptorTest.kt] | HLS `muxedAudioFormat` → `AudioTrackInfo(isMuxed = true)`; HLS `closedCaptions` + `muxedCaptionFormats` → `SubtitleTrackInfo(kind = CC_*)`; DASH AUDIO/TEXT adaptation set → `audioTracks`/`subtitleTracks`; `probeTracks` audio + subtitle dispatch; subtitle disable → `activeSubtitleTrack` null + `SubtitleSwitch(newTrack = null)`; `onDownstreamFormatChanged` audio + subtitle dedup; mevcut ABR testleri `TrackSwitchEvent.VideoSwitch` filtresine adapte |
+| [SessionStoreTest.kt] | `updateActiveAudioTrack` / `updateActiveSubtitleTrack` emit + null reset; `addTrackSwitchEvent` her subtype için round-trip; `clear()` yeni alanları sıfırlar; `MAX_TRACK_SWITCH_EVENTS` cap |
+| [OverlayFormattingTest.kt] | `formatActiveAudio`: null → "Loading…", partial → "Unknown", full + sampleRate; `formatActiveSubtitle`: null → "Off", `kind != SIDECAR` → "(CC)" suffix, WebVTT/TTML/SRT mime kısaltma; `Locale.forLanguageTag` doğru dönüşüm |
 
 #### Test komutları
 
