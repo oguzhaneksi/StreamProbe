@@ -106,7 +106,7 @@ internal object OverlayFormatters {
     }
 
     fun formatActiveSubtitle(subtitle: SubtitleTrackInfo?): String {
-        if (subtitle == null) return "Off"
+        if (subtitle == null) return "Loading\u2026"
         val parts = mutableListOf<String>()
         val lang = subtitle.label
             ?: subtitle.language?.let { Locale.forLanguageTag(it).displayLanguage.takeIf { l -> l.isNotBlank() } }
