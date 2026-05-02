@@ -189,23 +189,21 @@ class PlayerViewModel(
             }
         }
 
-        // Deduplicate video options by height+bitrate (some streams expose duplicates);
-        // Auto is always first in the list.
-        val seen = mutableSetOf<Pair<Int, Int>>()
-        val deduped = mutableListOf<VideoTrackOption>(VideoTrackOption.Auto)
-        for (opt in rawVideoOptions) {
-            if (seen.add(opt.height to opt.bitrate)) deduped.add(opt)
+        // Preserve every enumerated video track so the picker can expose all
+        // selectable renditions. Auto is always first in the list.
+        val videoOptions = mutableListOf<VideoTrackOption>(VideoTrackOption.Auto).apply {
+            addAll(rawVideoOptions)
         }
 
-        val hasMultiple = deduped.size > 1 || audioOptions.size > 1 || subtitleOptions.size > 1
+        val hasMultiple = videoOptions.size > 1 || audioOptions.size > 1 || subtitleOptions.size > 1
 
-        val currentVideo = resolveCurrentVideo(player, deduped)
+        val currentVideo = resolveCurrentVideo(player, videoOptions)
         val currentAudio = resolveCurrentAudio(player, audioOptions)
         val currentSubtitle = resolveCurrentSubtitle(player, subtitleOptions)
 
         _uiState.update { current ->
             current.copy(
-                videoTrackOptions = deduped,
+                videoTrackOptions = videoOptions,
                 audioTrackOptions = audioOptions,
                 subtitleTrackOptions = subtitleOptions,
                 selectedVideoTrack = currentVideo,
