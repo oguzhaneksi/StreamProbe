@@ -30,7 +30,7 @@ internal class SwitchTimelineAdapter :
     companion object {
         private val DIFF = object : DiffUtil.ItemCallback<TrackSwitchEvent>() {
             override fun areItemsTheSame(old: TrackSwitchEvent, new: TrackSwitchEvent) =
-                old.timestampMs == new.timestampMs
+                old.timestampMs == new.timestampMs && old::class == new::class
 
             override fun areContentsTheSame(old: TrackSwitchEvent, new: TrackSwitchEvent) =
                 old == new
