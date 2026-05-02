@@ -114,6 +114,7 @@ internal class PlayerInterceptor(
                 sessionStore.addTrackSwitchEvent(
                     TrackSwitchEvent.AudioSwitch(timestamp, buffer, reason, lastAudioTrack, newTrack)
                 )
+                sessionStore.updateActiveAudioTrack(newTrack)
                 lastAudioTrack = newTrack
                 Log.d(TAG, "Audio switch: ${newTrack.language} ${newTrack.codecs}")
             }
@@ -123,6 +124,7 @@ internal class PlayerInterceptor(
                 sessionStore.addTrackSwitchEvent(
                     TrackSwitchEvent.SubtitleSwitch(timestamp, buffer, reason, lastSubtitleTrack, newTrack)
                 )
+                sessionStore.updateActiveSubtitleTrack(newTrack)
                 lastSubtitleTrack = newTrack
                 Log.d(TAG, "Subtitle switch: ${newTrack.language} ${newTrack.mimeType}")
             }
