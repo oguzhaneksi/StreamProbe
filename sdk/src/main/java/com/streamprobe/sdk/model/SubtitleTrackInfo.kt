@@ -27,5 +27,11 @@ data class SubtitleTrackInfo(
 
 /** Returns true if [other] refers to the same subtitle rendition. Prefers [id] when both are non-null. */
 internal fun SubtitleTrackInfo.isSameRenditionAs(other: SubtitleTrackInfo): Boolean =
-    if (id != null && other.id != null) id == other.id
-    else language == other.language && mimeType == other.mimeType
+    if (id != null && other.id != null) {
+        id == other.id
+    } else {
+        language == other.language &&
+            mimeType == other.mimeType &&
+            kind == other.kind &&
+            (label == null || other.label == null || label == other.label)
+    }
