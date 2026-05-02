@@ -50,13 +50,13 @@ When a master playlist (HLS) or MPD (DASH) is loaded, StreamProbe reads the mani
 
 ### 3.2 Variant and Rendition Listing
 
-Every available video, audio, and subtitle track is enumerated. For each track, the overlay displays:
+Every available video, audio, and subtitle rendition is enumerated and displayed in the **Tracks** tab, grouped into three sections: `VIDEO`, `AUDIO`, and `SUBTITLES`.
 
-- Bandwidth
-- Resolution
-- Codec
+- **Video**: Bandwidth, Resolution, and Codec per variant.
+- **Audio**: Language/label, channel layout, codec, bitrate, and sample rate per audio rendition. Muxed audio entries (HLS `muxedAudioFormat`) carry an `isMuxed` flag and a visual badge.
+- **Subtitles**: Language/label and kind (`SIDECAR` for WebVTT/TTML, `CC_DECLARED` / `CC_MUXED` for closed captions) per subtitle rendition.
 
-The track currently selected by the player is flagged in real time, so the developer can see at a glance which variant is actually being played.
+The currently selected rendition in each section is flagged with an active-dot indicator in real time.
 
 ### 3.3 Segment Download Metrics
 
@@ -81,17 +81,15 @@ Response headers for every segment request are captured. The overlay highlights:
 
 Cache hit/miss is flagged visually per request so the developer can quickly spot cold-cache patterns.
 
-### 3.5 ABR Switch Log
+### 3.5 Track Switch Log
 
-Every time the player changes quality, a record is created containing:
+Every time the player changes any track — video quality, audio rendition, or subtitle selection — a `TrackSwitchEvent` record is created. The sealed interface has three subtypes:
 
-- Previous track
-- New track
-- Timestamp
-- Buffer state at the time of the switch
-- The reason ExoPlayer reports for the decision
+- **`VideoSwitch`** — video quality change; records previous/new `ActiveTrackInfo`, buffer state, and selection reason.
+- **`AudioSwitch`** — audio rendition change; records previous/new `AudioTrackInfo`, buffer state, and selection reason.
+- **`SubtitleSwitch`** — subtitle selection change; `newTrack` is `null` when the user disables subtitles.
 
-These records are kept in chronological order and rendered as a timeline in the overlay.
+All subtypes carry `timestampMs`, `bufferDurationMs`, and `reason` (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`). Records are kept in a single chronological list (cap: 200) and rendered as a unified timeline in the **Switches** tab.
 
 ### 3.6 Debug Overlay
 
@@ -99,21 +97,23 @@ A draggable panel rendered on top of the host app via `Activity.addContentView()
 
 At a glance it shows:
 
-- The currently active rendition (or a loading state if the manifest is not yet available)
+- The currently active video rendition (or a loading state if the manifest is not yet available)
+- The currently active audio rendition (language, codec, channel layout, bitrate)
+- The currently active subtitle/CC track, or `Off` when disabled
 - The most recent segment metrics
 - Current CDN cache hit/miss state
 
 A **filter chip row** inside the panel lets the developer switch between three views:
 
-- **Variants** (default) — per-variant resolution, bitrate, and codec with an active-track indicator.
+- **Tracks** (default) — all renditions grouped into `VIDEO`, `AUDIO`, and `SUBTITLES` sections, each with resolution/bitrate/codec or language/codec details and an active-dot indicator.
 - **Segments** — per-segment download duration, size, throughput, and cache-status dot. The segment timeline is shown in the same overlay panel with no Activity transition, so the host player is never backgrounded.
-- **ABR** — chronological list of every quality switch, showing the from→to resolution (or bitrate when resolution is identical), buffer duration at the time of the switch, switch reason (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`), and a relative timestamp from the first event.
+- **Switches** — chronological list of every track switch event (`VID` / `AUD` / `SUB`, colour-coded), showing the from→to track details, buffer duration at the time of the switch, switch reason (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`), and a relative timestamp from the first event. Subtitle disable events appear as `SUB … → Off`.
 
 A fourth view, **Errors**, is reachable via a `⚠ N` header indicator pill (hidden when no errors are present) and is described in §3.8.
 
 #### Orientation-aware layout
 
-- **Portrait** — 310 dp wide vertical stack: stats (Active Track, Latest Segment, CDN Status) → chip row → list.
+- **Portrait** — 310 dp wide vertical stack: stats (Active Video Track, Active Audio Track, Active Subtitle Track, Latest Segment, CDN Status) → chip row → list.
 - **Landscape** — 440 dp wide horizontal split: left column for stats, right column for chip row + list. The list height is capped at `screenHeight × 0.55`, clamped to `[200 dp, 360 dp]`.
 
 For host apps that declare `android:configChanges` covering orientation, the panel rebuilds in place via `View.onConfigurationChanged`. For apps that don't, the Activity recreates and the new Activity's `show(this)` call re-adds the panel. The selected chip (`viewMode`) is preserved across both rebuild paths — including when the user is in the Errors view.
@@ -202,9 +202,10 @@ sealed interface TrackSwitchEvent
 
 StreamProbe instruments a single layer via a standard Media3 `AnalyticsListener` wired to the player:
 
-- **`onTimelineChanged`** — reads `ExoPlayer.currentManifest` to extract manifest info (HLS multivariant playlist or DASH MPD) into SDK-owned models.
+- **`onTimelineChanged`** — reads `ExoPlayer.currentManifest` to extract manifest info (HLS multivariant playlist or DASH MPD) into SDK-owned models. Parses video variants, audio renditions (including muxed), and subtitle/CC tracks.
 - **`onLoadCompleted`** — captures per-segment download duration, byte count, computed throughput, and HTTP response headers (CDN cache hit/miss). Works regardless of the underlying HTTP stack.
-- **`onDownstreamFormatChanged`** / **`onVideoInputFormatChanged`** — detects ABR switches and records the previous/new track, buffer state, and Media3 selection reason.
+- **`onTracksChanged`** — calls `probeTracks()` to update the active video, audio, and subtitle tracks in real time. Also emits `SubtitleSwitch(newTrack = null)` when a previously selected subtitle track is disabled.
+- **`onDownstreamFormatChanged`** — detects video, audio, and subtitle track switches; records `TrackSwitchEvent.VideoSwitch` / `AudioSwitch` / `SubtitleSwitch` with the previous/new track, buffer state, and Media3 selection reason. Duplicate events (same format) are deduplicated per track type.
 - **`onLoadError`** — captures segment and manifest HTTP errors; cancellations (`wasCanceled=true`) and DRM data types are filtered out.
 - **`onVideoCodecError`** — captures hardware/software codec failures.
 - **`onDroppedVideoFrames`** — captures dropped-frame bursts ≥ 3 frames with dedup logic.

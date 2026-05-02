@@ -52,12 +52,13 @@ ExoPlayer's built-in `EventLogger` and `DebugTextViewHelper` only surface player
 │   │  │  AnalyticsListener (Media3)  │   │                   │
 │   │  │  onTimelineChanged           │   │                   │
 │   │  │  onLoadCompleted             │   │                   │
+│   │  │  onTracksChanged             │   │                   │
 │   │  │  onDownstreamFormatChanged   │   │                   │
 │   │  └──────────────┬───────────────┘   │                   │
 │   └─────────────────┼─────────────────  ┘                   │
 │                     │                                       │
 │                     ▼                                       │
-│     manifest info · segment metrics · ABR switch events     │
+│     manifest info · segment metrics · track switch events   │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ▼
@@ -69,7 +70,7 @@ A single `AnalyticsListener` wired to the player feeds an in-memory session stor
 
 - **Manifest info** — read from `ExoPlayer.currentManifest` on `onTimelineChanged`; all variant streams, codecs, resolutions, and bitrates are extracted into SDK-owned models.
 - **Segment metrics and CDN headers** — captured on `onLoadCompleted`; per-segment download duration, size, throughput, and HTTP response headers (including cache hit/miss status) are stored for the session.
-- **ABR switch events** — captured on `onDownstreamFormatChanged`; every quality change is recorded with the previous/new track, buffer state at switch time, and the reason Media3 reports (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`). Events are kept in a capped chronological list and displayed in the overlay's ABR tab.
+- **Track switch events** — captured on `onDownstreamFormatChanged` and `onTracksChanged`; every video quality change, audio rendition switch, and subtitle selection (including disable) is recorded as a `TrackSwitchEvent` (`VideoSwitch` / `AudioSwitch` / `SubtitleSwitch`) with the previous/new track, buffer state at switch time, and the reason Media3 reports (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`). Events are kept in a capped chronological list and displayed in the overlay's Switches tab.
 
 StreamProbe is distributed as a standard `implementation` dependency. Host apps guard the `attach()` calls behind `BuildConfig.DEBUG` to ensure zero runtime overhead in release builds.
 
@@ -144,14 +145,16 @@ player.release()
 
 ## Debug Overlay Details
 
-Once attached, the StreamProbe overlay appears as a draggable panel. It displays the **currently active track**, the **latest segment latency**, and the **CDN Cache state** (Hit/Miss) at the top.
+Once attached, the StreamProbe overlay appears as a draggable panel. It displays the **currently active video track**, **active audio track**, **active subtitle track**, the **latest segment latency**, and the **CDN Cache state** (Hit/Miss) at the top.
 
-Three filter-chip views (Variants / Segments / ABR) plus a dedicated **Errors view** reachable from the header indicator provide a complete picture of what the player is doing at any moment.
+Three filter-chip views (Tracks / Segments / Switches) plus a dedicated **Errors view** reachable from the header indicator provide a complete picture of what the player is doing at any moment.
 
-### 1. Variants
-This view displays a list of all parsed video, audio, and subtitle variants from the HLS `.m3u8` or DASH `.mpd` manifest. 
-- You can instantly see the **Bandwidth**, **Resolution**, and **Codec** for every rendition.
-- The rendition your player is currently streaming is visually highlighted in real-time.
+### 1. Tracks
+This view displays all parsed renditions from the HLS `.m3u8` or DASH `.mpd` manifest, grouped into three sections: **VIDEO**, **AUDIO**, and **SUBTITLES**.
+- **Video**: Bandwidth, Resolution, and Codec for every video rendition.
+- **Audio**: Language, channel layout, codec, and bitrate for every audio rendition. Muxed audio entries are marked with a `muxed` badge.
+- **Subtitles**: Language and type (WebVTT, TTML, CEA-608/708 CC) for every subtitle/caption rendition.
+- The currently active rendition in each section is highlighted with an active-dot indicator in real-time.
 
 ### 2. Segments
 Tracks the actual segment downloads as they happen. Each list item represents a segment chunk:
@@ -161,13 +164,13 @@ Tracks the actual segment downloads as they happen. Each list item represents a 
 
 The segment list is capped at **500 entries**; older entries are dropped automatically as new ones arrive.
 
-### 3. ABR (Adaptive Bitrate) Log
-A chronological timeline of every quality switch ExoPlayer makes during the session. 
-- **From → To**: The exact track properties (Resolution/Bitrate) before and after the shift.
-- **Switch Reason**: Indicates *why* the player changed quality (e.g., `ADAPTIVE` due to network conditions, `MANUAL` by user selection, `INITIAL` on startup).
+### 3. Switches
+A chronological timeline of every track switch ExoPlayer makes during the session, covering **video**, **audio**, and **subtitle** changes. Each entry is colour-coded by type: `VID` (blue), `AUD` (green), `SUB` (purple).
+- **From → To**: The exact track properties before and after the switch. For subtitle disable events, the "To" side shows `Off`.
+- **Switch Reason**: Indicates *why* the player changed tracks (e.g., `ADAPTIVE` due to network conditions, `MANUAL` by user selection, `INITIAL` on startup).
 - **Buffer State**: Shows how many seconds of buffer were left when the switch occurred, which helps debug panic-driven drops.
 
-The ABR log is capped at **200 entries**; older events are dropped as new ones arrive.
+The Switches log is capped at **200 entries**; older events are dropped as new ones arrive.
 
 ### 4. Errors
 
