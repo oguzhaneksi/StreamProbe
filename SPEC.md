@@ -166,7 +166,7 @@ probe.detach()         // tears down interceptor, clears session, hides overlay
 **Captured per session:**
 
 - **`ManifestInfo.audioTracks: List<AudioTrackInfo>`** — audio renditions parsed from the manifest. For HLS, explicit `#EXT-X-MEDIA:TYPE=AUDIO` entries plus one synthetic `isMuxed = true` entry when the primary variant stream carries muxed audio. For DASH, `AdaptationSet` elements with `TRACK_TYPE_AUDIO`.
-- **`ManifestInfo.subtitleTracks: List<SubtitleTrackInfo>`** — subtitle/CC renditions. For HLS, `#EXT-X-MEDIA:TYPE=SUBTITLES` entries (`SubtitleKind.SIDECAR`), `#EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS` entries (`SubtitleKind.CC_DECLARED`), and inline muxed caption formats (`SubtitleKind.CC_MUXED`). For DASH, `AdaptationSet` elements with `TRACK_TYPE_TEXT`.
+- **`ManifestInfo.subtitleTracks: List<SubtitleTrackInfo>`** — subtitle/CC renditions. For HLS, `#EXT-X-MEDIA:TYPE=SUBTITLES` entries (`SubtitleKind.SIDECAR`), `#EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS` entries (`SubtitleKind.CC`), and inline muxed caption formats (also represented as `SubtitleKind.CC`). For DASH, `AdaptationSet` elements with `TRACK_TYPE_TEXT`.
 
 **Active track state (real-time `StateFlow`):**
 
