@@ -175,7 +175,7 @@ probe.detach()         // tears down interceptor, clears session, hides overlay
 | `SessionStore.activeAudioTrack` | `StateFlow<AudioTrackInfo?>` | Currently rendering audio rendition |
 | `SessionStore.activeSubtitleTrack` | `StateFlow<SubtitleTrackInfo?>` | Currently rendering subtitle/CC track; `null` when disabled |
 
-Both flows are updated in `onDownstreamFormatChanged` via the `AnalyticsListener` interface.
+Both flows are updated in `probeTracks()` when `onTracksChanged` fires.
 
 **`TrackSwitchEvent` — unified sealed interface (replaces `AbrSwitchEvent`):**
 
