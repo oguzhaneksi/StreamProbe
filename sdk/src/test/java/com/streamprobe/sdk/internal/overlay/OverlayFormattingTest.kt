@@ -1,12 +1,15 @@
 package com.streamprobe.sdk.internal.overlay
 
 import com.streamprobe.sdk.model.ActiveTrackInfo
+import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
 import com.streamprobe.sdk.model.CdnProvider
 import com.streamprobe.sdk.model.ErrorCategory
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
+import com.streamprobe.sdk.model.SubtitleKind
+import com.streamprobe.sdk.model.SubtitleTrackInfo
 import com.streamprobe.sdk.model.SwitchReason
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -248,6 +251,122 @@ class OverlayFormattingTest {
     fun `formatErrorsForExport with empty list returns just header`() {
         val result = OverlayFormatters.formatErrorsForExport(emptyList(), 0L)
         assertEquals("[StreamProbe] 0 errors", result)
+    }
+
+    // ── Audio formatter tests ─────────────────────────────────────────────────
+
+    private fun makeAudio(
+        language: String? = "en",
+        label: String? = null,
+        codecs: String? = "mp4a.40.2",
+        bitrate: Int = 128_000,
+        channelCount: Int = 2,
+        sampleRate: Int = 48_000,
+        isMuxed: Boolean = false,
+    ) = AudioTrackInfo(
+        language = language,
+        label = label,
+        codecs = codecs,
+        bitrate = bitrate,
+        channelCount = channelCount,
+        sampleRate = sampleRate,
+        isMuxed = isMuxed,
+    )
+
+    @Test
+    fun `formatActiveAudio with null returns Loading`() {
+        assertEquals("Loading\u2026", OverlayFormatters.formatActiveAudio(null))
+    }
+
+    @Test
+    fun `formatActiveAudio with only language contains display language`() {
+        val result = OverlayFormatters.formatActiveAudio(makeAudio(language = "en"))
+        assertTrue("Expected 'English' in: $result", result.contains("English"))
+    }
+
+    @Test
+    fun `formatActiveAudio prefers label over language`() {
+        val result = OverlayFormatters.formatActiveAudio(makeAudio(language = "en", label = "English (Descriptive)"))
+        assertTrue("Expected label in: $result", result.contains("English (Descriptive)"))
+    }
+
+    @Test
+    fun `formatActiveAudio with stereo shows stereo`() {
+        val result = OverlayFormatters.formatActiveAudio(makeAudio(channelCount = 2))
+        assertTrue("Expected 'stereo' in: $result", result.contains("stereo"))
+    }
+
+    @Test
+    fun `formatActiveAudio with 5_1 shows 5_1`() {
+        val result = OverlayFormatters.formatActiveAudio(makeAudio(channelCount = 6))
+        assertTrue("Expected '5.1' in: $result", result.contains("5.1"))
+    }
+
+    @Test
+    fun `formatActiveAudio includes bitrate and sampleRate`() {
+        val result = OverlayFormatters.formatActiveAudio(makeAudio(bitrate = 128_000, sampleRate = 48_000))
+        assertTrue("Expected bitrate in: $result", result.contains("128"))
+        assertTrue("Expected kHz in: $result", result.contains("48 kHz"))
+    }
+
+    @Test
+    fun `formatActiveAudio with no language and no label returns Unknown`() {
+        val result = OverlayFormatters.formatActiveAudio(
+            makeAudio(language = null, label = null, codecs = null, bitrate = 0, channelCount = 0, sampleRate = 0)
+        )
+        assertEquals("Unknown", result)
+    }
+
+    // ── Subtitle formatter tests ──────────────────────────────────────────────
+
+    private fun makeSubtitle(
+        language: String? = "en",
+        label: String? = null,
+        mimeType: String? = "text/vtt",
+        kind: SubtitleKind = SubtitleKind.SIDECAR,
+    ) = SubtitleTrackInfo(language = language, label = label, mimeType = mimeType, kind = kind)
+
+    @Test
+    fun `formatActiveSubtitle with null returns Off`() {
+        assertEquals("Off", OverlayFormatters.formatActiveSubtitle(null))
+    }
+
+    @Test
+    fun `formatActiveSubtitle with language shows display language`() {
+        val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(language = "tr"))
+        assertTrue("Expected 'Turkish' in: $result", result.contains("Turkish"))
+    }
+
+    @Test
+    fun `formatActiveSubtitle CC adds (CC) suffix`() {
+        val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(kind = SubtitleKind.CC))
+        assertTrue("Expected '(CC)' in: $result", result.contains("(CC)"))
+    }
+
+    @Test
+    fun `formatActiveSubtitle SIDECAR does not add (CC) suffix`() {
+        val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(kind = SubtitleKind.SIDECAR))
+        assertTrue("Expected no '(CC)' in: $result", !result.contains("(CC)"))
+    }
+
+    @Test
+    fun `formatActiveSubtitle shows WebVTT for vtt mime type`() {
+        val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(mimeType = "text/vtt"))
+        assertTrue("Expected 'WebVTT' in: $result", result.contains("WebVTT"))
+    }
+
+    @Test
+    fun `formatActiveSubtitle shows TTML for ttml mime type`() {
+        val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(mimeType = "application/ttml+xml"))
+        assertTrue("Expected 'TTML' in: $result", result.contains("TTML"))
+    }
+
+    @Test
+    fun `formatActiveSubtitle with no language and no label returns Unknown`() {
+        val result = OverlayFormatters.formatActiveSubtitle(
+            makeSubtitle(language = null, label = null, mimeType = null)
+        )
+        assertEquals("Unknown", result)
     }
 
 }

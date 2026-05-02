@@ -7,4 +7,6 @@ package com.streamprobe.sdk.model
  */
 data class DashManifestInfo(
     override val variants: List<VariantInfo>,
+    override val audioTracks: List<AudioTrackInfo> = emptyList(),
+    override val subtitleTracks: List<SubtitleTrackInfo> = emptyList(),
 ) : ManifestInfo

@@ -34,6 +34,7 @@ fun PlayerScreen(viewModel: PlayerViewModel = viewModel()) {
     val player = viewModel.player
 
     var controlsVisible by rememberSaveable { mutableStateOf(true) }
+    var showTrackSheet by rememberSaveable { mutableStateOf(false) }
 
     if (Build.VERSION.SDK_INT > 23) {
         LifecycleStartEffect(viewModel) {
@@ -84,12 +85,29 @@ fun PlayerScreen(viewModel: PlayerViewModel = viewModel()) {
         PlayerController(
             uiState = uiState,
             visible = controlsVisible,
+            hasMultipleTracks = uiState.hasMultipleTracks,
             onSeekBack = viewModel::seekBack10s,
             onTogglePlayPause = viewModel::togglePlayPause,
             onSeekForward = viewModel::seekForward10s,
             onScrubPositionChanged = viewModel::onScrubPositionChanged,
             onScrubFinished = viewModel::onScrubFinished,
-            onUserInteraction = { controlsVisible = true }
+            onUserInteraction = { controlsVisible = true },
+            onTrackSelectionClick = { showTrackSheet = true },
+        )
+    }
+
+    if (showTrackSheet) {
+        TrackSelectionSheet(
+            videoOptions = uiState.videoTrackOptions,
+            audioOptions = uiState.audioTrackOptions,
+            subtitleOptions = uiState.subtitleTrackOptions,
+            selectedVideo = uiState.selectedVideoTrack,
+            selectedAudio = uiState.selectedAudioTrack,
+            selectedSubtitle = uiState.selectedSubtitleTrack,
+            onVideoSelected = viewModel::selectVideoTrack,
+            onAudioSelected = viewModel::selectAudioTrack,
+            onSubtitleSelected = viewModel::selectSubtitleTrack,
+            onDismiss = { showTrackSheet = false },
         )
     }
 }

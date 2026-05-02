@@ -52,4 +52,17 @@ val defaultStreams = listOf(
         type = StreamType.DASH,
         mimeType = MimeTypes.APPLICATION_MPD,
     ),
+    Stream(
+        title = "Tears of Steel — Multi-Audio + Multi-Subtitle (DASH)",
+        url = "https://demo.unified-streaming.com/k8s/tears/tears.ism/.mpd",
+        type = StreamType.DASH,
+        mimeType = MimeTypes.APPLICATION_MPD,
+    ),
+    Stream(
+        title = "Apple HEVC — Multi-Subtitle (HLS)",
+        url = "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_adv_example_hevc/master.m3u8",
+        type = StreamType.HLS,
+        mimeType = MimeTypes.APPLICATION_M3U8,
+    ),
 )
+

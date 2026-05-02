@@ -14,8 +14,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -42,12 +45,14 @@ import androidx.media3.ui.compose.material3.R as Media3Material3R
 fun PlayerController(
     uiState: PlayerUiState,
     visible: Boolean,
+    hasMultipleTracks: Boolean,
     onSeekBack: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onSeekForward: () -> Unit,
     onScrubPositionChanged: (Long) -> Unit,
     onScrubFinished: () -> Unit,
     onUserInteraction: () -> Unit,
+    onTrackSelectionClick: () -> Unit,
 ) {
     val durationMs = uiState.durationMs.coerceAtLeast(0L)
     val sliderValue = uiState.sliderValueMs.coerceIn(0L, durationMs)
@@ -76,6 +81,31 @@ fun PlayerController(
         modifier = Modifier.fillMaxSize()
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            // ── Top-right: Track Selection button ────────────────────────
+            if (hasMultipleTracks) {
+                IconButton(
+                    onClick = {
+                        onUserInteraction()
+                        onTrackSelectionClick()
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(end = 12.dp, top = 4.dp)
+                        .size(48.dp)
+                        .clip(CircleShape),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.Black.copy(alpha = 0.50f),
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Settings,
+                        contentDescription = "Track selection",
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
             Row(
                 modifier = Modifier
                     .align(Alignment.Center)

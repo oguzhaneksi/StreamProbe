@@ -5,4 +5,6 @@ package com.streamprobe.sdk.model
  */
 data class HlsManifestInfo(
     override val variants: List<VariantInfo>,
+    override val audioTracks: List<AudioTrackInfo> = emptyList(),
+    override val subtitleTracks: List<SubtitleTrackInfo> = emptyList(),
 ) : ManifestInfo

@@ -1,12 +1,15 @@
 package com.streamprobe.sdk.internal.overlay
 
 import com.streamprobe.sdk.model.ActiveTrackInfo
+import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
 import com.streamprobe.sdk.model.CdnProvider
 import com.streamprobe.sdk.model.ErrorCategory
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
+import com.streamprobe.sdk.model.SubtitleKind
+import com.streamprobe.sdk.model.SubtitleTrackInfo
 import com.streamprobe.sdk.model.SwitchReason
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -78,6 +81,47 @@ internal object OverlayFormatters {
     fun formatActiveTrack(track: ActiveTrackInfo?): String {
         if (track == null) return "Loading\u2026"
         return "${formatResolution(track.width, track.height)}  \u00b7  ${formatBitrate(track.bitrate)}"
+    }
+
+    fun formatActiveAudio(audio: AudioTrackInfo?): String {
+        if (audio == null) return "Loading\u2026"
+        val parts = mutableListOf<String>()
+        val lang = audio.label
+            ?: audio.language?.let { Locale.forLanguageTag(it).displayLanguage.takeIf { l -> l.isNotBlank() } }
+        if (!lang.isNullOrBlank()) parts += lang
+        val codec = audio.codecs?.split(".")?.firstOrNull()?.uppercase(Locale.ROOT)
+        val channels = when (audio.channelCount) {
+            1    -> "mono"
+            2    -> "stereo"
+            6    -> "5.1"
+            8    -> "7.1"
+            else -> if (audio.channelCount > 0) "${audio.channelCount}ch" else null
+        }
+        listOfNotNull(codec, channels).joinToString(" ")
+            .takeIf { it.isNotBlank() }
+            ?.let { parts += it }
+        if (audio.bitrate > 0) parts += formatBitrate(audio.bitrate)
+        if (audio.sampleRate > 0) parts += "${audio.sampleRate / 1000} kHz"
+        return parts.joinToString("  \u00b7  ").ifBlank { "Unknown" }
+    }
+
+    fun formatActiveSubtitle(subtitle: SubtitleTrackInfo?): String {
+        if (subtitle == null) return "Loading\u2026"
+        val parts = mutableListOf<String>()
+        val lang = subtitle.label
+            ?: subtitle.language?.let { Locale.forLanguageTag(it).displayLanguage.takeIf { l -> l.isNotBlank() } }
+        if (!lang.isNullOrBlank()) parts += lang
+        if (subtitle.kind == SubtitleKind.CC) parts += "(CC)"
+        val mimeShort = when (subtitle.mimeType) {
+            "text/vtt", "application/x-media3-webvtt" -> "WebVTT"
+            "application/ttml+xml"                    -> "TTML"
+            "application/x-subrip"                    -> "SRT"
+            "text/x-ssa"                              -> "SSA"
+            "application/cea-608", "application/cea-708" -> null  // implied by (CC)
+            else -> subtitle.mimeType?.substringAfterLast("/")
+        }
+        if (!mimeShort.isNullOrBlank()) parts += mimeShort
+        return parts.joinToString("  \u00b7  ").ifBlank { "Unknown" }
     }
 
     /** "720p → 1080p" or "1.5 Mbps → 5.0 Mbps" when resolution is identical. */
