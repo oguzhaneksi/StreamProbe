@@ -122,7 +122,7 @@ internal object OverlayFormatters {
     }
 
     fun formatActiveSubtitle(subtitle: SubtitleTrackInfo?): String {
-        if (subtitle == null) return "Loading\u2026"
+        if (subtitle == null) return "Off"
         val parts = mutableListOf<String>()
         val lang =
             subtitle.label
