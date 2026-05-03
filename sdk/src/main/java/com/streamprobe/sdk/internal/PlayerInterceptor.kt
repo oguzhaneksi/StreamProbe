@@ -111,11 +111,11 @@ internal class PlayerInterceptor(
                     sessionStore.addTrackSwitchEvent(
                         TrackSwitchEvent.VideoSwitch(timestamp, buffer, reason, lastVideoTrack, it),
                     )
-                    lastVideoTrack = it
                     val switchMsg =
-                        "Video switch: ${lastVideoTrack?.width}x${lastVideoTrack?.height}" +
+                        "${lastVideoTrack?.width}x${lastVideoTrack?.height}" +
                             " \u2192 ${it.width}x${it.height} reason=${mediaLoadData.trackSelectionReason}"
-                    Log.d(TAG, switchMsg)
+                    lastVideoTrack = it
+                    Log.d(TAG, "Video switch: $switchMsg")
                 }
             }
             C.TRACK_TYPE_AUDIO -> {
