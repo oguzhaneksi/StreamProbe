@@ -37,9 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.streamprobe.android.AudioTrackOption
-import com.streamprobe.android.SubtitleTrackOption
-import com.streamprobe.android.VideoTrackOption
+import com.streamprobe.android.player.AudioTrackOption
+import com.streamprobe.android.player.SubtitleTrackOption
+import com.streamprobe.android.player.VideoTrackOption
 
 private val ACCENT = Color(0xFF0A84FF)
 private val SURFACE = Color(0xFF1C1C1E)
