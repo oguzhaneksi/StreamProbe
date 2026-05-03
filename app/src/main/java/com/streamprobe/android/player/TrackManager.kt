@@ -35,6 +35,7 @@ internal class TrackManager(
                     resetTrackState()
                 } else {
                     player.addListener(trackListener)
+                    enumerateTracks(player)
                 }
                 previousPlayer = player
             }
