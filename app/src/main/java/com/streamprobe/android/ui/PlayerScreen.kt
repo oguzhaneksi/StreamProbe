@@ -3,6 +3,7 @@ package com.streamprobe.android.ui
 import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
+import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -21,6 +22,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.ContentFrame
 import com.streamprobe.android.PlayerUiState
 import com.streamprobe.android.PlayerViewModel
@@ -28,6 +30,7 @@ import kotlinx.coroutines.delay
 
 private const val CONTROLLER_AUTO_HIDE_MS = 3_000L
 
+@OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(viewModel: PlayerViewModel = viewModel()) {
     val activity = LocalActivity.current
