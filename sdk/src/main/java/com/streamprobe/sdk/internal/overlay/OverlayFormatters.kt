@@ -30,22 +30,8 @@ internal object OverlayFormatters {
 
     fun formatCdnStatus(cdnInfo: CdnHeaderInfo?): String {
         if (cdnInfo == null) return "\u2014"
-        val providerPrefix =
-            when (cdnInfo.cdnProvider) {
-                CdnProvider.CLOUDFLARE -> "[CLOUDFLARE]"
-                CdnProvider.CLOUDFRONT -> "[CLOUDFRONT]"
-                CdnProvider.FASTLY -> "[FASTLY]"
-                CdnProvider.AKAMAI -> "[AKAMAI]"
-                CdnProvider.UNKNOWN, null -> null
-            }
-        val indicator =
-            when (cdnInfo.cacheStatus) {
-                CacheStatus.HIT -> "\u25cf HIT"
-                CacheStatus.MISS -> "\u25cb MISS"
-                CacheStatus.STALE -> "\u25d4 STALE"
-                CacheStatus.BYPASS -> "\u25a1 BYPASS"
-                CacheStatus.UNKNOWN -> "\u25cc UNKNOWN"
-            }
+        val providerPrefix = formatProviderPrefix(cdnInfo.cdnProvider)
+        val indicator = formatCacheIndicator(cdnInfo.cacheStatus)
         val headerSnippet =
             when {
                 cdnInfo.xCache != null -> "X-Cache: ${cdnInfo.xCache}"
@@ -59,6 +45,24 @@ internal object OverlayFormatters {
         val statusPart = if (headerSnippet != null) "$indicator  \u00b7  $headerSnippet" else indicator
         return if (providerPrefix != null) "$providerPrefix  $statusPart" else statusPart
     }
+
+    private fun formatProviderPrefix(provider: CdnProvider?): String? =
+        when (provider) {
+            CdnProvider.CLOUDFLARE -> "[CLOUDFLARE]"
+            CdnProvider.CLOUDFRONT -> "[CLOUDFRONT]"
+            CdnProvider.FASTLY -> "[FASTLY]"
+            CdnProvider.AKAMAI -> "[AKAMAI]"
+            CdnProvider.UNKNOWN, null -> null
+        }
+
+    private fun formatCacheIndicator(status: CacheStatus): String =
+        when (status) {
+            CacheStatus.HIT -> "\u25cf HIT"
+            CacheStatus.MISS -> "\u25cb MISS"
+            CacheStatus.STALE -> "\u25d4 STALE"
+            CacheStatus.BYPASS -> "\u25a1 BYPASS"
+            CacheStatus.UNKNOWN -> "\u25cc UNKNOWN"
+        }
 
     private fun formatScaledBytes(
         value: Long,

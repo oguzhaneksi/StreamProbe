@@ -154,7 +154,12 @@ internal class OverlayManager(
 
     private fun clampToParent(overlay: OverlayPanelView) {
         val parent = overlay.parent as? ViewGroup ?: return
-        if (parent.width == 0 || parent.height == 0 || overlay.width == 0 || overlay.height == 0) return
+        val hasMissingDimensions =
+            parent.width == 0 ||
+                parent.height == 0 ||
+                overlay.width == 0 ||
+                overlay.height == 0
+        if (hasMissingDimensions) return
         val insets: Insets =
             ViewCompat
                 .getRootWindowInsets(overlay)
@@ -320,11 +325,12 @@ internal class OverlayManager(
                     if (list.adapter !== adapter) return
                     val lm = list.layoutManager as? LinearLayoutManager ?: return
                     val total = adapter.itemCount
-                    if (total == 0) return
-                    val last = lm.findLastCompletelyVisibleItemPosition()
-                    val threshold = total - itemCount - 2
-                    if (last !in 0..<threshold) {
-                        list.scrollToPosition(total - 1)
+                    if (total > 0) {
+                        val last = lm.findLastCompletelyVisibleItemPosition()
+                        val threshold = total - itemCount - 2
+                        if (last !in 0..<threshold) {
+                            list.scrollToPosition(total - 1)
+                        }
                     }
                 }
             },
@@ -336,28 +342,7 @@ internal class OverlayManager(
     private fun startObserving(overlay: OverlayPanelView) {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-        scope?.launch {
-            sessionStore.manifestInfo.collect { info ->
-                if (info != null) {
-                    val items =
-                        buildList {
-                            if (info.variants.isNotEmpty()) {
-                                add(RenditionListItem.SectionHeader("VIDEO"))
-                                info.variants.forEach { add(RenditionListItem.Video(it)) }
-                            }
-                            if (info.audioTracks.isNotEmpty()) {
-                                add(RenditionListItem.SectionHeader("AUDIO"))
-                                info.audioTracks.forEach { add(RenditionListItem.Audio(it)) }
-                            }
-                            if (info.subtitleTracks.isNotEmpty()) {
-                                add(RenditionListItem.SectionHeader("SUBTITLES"))
-                                info.subtitleTracks.forEach { add(RenditionListItem.Subtitle(it)) }
-                            }
-                        }
-                    renditionAdapter?.submitList(items)
-                }
-            }
-        }
+        observeManifestInfo()
 
         scope?.launch {
             sessionStore.activeTrack.collect { track ->
@@ -399,6 +384,35 @@ internal class OverlayManager(
             }
         }
 
+        observePlaybackErrors(overlay)
+    }
+
+    private fun observeManifestInfo() {
+        scope?.launch {
+            sessionStore.manifestInfo.collect { info ->
+                if (info != null) {
+                    val items =
+                        buildList {
+                            if (info.variants.isNotEmpty()) {
+                                add(RenditionListItem.SectionHeader("VIDEO"))
+                                info.variants.forEach { add(RenditionListItem.Video(it)) }
+                            }
+                            if (info.audioTracks.isNotEmpty()) {
+                                add(RenditionListItem.SectionHeader("AUDIO"))
+                                info.audioTracks.forEach { add(RenditionListItem.Audio(it)) }
+                            }
+                            if (info.subtitleTracks.isNotEmpty()) {
+                                add(RenditionListItem.SectionHeader("SUBTITLES"))
+                                info.subtitleTracks.forEach { add(RenditionListItem.Subtitle(it)) }
+                            }
+                        }
+                    renditionAdapter?.submitList(items)
+                }
+            }
+        }
+    }
+
+    private fun observePlaybackErrors(overlay: OverlayPanelView) {
         scope?.launch {
             sessionStore.playbackErrors.collect { errors ->
                 errorAdapter?.submitList(errors)

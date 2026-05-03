@@ -9,8 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CdnHeaderParserTest {
-    private fun headers(vararg pairs: Pair<String, String>): Map<String, List<String>> =
-        pairs.associate { (k, v) -> k to listOf(v) }
+    private fun headers(vararg pairs: Pair<String, String>): Map<String, List<String>> = pairs.associate { (k, v) -> k to listOf(v) }
 
     @Test
     fun `parse extracts Cache-Control header`() {
@@ -271,8 +270,7 @@ class XCacheHitsMalformedTest {
 // ── Case sensitivity ──────────────────────────────────────────────────────────
 
 class HeaderCaseSensitivityTest {
-    private fun headers(vararg pairs: Pair<String, String>): Map<String, List<String>> =
-        pairs.associate { (k, v) -> k to listOf(v) }
+    private fun headers(vararg pairs: Pair<String, String>): Map<String, List<String>> = pairs.associate { (k, v) -> k to listOf(v) }
 
     @Test
     fun `parse is case insensitive for Cache-Control key`() {
@@ -327,8 +325,7 @@ class CloudflareEdgeTokenTest {
 // ── CdnProvider detection ─────────────────────────────────────────────────────
 
 class CdnProviderDetectionTest {
-    private fun headers(vararg pairs: Pair<String, String>): Map<String, List<String>> =
-        pairs.associate { (k, v) -> k to listOf(v) }
+    private fun headers(vararg pairs: Pair<String, String>): Map<String, List<String>> = pairs.associate { (k, v) -> k to listOf(v) }
 
     @Test
     fun `parse detects Cloudflare from CF-Cache-Status`() {

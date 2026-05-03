@@ -119,7 +119,16 @@ internal class RenditionItemView(
         val isActive = active != null && info.isSameRenditionAs(active)
 
         dot.background = if (isActive) OverlayDrawables.dotActive() else OverlayDrawables.dotInactive()
+        topLine.text = buildAudioTopLine(info)
 
+        val bottomParts = mutableListOf<String>()
+        info.codecs?.let { bottomParts += it }
+        if (info.isMuxed) bottomParts += "muxed"
+        bottomLine.text = bottomParts.joinToString("  \u00b7  ")
+        bottomLine.isVisible = bottomParts.isNotEmpty()
+    }
+
+    private fun buildAudioTopLine(info: AudioTrackInfo): String {
         val topParts = mutableListOf<String>()
         val displayName =
             info.label
@@ -140,13 +149,7 @@ internal class RenditionItemView(
             }
         if (channels != null) topParts += channels
         if (info.bitrate > 0) topParts += OverlayFormatters.formatBitrate(info.bitrate)
-        topLine.text = topParts.joinToString("  \u00b7  ").ifBlank { "Audio" }
-
-        val bottomParts = mutableListOf<String>()
-        info.codecs?.let { bottomParts += it }
-        if (info.isMuxed) bottomParts += "muxed"
-        bottomLine.text = bottomParts.joinToString("  \u00b7  ")
-        bottomLine.isVisible = bottomParts.isNotEmpty()
+        return topParts.joinToString("  \u00b7  ").ifBlank { "Audio" }
     }
 
     private fun bindSubtitle(

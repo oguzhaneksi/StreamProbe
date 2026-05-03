@@ -138,26 +138,32 @@ internal class SwitchTimelineItemView(
         timestampView.text = OverlayFormatters.formatRelativeTimestamp(event.timestampMs, baseTimestampMs)
 
         when (event) {
-            is TrackSwitchEvent.VideoSwitch -> {
-                typeView.text = "VID"
-                typeView.setTextColor("#4FC3F7".toColorInt()) // light blue
-                switchView.text = OverlayFormatters.formatAbrSwitch(event.previousTrack, event.newTrack)
-            }
-            is TrackSwitchEvent.AudioSwitch -> {
-                typeView.text = "AUD"
-                typeView.setTextColor("#A5D6A7".toColorInt()) // light green
-                val prev = event.previousTrack?.let { it.label ?: it.language ?: "?" }
-                val next = event.newTrack.label ?: event.newTrack.language ?: "?"
-                switchView.text = if (prev != null) "$prev \u2192 $next" else "\u2014 \u2192 $next"
-            }
-            is TrackSwitchEvent.SubtitleSwitch -> {
-                typeView.text = "SUB"
-                typeView.setTextColor("#CE93D8".toColorInt()) // light purple
-                val prev = event.previousTrack?.let { it.label ?: it.language ?: "?" }
-                val next = event.newTrack?.let { it.label ?: it.language ?: "?" } ?: "Off"
-                switchView.text = if (prev != null) "$prev \u2192 $next" else "\u2014 \u2192 $next"
-            }
+            is TrackSwitchEvent.VideoSwitch -> bindVideoSwitch(event)
+            is TrackSwitchEvent.AudioSwitch -> bindAudioSwitch(event)
+            is TrackSwitchEvent.SubtitleSwitch -> bindSubtitleSwitch(event)
         }
+    }
+
+    private fun bindVideoSwitch(event: TrackSwitchEvent.VideoSwitch) {
+        typeView.text = "VID"
+        typeView.setTextColor("#4FC3F7".toColorInt()) // light blue
+        switchView.text = OverlayFormatters.formatAbrSwitch(event.previousTrack, event.newTrack)
+    }
+
+    private fun bindAudioSwitch(event: TrackSwitchEvent.AudioSwitch) {
+        typeView.text = "AUD"
+        typeView.setTextColor("#A5D6A7".toColorInt()) // light green
+        val prev = event.previousTrack?.let { it.label ?: it.language ?: "?" }
+        val next = event.newTrack.label ?: event.newTrack.language ?: "?"
+        switchView.text = if (prev != null) "$prev \u2192 $next" else "\u2014 \u2192 $next"
+    }
+
+    private fun bindSubtitleSwitch(event: TrackSwitchEvent.SubtitleSwitch) {
+        typeView.text = "SUB"
+        typeView.setTextColor("#CE93D8".toColorInt()) // light purple
+        val prev = event.previousTrack?.let { it.label ?: it.language ?: "?" }
+        val next = event.newTrack?.let { it.label ?: it.language ?: "?" } ?: "Off"
+        switchView.text = if (prev != null) "$prev \u2192 $next" else "\u2014 \u2192 $next"
     }
 
     private fun dp(value: Float) = context.dp(value)
