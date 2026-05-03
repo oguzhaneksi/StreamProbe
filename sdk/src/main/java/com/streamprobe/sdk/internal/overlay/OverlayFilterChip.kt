@@ -5,11 +5,11 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.util.TypedValue
 import android.view.Gravity
-import android.widget.TextView
+import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.graphics.toColorInt
 
 /**
- * Custom chip-like widget built from [TextView] — no Material Components dependency.
+ * Custom chip-like widget built from [AppCompatTextView] — no Material Components dependency.
  *
  * Exposes [isChecked] which swaps between a filled accent background (checked) and a
  * transparent fill with 1dp accent outline (unchecked). Mirrors the existing
@@ -17,7 +17,7 @@ import androidx.core.graphics.toColorInt
  */
 internal class OverlayFilterChip(
     context: Context,
-) : TextView(context) {
+) : AppCompatTextView(context) {
     var isChecked: Boolean = false
         set(value) {
             field = value

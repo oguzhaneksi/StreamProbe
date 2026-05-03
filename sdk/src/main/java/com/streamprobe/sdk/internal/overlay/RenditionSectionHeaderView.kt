@@ -3,7 +3,7 @@ package com.streamprobe.sdk.internal.overlay
 import android.content.Context
 import android.graphics.Typeface
 import android.util.TypedValue
-import android.widget.TextView
+import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.graphics.toColorInt
 
 /**
@@ -11,7 +11,7 @@ import androidx.core.graphics.toColorInt
  */
 internal class RenditionSectionHeaderView(
     context: Context,
-) : TextView(context) {
+) : AppCompatTextView(context) {
     init {
         setTextColor("#80FFFFFF".toColorInt())
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
