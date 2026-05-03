@@ -49,14 +49,7 @@ internal class ErrorTimelineItemView(
             }
         summaryRow.addView(indexView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
 
-        dotView =
-            View(context).apply {
-                val size = dp(8f).toInt()
-                layoutParams =
-                    LayoutParams(size, size).also {
-                        it.marginStart = dp(4f).toInt()
-                    }
-            }
+        dotView = View(context)
         summaryRow.addView(
             dotView,
             LayoutParams(dp(8f).toInt(), dp(8f).toInt()).also {
