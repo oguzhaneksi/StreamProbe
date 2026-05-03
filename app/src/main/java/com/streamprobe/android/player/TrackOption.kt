@@ -1,4 +1,4 @@
-package com.streamprobe.android
+package com.streamprobe.android.player
 
 /**
  * UI-facing representation of a video quality track that can be selected by the user.

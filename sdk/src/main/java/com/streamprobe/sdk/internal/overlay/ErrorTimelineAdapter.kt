@@ -6,9 +6,7 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 
-internal class ErrorTimelineAdapter :
-    ListAdapter<PlaybackErrorEvent, ErrorTimelineAdapter.ViewHolder>(DIFF) {
-
+internal class ErrorTimelineAdapter : ListAdapter<PlaybackErrorEvent, ErrorTimelineAdapter.ViewHolder>(DIFF) {
     private var expandedTimestampMs: Long? = null
 
     override fun onCurrentListChanged(
@@ -23,11 +21,15 @@ internal class ErrorTimelineAdapter :
         }
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        return ViewHolder(ErrorTimelineItemView(parent.context))
-    }
+    override fun onCreateViewHolder(
+        parent: ViewGroup,
+        viewType: Int,
+    ): ViewHolder = ViewHolder(ErrorTimelineItemView(parent.context))
 
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+    override fun onBindViewHolder(
+        holder: ViewHolder,
+        position: Int,
+    ) {
         val event = getItem(position)
         val baseTimestampMs = currentList.firstOrNull()?.timestampMs ?: 0L
         holder.bind(
@@ -52,7 +54,9 @@ internal class ErrorTimelineAdapter :
         }
     }
 
-    class ViewHolder(private val view: ErrorTimelineItemView) : RecyclerView.ViewHolder(view) {
+    class ViewHolder(
+        private val view: ErrorTimelineItemView,
+    ) : RecyclerView.ViewHolder(view) {
         fun bind(
             index: Int,
             event: PlaybackErrorEvent,
@@ -65,12 +69,17 @@ internal class ErrorTimelineAdapter :
     }
 
     companion object {
-        private val DIFF = object : DiffUtil.ItemCallback<PlaybackErrorEvent>() {
-            override fun areItemsTheSame(old: PlaybackErrorEvent, new: PlaybackErrorEvent) =
-                old.timestampMs == new.timestampMs
+        private val DIFF =
+            object : DiffUtil.ItemCallback<PlaybackErrorEvent>() {
+                override fun areItemsTheSame(
+                    old: PlaybackErrorEvent,
+                    new: PlaybackErrorEvent,
+                ) = old.timestampMs == new.timestampMs
 
-            override fun areContentsTheSame(old: PlaybackErrorEvent, new: PlaybackErrorEvent) =
-                old == new
-        }
+                override fun areContentsTheSame(
+                    old: PlaybackErrorEvent,
+                    new: PlaybackErrorEvent,
+                ) = old == new
+            }
     }
 }

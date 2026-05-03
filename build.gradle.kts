@@ -5,4 +5,6 @@ plugins {
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.vanniktech.mavenPublish) apply false
     alias(libs.plugins.jetbrains.dokka) apply false
+    alias(libs.plugins.ktlint) apply false
+    alias(libs.plugins.detekt) apply false
 }

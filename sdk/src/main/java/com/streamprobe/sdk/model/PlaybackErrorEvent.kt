@@ -1,11 +1,12 @@
 package com.streamprobe.sdk.model
 
+// TODO a stable UUID to be added for preventing possible issues caused by duplicated timestampMs
+
 /**
  * A single immutable record for every non-fatal error captured during playback.
  * Category-specific data is consolidated into a sealed [ErrorDetail] so unused fields
  * don't leak across categories.
  */
-// TODO a stable UUID to be added for preventing possible issues caused by duplicated timestampMs
 data class PlaybackErrorEvent(
     /** Wall-clock timestamp of the *first* burst (System.currentTimeMillis). Stable for DiffUtil. */
     val timestampMs: Long,

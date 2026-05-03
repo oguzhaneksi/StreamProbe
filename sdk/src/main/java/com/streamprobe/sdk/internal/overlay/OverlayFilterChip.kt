@@ -5,26 +5,28 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.util.TypedValue
 import android.view.Gravity
-import android.widget.TextView
+import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.graphics.toColorInt
 
 /**
- * Custom chip-like widget built from [TextView] — no Material Components dependency.
+ * Custom chip-like widget built from [AppCompatTextView] — no Material Components dependency.
  *
  * Exposes [isChecked] which swaps between a filled accent background (checked) and a
  * transparent fill with 1dp accent outline (unchecked). Mirrors the existing
  * programmatic-view + [OverlayDrawables] pattern used throughout the overlay.
  */
-internal class OverlayFilterChip(context: Context) : TextView(context) {
-
+internal class OverlayFilterChip(
+    context: Context,
+) : AppCompatTextView(context) {
     var isChecked: Boolean = false
         set(value) {
             field = value
-            background = if (value) {
-                OverlayDrawables.filterChipCheckedBackground(context)
-            } else {
-                OverlayDrawables.filterChipUncheckedBackground(context)
-            }
+            background =
+                if (value) {
+                    OverlayDrawables.filterChipCheckedBackground(context)
+                } else {
+                    OverlayDrawables.filterChipUncheckedBackground(context)
+                }
             setTextColor(if (value) Color.WHITE else "#66B2FF".toColorInt())
         }
 

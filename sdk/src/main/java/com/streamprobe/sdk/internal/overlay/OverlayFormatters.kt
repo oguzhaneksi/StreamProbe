@@ -20,7 +20,6 @@ import java.util.Locale
  * These are extracted from [OverlayManager] so they can be unit-tested without Robolectric.
  */
 internal object OverlayFormatters {
-
     fun formatSegmentMetric(metric: SegmentMetric?): String {
         if (metric == null) return "\u2014"
         val duration = "Total: ${metric.totalDurationMs}ms"
@@ -31,52 +30,66 @@ internal object OverlayFormatters {
 
     fun formatCdnStatus(cdnInfo: CdnHeaderInfo?): String {
         if (cdnInfo == null) return "\u2014"
-        val providerPrefix = when (cdnInfo.cdnProvider) {
+        val providerPrefix = formatProviderPrefix(cdnInfo.cdnProvider)
+        val indicator = formatCacheIndicator(cdnInfo.cacheStatus)
+        val headerSnippet =
+            when {
+                cdnInfo.xCache != null -> "X-Cache: ${cdnInfo.xCache}"
+                cdnInfo.cdnSpecificHeaders.isNotEmpty() -> {
+                    val (k, v) = cdnInfo.cdnSpecificHeaders.entries.first()
+                    "${k.uppercase(Locale.ROOT)}: $v"
+                }
+                cdnInfo.cacheControl != null -> "Cache-Control: ${cdnInfo.cacheControl}"
+                else -> null
+            }
+        val statusPart = if (headerSnippet != null) "$indicator  \u00b7  $headerSnippet" else indicator
+        return if (providerPrefix != null) "$providerPrefix  $statusPart" else statusPart
+    }
+
+    private fun formatProviderPrefix(provider: CdnProvider?): String? =
+        when (provider) {
             CdnProvider.CLOUDFLARE -> "[CLOUDFLARE]"
             CdnProvider.CLOUDFRONT -> "[CLOUDFRONT]"
             CdnProvider.FASTLY -> "[FASTLY]"
             CdnProvider.AKAMAI -> "[AKAMAI]"
             CdnProvider.UNKNOWN, null -> null
         }
-        val indicator = when (cdnInfo.cacheStatus) {
+
+    private fun formatCacheIndicator(status: CacheStatus): String =
+        when (status) {
             CacheStatus.HIT -> "\u25cf HIT"
             CacheStatus.MISS -> "\u25cb MISS"
             CacheStatus.STALE -> "\u25d4 STALE"
             CacheStatus.BYPASS -> "\u25a1 BYPASS"
             CacheStatus.UNKNOWN -> "\u25cc UNKNOWN"
         }
-        val headerSnippet = when {
-            cdnInfo.xCache != null -> "X-Cache: ${cdnInfo.xCache}"
-            cdnInfo.cdnSpecificHeaders.isNotEmpty() -> {
-                val (k, v) = cdnInfo.cdnSpecificHeaders.entries.first()
-                "${k.uppercase(Locale.ROOT)}: $v"
-            }
-            cdnInfo.cacheControl != null -> "Cache-Control: ${cdnInfo.cacheControl}"
-            else -> null
-        }
-        val statusPart = if (headerSnippet != null) "$indicator  \u00b7  $headerSnippet" else indicator
-        return if (providerPrefix != null) "$providerPrefix  $statusPart" else statusPart
-    }
 
-    private fun formatScaledBytes(value: Long, suffix: String = ""): String = when {
-        value >= 1_000_000 -> String.format(Locale.ROOT, "%.1f MB%s", value / 1_000_000.0, suffix)
-        value >= 1_000 -> String.format(Locale.ROOT, "%.1f KB%s", value / 1_000.0, suffix)
-        else -> "$value B$suffix"
-    }
+    private fun formatScaledBytes(
+        value: Long,
+        suffix: String = "",
+    ): String =
+        when {
+            value >= 1_000_000 -> String.format(Locale.ROOT, "%.1f MB%s", value / 1_000_000.0, suffix)
+            value >= 1_000 -> String.format(Locale.ROOT, "%.1f KB%s", value / 1_000.0, suffix)
+            else -> "$value B$suffix"
+        }
 
     fun formatBytes(bytes: Long): String = formatScaledBytes(bytes)
 
     fun formatThroughput(bytesPerSec: Long): String = formatScaledBytes(bytesPerSec, "/s")
 
-    fun formatBitrate(bps: Int): String = when {
-        bps >= 1_000_000 -> String.format(Locale.ROOT, "%.1f Mbps", bps / 1_000_000.0)
-        bps >= 1_000 -> String.format(Locale.ROOT, "%d kbps", bps / 1_000)
-        bps > 0 -> "$bps bps"
-        else -> "? bps"
-    }
+    fun formatBitrate(bps: Int): String =
+        when {
+            bps >= 1_000_000 -> String.format(Locale.ROOT, "%.1f Mbps", bps / 1_000_000.0)
+            bps >= 1_000 -> String.format(Locale.ROOT, "%d kbps", bps / 1_000)
+            bps > 0 -> "$bps bps"
+            else -> "? bps"
+        }
 
-    fun formatResolution(width: Int, height: Int): String =
-        if (width > 0 && height > 0) "${width}\u00d7${height}" else "Audio only"
+    fun formatResolution(
+        width: Int,
+        height: Int,
+    ): String = if (width > 0 && height > 0) "${width}\u00d7$height" else "Audio only"
 
     fun formatActiveTrack(track: ActiveTrackInfo?): String {
         if (track == null) return "Loading\u2026"
@@ -86,18 +99,25 @@ internal object OverlayFormatters {
     fun formatActiveAudio(audio: AudioTrackInfo?): String {
         if (audio == null) return "Loading\u2026"
         val parts = mutableListOf<String>()
-        val lang = audio.label
-            ?: audio.language?.let { Locale.forLanguageTag(it).displayLanguage.takeIf { l -> l.isNotBlank() } }
+        val lang =
+            audio.label
+                ?: audio.language?.let { Locale.forLanguageTag(it).displayLanguage.takeIf { l -> l.isNotBlank() } }
         if (!lang.isNullOrBlank()) parts += lang
-        val codec = audio.codecs?.split(".")?.firstOrNull()?.uppercase(Locale.ROOT)
-        val channels = when (audio.channelCount) {
-            1    -> "mono"
-            2    -> "stereo"
-            6    -> "5.1"
-            8    -> "7.1"
-            else -> if (audio.channelCount > 0) "${audio.channelCount}ch" else null
-        }
-        listOfNotNull(codec, channels).joinToString(" ")
+        val codec =
+            audio.codecs
+                ?.split(".")
+                ?.firstOrNull()
+                ?.uppercase(Locale.ROOT)
+        val channels =
+            when (audio.channelCount) {
+                1 -> "mono"
+                2 -> "stereo"
+                6 -> "5.1"
+                8 -> "7.1"
+                else -> if (audio.channelCount > 0) "${audio.channelCount}ch" else null
+            }
+        listOfNotNull(codec, channels)
+            .joinToString(" ")
             .takeIf { it.isNotBlank() }
             ?.let { parts += it }
         if (audio.bitrate > 0) parts += formatBitrate(audio.bitrate)
@@ -106,26 +126,31 @@ internal object OverlayFormatters {
     }
 
     fun formatActiveSubtitle(subtitle: SubtitleTrackInfo?): String {
-        if (subtitle == null) return "Loading\u2026"
+        if (subtitle == null) return "Off"
         val parts = mutableListOf<String>()
-        val lang = subtitle.label
-            ?: subtitle.language?.let { Locale.forLanguageTag(it).displayLanguage.takeIf { l -> l.isNotBlank() } }
+        val lang =
+            subtitle.label
+                ?: subtitle.language?.let { Locale.forLanguageTag(it).displayLanguage.takeIf { l -> l.isNotBlank() } }
         if (!lang.isNullOrBlank()) parts += lang
         if (subtitle.kind == SubtitleKind.CC) parts += "(CC)"
-        val mimeShort = when (subtitle.mimeType) {
-            "text/vtt", "application/x-media3-webvtt" -> "WebVTT"
-            "application/ttml+xml"                    -> "TTML"
-            "application/x-subrip"                    -> "SRT"
-            "text/x-ssa"                              -> "SSA"
-            "application/cea-608", "application/cea-708" -> null  // implied by (CC)
-            else -> subtitle.mimeType?.substringAfterLast("/")
-        }
+        val mimeShort =
+            when (subtitle.mimeType) {
+                "text/vtt", "application/x-media3-webvtt" -> "WebVTT"
+                "application/ttml+xml" -> "TTML"
+                "application/x-subrip" -> "SRT"
+                "text/x-ssa" -> "SSA"
+                "application/cea-608", "application/cea-708" -> null // implied by (CC)
+                else -> subtitle.mimeType?.substringAfterLast("/")
+            }
         if (!mimeShort.isNullOrBlank()) parts += mimeShort
         return parts.joinToString("  \u00b7  ").ifBlank { "Unknown" }
     }
 
     /** "720p → 1080p" or "1.5 Mbps → 5.0 Mbps" when resolution is identical. */
-    fun formatAbrSwitch(from: ActiveTrackInfo?, to: ActiveTrackInfo): String {
+    fun formatAbrSwitch(
+        from: ActiveTrackInfo?,
+        to: ActiveTrackInfo,
+    ): String {
         val toLabel = if (to.height > 0) "${to.height}p" else formatBitrate(to.bitrate)
         if (from == null) return "\u2014 \u2192 $toLabel"
         val fromLabel = if (from.height > 0) "${from.height}p" else formatBitrate(from.bitrate)
@@ -137,11 +162,13 @@ internal object OverlayFormatters {
     }
 
     /** "buf: 12.4s" */
-    fun formatBufferDuration(bufferMs: Long): String =
-        String.format(Locale.ROOT, "buf: %.1fs", bufferMs / 1000.0)
+    fun formatBufferDuration(bufferMs: Long): String = String.format(Locale.ROOT, "buf: %.1fs", bufferMs / 1000.0)
 
     /** "+0:42" relative to a base timestamp. */
-    fun formatRelativeTimestamp(timestampMs: Long, baseTimestampMs: Long): String {
+    fun formatRelativeTimestamp(
+        timestampMs: Long,
+        baseTimestampMs: Long,
+    ): String {
         val diffMs = (timestampMs - baseTimestampMs).coerceAtLeast(0L)
         val totalSec = diffMs / 1000
         val minutes = totalSec / 60
@@ -152,13 +179,14 @@ internal object OverlayFormatters {
     /** "ADAPTIVE", "MANUAL", etc. */
     fun formatSwitchReason(reason: SwitchReason): String = reason.name
 
-    fun formatErrorCategory(category: ErrorCategory): String = when (category) {
-        ErrorCategory.LOAD_ERROR        -> "LOAD"
-        ErrorCategory.VIDEO_CODEC_ERROR -> "CODEC"
-        ErrorCategory.DROPPED_FRAMES    -> "FRAMES"
-        ErrorCategory.AUDIO_SINK_ERROR  -> "AUDIO"
-        ErrorCategory.AUDIO_CODEC_ERROR -> "ACODEC"
-    }
+    fun formatErrorCategory(category: ErrorCategory): String =
+        when (category) {
+            ErrorCategory.LOAD_ERROR -> "LOAD"
+            ErrorCategory.VIDEO_CODEC_ERROR -> "CODEC"
+            ErrorCategory.DROPPED_FRAMES -> "FRAMES"
+            ErrorCategory.AUDIO_SINK_ERROR -> "AUDIO"
+            ErrorCategory.AUDIO_CODEC_ERROR -> "ACODEC"
+        }
 
     /**
      * Thread-local [SimpleDateFormat] avoids allocating a new formatter on every call
@@ -168,10 +196,10 @@ internal object OverlayFormatters {
      * Uses an anonymous subclass instead of [ThreadLocal.withInitial] to remain compatible
      * with API levels below 26.
      */
-    private val TIME_FORMATTER: ThreadLocal<SimpleDateFormat> = object : ThreadLocal<SimpleDateFormat>() {
-        override fun initialValue(): SimpleDateFormat =
-            SimpleDateFormat("HH:mm:ss.SSS", Locale.ROOT)
-    }
+    private val TIME_FORMATTER: ThreadLocal<SimpleDateFormat> =
+        object : ThreadLocal<SimpleDateFormat>() {
+            override fun initialValue(): SimpleDateFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.ROOT)
+        }
 
     /** "HH:mm:ss.SSS" absolute wall-clock timestamp. */
     fun formatAbsoluteTimestamp(timestampMs: Long): String {
@@ -184,17 +212,18 @@ internal object OverlayFormatters {
         baseTimestampMs: Long,
     ): String {
         val header = "[StreamProbe] ${errors.size} errors"
-        val rows = errors.mapIndexed { i, e ->
-            val rel = formatRelativeTimestamp(e.timestampMs, baseTimestampMs)
-            val cat = formatErrorCategory(e.category)
-            val abs = formatAbsoluteTimestamp(e.timestampMs)
-            buildString {
-                append("#${i + 1} $rel $cat ${e.message} [$abs]")
-                if (!e.detail.isNullOrBlank()) {
-                    append("\n    ${e.detail}")
+        val rows =
+            errors.mapIndexed { i, e ->
+                val rel = formatRelativeTimestamp(e.timestampMs, baseTimestampMs)
+                val cat = formatErrorCategory(e.category)
+                val abs = formatAbsoluteTimestamp(e.timestampMs)
+                buildString {
+                    append("#${i + 1} $rel $cat ${e.message} [$abs]")
+                    if (!e.detail.isNullOrBlank()) {
+                        append("\n    ${e.detail}")
+                    }
                 }
             }
-        }
         return (listOf(header) + rows).joinToString("\n")
     }
 }

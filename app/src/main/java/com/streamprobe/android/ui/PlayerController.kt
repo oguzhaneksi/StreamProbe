@@ -26,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -46,183 +47,248 @@ fun PlayerController(
     uiState: PlayerUiState,
     visible: Boolean,
     hasMultipleTracks: Boolean,
-    onSeekBack: () -> Unit,
-    onTogglePlayPause: () -> Unit,
-    onSeekForward: () -> Unit,
-    onScrubPositionChanged: (Long) -> Unit,
-    onScrubFinished: () -> Unit,
-    onUserInteraction: () -> Unit,
-    onTrackSelectionClick: () -> Unit,
+    callbacks: PlayerControllerCallbacks,
 ) {
     val durationMs = uiState.durationMs.coerceAtLeast(0L)
     val sliderValue = uiState.sliderValueMs.coerceIn(0L, durationMs)
-    val bufferedFraction = if (durationMs > 0L) {
-        (uiState.bufferedPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
-    } else {
-        0f
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (uiState.isBuffering) {
-            CircularProgressIndicator(
-                modifier = Modifier
-                    .size(56.dp)
-                    .align(Alignment.Center),
-                color = Color.White,
-                strokeWidth = 3.dp
-            )
+    val bufferedFraction =
+        if (durationMs > 0L) {
+            (uiState.bufferedPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+        } else {
+            0f
         }
-    }
+
+    BufferingOverlay(isBuffering = uiState.isBuffering)
 
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(),
         exit = fadeOut(),
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // ── Top-right: Track Selection button ────────────────────────
             if (hasMultipleTracks) {
-                IconButton(
+                TrackSelectionButton(
+                    modifier = Modifier.align(Alignment.TopEnd),
                     onClick = {
-                        onUserInteraction()
-                        onTrackSelectionClick()
+                        callbacks.onUserInteraction()
+                        callbacks.onTrackSelectionClick()
                     },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .statusBarsPadding()
-                        .padding(end = 12.dp, top = 4.dp)
-                        .size(48.dp)
-                        .clip(CircleShape),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.Black.copy(alpha = 0.50f),
-                        contentColor = Color.White,
-                    ),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Settings,
-                        contentDescription = "Track selection",
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-            }
-            Row(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                CenterActionButton(
-                    iconRes = Media3Material3R.drawable.media3_icon_skip_back_10,
-                    contentDescription = "Seek back 10 seconds",
-                    onClick = {
-                        onUserInteraction()
-                        onSeekBack()
-                    }
-                )
-
-                CenterActionButton(
-                    iconRes = if (uiState.isPlaying) Media3Material3R.drawable.media3_icon_pause else Media3Material3R.drawable.media3_icon_play,
-                    contentDescription = if (uiState.isPlaying) "Pause" else "Play",
-                    onClick = {
-                        onUserInteraction()
-                        onTogglePlayPause()
-                    }
-                )
-
-                CenterActionButton(
-                    iconRes = Media3Material3R.drawable.media3_icon_skip_forward_10,
-                    contentDescription = "Seek forward 10 seconds",
-                    onClick = {
-                        onUserInteraction()
-                        onSeekForward()
-                    }
                 )
             }
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.70f)
-                            )
-                        )
-                    )
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
-            ) {
-                Slider(
-                    value = sliderValue.toFloat(),
-                    onValueChange = { value ->
-                        onUserInteraction()
-                        onScrubPositionChanged(value.toLong())
-                    },
-                    onValueChangeFinished = {
-                        onUserInteraction()
-                        onScrubFinished()
-                    },
-                    valueRange = 0f..durationMs.toFloat().coerceAtLeast(1f),
-                    thumb = {
-                        Box(
-                            modifier = Modifier
-                                .size(15.dp)
-                                .clip(CircleShape)
-                                .shadow(elevation = 4.dp, CircleShape)
-                                .background(Color.White)
-                        )
-                    },
-                    track = { sliderState ->
-                        val playedFraction = if (durationMs > 0L) {
-                            (sliderState.value / durationMs.toFloat()).coerceIn(0f, 1f)
-                        } else {
-                            0f
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(bufferedFraction)
-                                    .fillMaxHeight()
-                                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f))
-                            )
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(playedFraction)
-                                    .fillMaxHeight()
-                                    .background(MaterialTheme.colorScheme.primary)
-                            )
-                        }
-                    }
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = formatTime(sliderValue),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "-${formatTime((durationMs - sliderValue).coerceAtLeast(0L))}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White
-                    )
-                }
-            }
+            PlaybackControlsRow(
+                uiState = uiState,
+                modifier =
+                    Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth(),
+                callbacks = callbacks,
+            )
+            ProgressSection(
+                durationMs = durationMs,
+                sliderValue = sliderValue,
+                bufferedFraction = bufferedFraction,
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(),
+                callbacks = callbacks,
+            )
         }
+    }
+}
+
+@Composable
+private fun BufferingOverlay(isBuffering: Boolean) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (isBuffering) {
+            CircularProgressIndicator(
+                modifier =
+                    Modifier
+                        .size(56.dp)
+                        .align(Alignment.Center),
+                color = Color.White,
+                strokeWidth = 3.dp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TrackSelectionButton(
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        onClick = onClick,
+        modifier =
+            modifier
+                .statusBarsPadding()
+                .padding(end = 12.dp, top = 4.dp)
+                .size(48.dp)
+                .clip(CircleShape),
+        colors =
+            IconButtonDefaults.iconButtonColors(
+                containerColor = Color.Black.copy(alpha = 0.50f),
+                contentColor = Color.White,
+            ),
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Settings,
+            contentDescription = "Track selection",
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+@Composable
+private fun PlaybackControlsRow(
+    uiState: PlayerUiState,
+    modifier: Modifier,
+    callbacks: PlayerControllerCallbacks,
+) {
+    val pauseOrPlayIcon =
+        if (uiState.isPlaying) {
+            Media3Material3R.drawable.media3_icon_pause
+        } else {
+            Media3Material3R.drawable.media3_icon_play
+        }
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CenterActionButton(
+            iconRes = Media3Material3R.drawable.media3_icon_skip_back_10,
+            contentDescription = "Seek back 10 seconds",
+            onClick = {
+                callbacks.onUserInteraction()
+                callbacks.onSeekBack()
+            },
+        )
+        CenterActionButton(
+            iconRes = pauseOrPlayIcon,
+            contentDescription = if (uiState.isPlaying) "Pause" else "Play",
+            onClick = {
+                callbacks.onUserInteraction()
+                callbacks.onTogglePlayPause()
+            },
+        )
+        CenterActionButton(
+            iconRes = Media3Material3R.drawable.media3_icon_skip_forward_10,
+            contentDescription = "Seek forward 10 seconds",
+            onClick = {
+                callbacks.onUserInteraction()
+                callbacks.onSeekForward()
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProgressSection(
+    durationMs: Long,
+    sliderValue: Long,
+    bufferedFraction: Float,
+    modifier: Modifier,
+    callbacks: PlayerControllerCallbacks,
+) {
+    Column(
+        modifier =
+            modifier
+                .background(
+                    brush =
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.70f)),
+                        ),
+                ).padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Slider(
+            value = sliderValue.toFloat(),
+            onValueChange = { value ->
+                callbacks.onUserInteraction()
+                callbacks.onScrubPositionChanged(value.toLong())
+            },
+            onValueChangeFinished = {
+                callbacks.onUserInteraction()
+                callbacks.onScrubFinished()
+            },
+            valueRange = 0f..durationMs.toFloat().coerceAtLeast(1f),
+            thumb = { SliderThumb() },
+            track = { sliderState ->
+                SliderTrackContent(
+                    durationMs = durationMs,
+                    bufferedFraction = bufferedFraction,
+                    sliderState = sliderState,
+                )
+            },
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = formatTime(sliderValue),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White,
+            )
+            Text(
+                text = "-${formatTime((durationMs - sliderValue).coerceAtLeast(0L))}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SliderThumb() {
+    Box(
+        modifier =
+            Modifier
+                .size(15.dp)
+                .clip(CircleShape)
+                .shadow(elevation = 4.dp, CircleShape)
+                .background(Color.White),
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SliderTrackContent(
+    durationMs: Long,
+    bufferedFraction: Float,
+    sliderState: SliderState,
+) {
+    val playedFraction =
+        if (durationMs > 0L) {
+            (sliderState.value / durationMs.toFloat()).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth(bufferedFraction)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)),
+        )
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth(playedFraction)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.primary),
+        )
     }
 }
 
@@ -234,19 +300,21 @@ private fun CenterActionButton(
 ) {
     IconButton(
         onClick = onClick,
-        modifier = Modifier
-            .padding(horizontal = 10.dp)
-            .size(58.dp)
-            .clip(CircleShape),
-        colors = IconButtonDefaults.iconButtonColors(
-            containerColor = Color.Black.copy(alpha = 0.50f),
-            contentColor = Color.White
-        )
+        modifier =
+            Modifier
+                .padding(horizontal = 10.dp)
+                .size(58.dp)
+                .clip(CircleShape),
+        colors =
+            IconButtonDefaults.iconButtonColors(
+                containerColor = Color.Black.copy(alpha = 0.50f),
+                contentColor = Color.White,
+            ),
     ) {
         Icon(
             painter = painterResource(id = iconRes),
             contentDescription = contentDescription,
-            modifier = Modifier.size(30.dp)
+            modifier = Modifier.size(30.dp),
         )
     }
 }

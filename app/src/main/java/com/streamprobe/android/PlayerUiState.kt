@@ -1,5 +1,9 @@
 package com.streamprobe.android
 
+import com.streamprobe.android.player.AudioTrackOption
+import com.streamprobe.android.player.SubtitleTrackOption
+import com.streamprobe.android.player.VideoTrackOption
+
 data class PlayerUiState(
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
@@ -15,7 +19,10 @@ data class PlayerUiState(
     val selectedVideoTrack: VideoTrackOption = VideoTrackOption.Auto,
     val selectedAudioTrack: AudioTrackOption? = null,
     val selectedSubtitleTrack: SubtitleTrackOption = SubtitleTrackOption.Off,
-    /** True when there is at least one non-Auto video option or a second audio/subtitle option — shows the Tracks button. */
+    /**
+     * True when there is at least one non-Auto video option or a second
+     * audio/subtitle option — shows the Tracks button.
+     */
     val hasMultipleTracks: Boolean = false,
 ) {
     val sliderValueMs: Long

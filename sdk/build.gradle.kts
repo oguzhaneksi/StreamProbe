@@ -2,14 +2,22 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.vanniktech.mavenPublish)
     alias(libs.plugins.jetbrains.dokka)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.detekt)
+}
+
+detekt {
+    config.setFrom("$rootDir/config/detekt/detekt.yml")
+    buildUponDefaultConfig = true
 }
 
 android {
     namespace = "com.streamprobe.sdk"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version =
+            release(36) {
+                minorApiLevel = 1
+            }
     }
 
     defaultConfig {
@@ -24,7 +32,7 @@ android {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -58,12 +66,14 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.oguzhaneksi",
         artifactId = "streamprobe",
-        version = project.property("VERSION_NAME") as String
+        version = project.property("VERSION_NAME") as String,
     )
 
     pom {
         name.set("StreamProbe")
-        description.set("A debug SDK for Android apps that inspects HLS and DASH streaming traffic in real time on top of Media3/ExoPlayer.")
+        description.set(
+            "A debug SDK for Android apps that inspects HLS and DASH streaming traffic in real time on top of Media3/ExoPlayer.",
+        )
         inceptionYear.set("2026")
         url.set("https://github.com/oguzhaneksi/StreamProbe")
         licenses {

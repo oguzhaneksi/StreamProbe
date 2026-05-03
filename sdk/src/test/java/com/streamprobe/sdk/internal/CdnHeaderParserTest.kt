@@ -9,9 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CdnHeaderParserTest {
-
-    private fun headers(vararg pairs: Pair<String, String>): Map<String, List<String>> =
-        pairs.associate { (k, v) -> k to listOf(v) }
+    private fun headers(vararg pairs: Pair<String, String>): Map<String, List<String>> = pairs.associate { (k, v) -> k to listOf(v) }
 
     @Test
     fun `parse extracts Cache-Control header`() {
@@ -98,13 +96,14 @@ class CdnHeaderParserTest {
     // Akamai live-stream headers: no X-Cache, no CF-Cache-Status, no x-cache-hits → UNKNOWN
     @Test
     fun `parse returns UNKNOWN for Akamai live stream with no explicit cache signal`() {
-        val result = CdnHeaderParser.parse(
-            headers(
-                "X-CDN" to "Akamai",
-                "Akamai-GRN" to "0.1e2c1002.1777018113.170fcc53",
-                "Cache-Control" to "max-age=0, no-cache",
+        val result =
+            CdnHeaderParser.parse(
+                headers(
+                    "X-CDN" to "Akamai",
+                    "Akamai-GRN" to "0.1e2c1002.1777018113.170fcc53",
+                    "Cache-Control" to "max-age=0, no-cache",
+                ),
             )
-        )
         assertEquals(CacheStatus.UNKNOWN, result.cacheStatus)
     }
 
@@ -187,7 +186,6 @@ class CdnHeaderParserTest {
 // ── Akamai TCP_* format ───────────────────────────────────────────────────────
 
 class AkamaiCacheStatusTest {
-
     @Test
     fun `determineCacheStatus returns HIT for Akamai TCP_HIT`() {
         val status = CdnHeaderParser.determineCacheStatus("TCP_HIT from a88-1-2-3.deploy.static.akamaitechnologies.com", emptyMap())
@@ -228,7 +226,6 @@ class AkamaiCacheStatusTest {
 // ── Precedence ────────────────────────────────────────────────────────────────
 
 class CacheStatusPrecedenceTest {
-
     @Test
     fun `x-cache HIT takes precedence over CF-Cache-Status MISS`() {
         val status = CdnHeaderParser.determineCacheStatus("HIT", mapOf("cf-cache-status" to "MISS"))
@@ -245,7 +242,6 @@ class CacheStatusPrecedenceTest {
 // ── Malformed x-cache-hits ────────────────────────────────────────────────────
 
 class XCacheHitsMalformedTest {
-
     @Test
     fun `determineCacheStatus returns MISS for non-numeric x-cache-hits`() {
         val status = CdnHeaderParser.determineCacheStatus(null, mapOf("x-cache-hits" to "abc"))
@@ -274,9 +270,7 @@ class XCacheHitsMalformedTest {
 // ── Case sensitivity ──────────────────────────────────────────────────────────
 
 class HeaderCaseSensitivityTest {
-
-    private fun headers(vararg pairs: Pair<String, String>): Map<String, List<String>> =
-        pairs.associate { (k, v) -> k to listOf(v) }
+    private fun headers(vararg pairs: Pair<String, String>): Map<String, List<String>> = pairs.associate { (k, v) -> k to listOf(v) }
 
     @Test
     fun `parse is case insensitive for Cache-Control key`() {
@@ -298,7 +292,6 @@ class HeaderCaseSensitivityTest {
 // ── Edge value handling ───────────────────────────────────────────────────────
 
 class EdgeValueHandlingTest {
-
     @Test
     fun `parse handles header present with empty value list`() {
         val result = CdnHeaderParser.parse(mapOf("x-cache" to emptyList()))
@@ -316,7 +309,6 @@ class EdgeValueHandlingTest {
 // ── Cloudflare edge tokens ────────────────────────────────────────────────────
 
 class CloudflareEdgeTokenTest {
-
     @Test
     fun `determineCacheStatus returns STALE for CF-Cache-Status REVALIDATED`() {
         val status = CdnHeaderParser.determineCacheStatus(null, mapOf("cf-cache-status" to "REVALIDATED"))
@@ -333,9 +325,7 @@ class CloudflareEdgeTokenTest {
 // ── CdnProvider detection ─────────────────────────────────────────────────────
 
 class CdnProviderDetectionTest {
-
-    private fun headers(vararg pairs: Pair<String, String>): Map<String, List<String>> =
-        pairs.associate { (k, v) -> k to listOf(v) }
+    private fun headers(vararg pairs: Pair<String, String>): Map<String, List<String>> = pairs.associate { (k, v) -> k to listOf(v) }
 
     @Test
     fun `parse detects Cloudflare from CF-Cache-Status`() {
@@ -363,12 +353,13 @@ class CdnProviderDetectionTest {
 
     @Test
     fun `parse detects Fastly from X-Served-By with varnish via`() {
-        val result = CdnHeaderParser.parse(
-            mapOf(
-                "X-Served-By" to listOf("cache-iad-1"),
-                "Via" to listOf("1.1 varnish"),
+        val result =
+            CdnHeaderParser.parse(
+                mapOf(
+                    "X-Served-By" to listOf("cache-iad-1"),
+                    "Via" to listOf("1.1 varnish"),
+                ),
             )
-        )
         assertEquals(CdnProvider.FASTLY, result.cdnProvider)
     }
 

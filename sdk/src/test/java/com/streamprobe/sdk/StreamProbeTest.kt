@@ -16,7 +16,6 @@ import org.robolectric.RobolectricTestRunner
 @UnstableApi
 @RunWith(RobolectricTestRunner::class)
 class StreamProbeTest {
-
     private lateinit var probe: StreamProbe
     private lateinit var player: ExoPlayer
 

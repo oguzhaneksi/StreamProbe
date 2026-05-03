@@ -23,7 +23,6 @@ import org.robolectric.RobolectricTestRunner
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class OverlayManagerErrorBehaviorTest {
-
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var sessionStore: SessionStore
@@ -47,85 +46,92 @@ class OverlayManagerErrorBehaviorTest {
 
     private fun overlay() = manager.overlayViewForTest()
 
-    private fun makeError(message: String = "HTTP 404: seg.ts") = PlaybackErrorEvent(
-        timestampMs = System.currentTimeMillis(),
-        category = ErrorCategory.LOAD_ERROR,
-        message = message,
-    )
+    private fun makeError(message: String = "HTTP 404: seg.ts") =
+        PlaybackErrorEvent(
+            timestampMs = System.currentTimeMillis(),
+            category = ErrorCategory.LOAD_ERROR,
+            message = message,
+        )
 
     @Test
-    fun `header indicator hidden when errors empty`() = runTest(testDispatcher) {
-        advanceUntilIdle()
-        assertEquals(View.GONE, overlay().errorIndicator.visibility)
-    }
+    fun `header indicator hidden when errors empty`() =
+        runTest(testDispatcher) {
+            advanceUntilIdle()
+            assertEquals(View.GONE, overlay().errorIndicator.visibility)
+        }
 
     @Test
-    fun `header indicator visible and counted when errors present`() = runTest(testDispatcher) {
-        sessionStore.addPlaybackError(makeError("Error 1"))
-        sessionStore.addPlaybackError(makeError("Error 2"))
-        sessionStore.addPlaybackError(makeError("Error 3"))
+    fun `header indicator visible and counted when errors present`() =
+        runTest(testDispatcher) {
+            sessionStore.addPlaybackError(makeError("Error 1"))
+            sessionStore.addPlaybackError(makeError("Error 2"))
+            sessionStore.addPlaybackError(makeError("Error 3"))
 
-        advanceUntilIdle()
+            advanceUntilIdle()
 
-        assertEquals(View.VISIBLE, overlay().errorIndicator.visibility)
-        val text = overlay().errorIndicator.text.toString()
-        assertEquals(true, text.contains("3"))
-    }
-
-    @Test
-    fun `tapping indicator switches to errors view`() = runTest(testDispatcher) {
-        sessionStore.addPlaybackError(makeError())
-        advanceUntilIdle()
-
-        overlay().errorIndicator.performClick()
-
-        assertEquals(View.VISIBLE, overlay().errorsViewHeader.visibility)
-        assertEquals(View.GONE, (overlay().tracksChip.parent as View).visibility) // Check chipRow's visibility status
-    }
+            assertEquals(View.VISIBLE, overlay().errorIndicator.visibility)
+            val text = overlay().errorIndicator.text.toString()
+            assertEquals(true, text.contains("3"))
+        }
 
     @Test
-    fun `tapping indicator while collapsed expands body`() = runTest(testDispatcher) {
-        overlay().collapseBtn.performClick()
-        assertEquals(View.GONE, overlay().body.visibility)
+    fun `tapping indicator switches to errors view`() =
+        runTest(testDispatcher) {
+            sessionStore.addPlaybackError(makeError())
+            advanceUntilIdle()
 
-        sessionStore.addPlaybackError(makeError())
-        advanceUntilIdle()
+            overlay().errorIndicator.performClick()
 
-        overlay().errorIndicator.performClick()
-
-        assertEquals(View.VISIBLE, overlay().body.visibility)
-        assertEquals(View.VISIBLE, overlay().errorsViewHeader.visibility)
-    }
+            assertEquals(View.VISIBLE, overlay().errorsViewHeader.visibility)
+            assertEquals(View.GONE, (overlay().tracksChip.parent as View).visibility) // Check chipRow's visibility status
+        }
 
     @Test
-    fun `back button restores previousViewMode`() = runTest(testDispatcher) {
-        overlay().segmentsChip.performClick()
-        assertEquals(true, overlay().segmentsChip.isChecked)
+    fun `tapping indicator while collapsed expands body`() =
+        runTest(testDispatcher) {
+            overlay().collapseBtn.performClick()
+            assertEquals(View.GONE, overlay().body.visibility)
 
-        sessionStore.addPlaybackError(makeError())
-        advanceUntilIdle()
+            sessionStore.addPlaybackError(makeError())
+            advanceUntilIdle()
 
-        overlay().errorIndicator.performClick()
-        assertEquals(View.VISIBLE, overlay().errorsViewHeader.visibility)
+            overlay().errorIndicator.performClick()
 
-        overlay().backButton.performClick()
-
-        assertEquals(View.GONE, overlay().errorsViewHeader.visibility)
-        assertEquals(true, overlay().segmentsChip.isChecked)
-    }
+            assertEquals(View.VISIBLE, overlay().body.visibility)
+            assertEquals(View.VISIBLE, overlay().errorsViewHeader.visibility)
+        }
 
     @Test
-    fun `clear button empties errors and hides indicator`() = runTest(testDispatcher) {
-        sessionStore.addPlaybackError(makeError())
-        advanceUntilIdle()
+    fun `back button restores previousViewMode`() =
+        runTest(testDispatcher) {
+            overlay().segmentsChip.performClick()
+            assertEquals(true, overlay().segmentsChip.isChecked)
 
-        assertEquals(View.VISIBLE, overlay().errorIndicator.visibility)
+            sessionStore.addPlaybackError(makeError())
+            advanceUntilIdle()
 
-        overlay().errorIndicator.performClick()
-        overlay().clearButton.performClick()
-        advanceUntilIdle()
+            overlay().errorIndicator.performClick()
+            assertEquals(View.VISIBLE, overlay().errorsViewHeader.visibility)
 
-        assertEquals(View.GONE, overlay().errorIndicator.visibility)
-        assertEquals(0, sessionStore.playbackErrors.value.size)
-    }
+            overlay().backButton.performClick()
+
+            assertEquals(View.GONE, overlay().errorsViewHeader.visibility)
+            assertEquals(true, overlay().segmentsChip.isChecked)
+        }
+
+    @Test
+    fun `clear button empties errors and hides indicator`() =
+        runTest(testDispatcher) {
+            sessionStore.addPlaybackError(makeError())
+            advanceUntilIdle()
+
+            assertEquals(View.VISIBLE, overlay().errorIndicator.visibility)
+
+            overlay().errorIndicator.performClick()
+            overlay().clearButton.performClick()
+            advanceUntilIdle()
+
+            assertEquals(View.GONE, overlay().errorIndicator.visibility)
+            assertEquals(0, sessionStore.playbackErrors.value.size)
+        }
 }
