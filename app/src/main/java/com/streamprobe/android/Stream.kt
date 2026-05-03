@@ -54,8 +54,8 @@ val defaultStreams =
             mimeType = MimeTypes.APPLICATION_MPD,
         ),
         Stream(
-            title = "Tears of Steel — Multi-Audio + Multi-Subtitle (DASH)",
-            url = "https://demo.unified-streaming.com/k8s/tears/tears.ism/.mpd",
+            title = "Multi Audio + Multi Subtitle (VOD)",
+            url = "https://media.axprod.net/TestVectors/v7-Clear/Manifest_1080p.mpd",
             type = StreamType.DASH,
             mimeType = MimeTypes.APPLICATION_MPD,
         ),
