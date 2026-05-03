@@ -2,6 +2,13 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.vanniktech.mavenPublish)
     alias(libs.plugins.jetbrains.dokka)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.detekt)
+}
+
+detekt {
+    config.setFrom("$rootDir/config/detekt/detekt.yml")
+    buildUponDefaultConfig = true
 }
 
 android {
