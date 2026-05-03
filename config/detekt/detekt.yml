@@ -49,6 +49,7 @@ naming:
     functionPattern: '[a-zA-Z][a-zA-Z0-9]*'  # allow Composable function names starting with uppercase
     ignoreAnnotated:
       - 'Composable'
+      - 'Test'
 
 performance:
   active: true
