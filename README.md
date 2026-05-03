@@ -83,7 +83,7 @@ StreamProbe is distributed via Maven Central. Add the dependency to your app-lev
 ```kotlin
 dependencies {
     // Add the core StreamProbe SDK
-    implementation("io.github.oguzhaneksi:streamprobe:0.1.0")
+    implementation("io.github.oguzhaneksi:streamprobe:<version_name>")
 }
 ```
 
