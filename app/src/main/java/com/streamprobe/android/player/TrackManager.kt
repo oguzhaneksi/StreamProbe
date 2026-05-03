@@ -187,9 +187,10 @@ internal class TrackManager(
                         .build()
                 is SubtitleTrackOption.Fixed -> {
                     val group = p.currentTracks.groups.getOrNull(option.groupIndex) ?: return
+                    val updatedDisabled = p.trackSelectionParameters.disabledTrackTypes - C.TRACK_TYPE_TEXT
                     p.trackSelectionParameters
                         .buildUpon()
-                        .setDisabledTrackTypes(emptySet())
+                        .setDisabledTrackTypes(updatedDisabled)
                         .setOverrideForType(
                             TrackSelectionOverride(group.mediaTrackGroup, listOf(option.trackIndex)),
                         ).build()
