@@ -26,7 +26,6 @@ import com.streamprobe.sdk.internal.overlay.OverlayManager
  */
 @androidx.annotation.OptIn(UnstableApi::class)
 class StreamProbe {
-
     private val sessionStore = SessionStore()
     private val playerInterceptor = PlayerInterceptor(sessionStore)
     private val overlayManager = OverlayManager(sessionStore)

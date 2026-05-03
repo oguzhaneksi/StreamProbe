@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.update
  * components write via the update methods.
  */
 internal class SessionStore {
-
     private val _manifestInfo = MutableStateFlow<ManifestInfo?>(null)
     val manifestInfo: StateFlow<ManifestInfo?> = _manifestInfo.asStateFlow()
 
@@ -75,8 +74,11 @@ internal class SessionStore {
 
     fun addTrackSwitchEvent(event: TrackSwitchEvent) {
         _trackSwitchEvents.update { current ->
-            if (current.size >= MAX_TRACK_SWITCH_EVENTS) current.drop(1) + event
-            else current + event
+            if (current.size >= MAX_TRACK_SWITCH_EVENTS) {
+                current.drop(1) + event
+            } else {
+                current + event
+            }
         }
     }
 
@@ -86,26 +88,30 @@ internal class SessionStore {
             val lastDrop = last?.categoryDetail as? ErrorDetail.DroppedFrames
             val incomingDrop = event.categoryDetail as? ErrorDetail.DroppedFrames
             val timestampDiffMs = lastDrop?.let { event.timestampMs - it.lastUpdateMs }
-            val canMerge = event.category == ErrorCategory.DROPPED_FRAMES &&
-                last?.category == ErrorCategory.DROPPED_FRAMES &&
-                lastDrop != null && incomingDrop != null &&
-                timestampDiffMs != null &&
-                timestampDiffMs in 0..DROPPED_FRAMES_DEDUP_WINDOW_MS
+            val canMerge =
+                event.category == ErrorCategory.DROPPED_FRAMES &&
+                    last?.category == ErrorCategory.DROPPED_FRAMES &&
+                    lastDrop != null &&
+                    incomingDrop != null &&
+                    timestampDiffMs != null &&
+                    timestampDiffMs in 0..DROPPED_FRAMES_DEDUP_WINDOW_MS
 
             when {
                 canMerge -> {
                     // canMerge guarantees last/lastDrop/incomingDrop are non-null
                     val totalFrames = lastDrop.totalFrames + incomingDrop.totalFrames
                     val newBurstCount = lastDrop.burstCount + 1
-                    val merged = last.copy(
-                        // timestampMs deliberately preserved — DiffUtil identity stays stable.
-                        message = "$totalFrames frames dropped ($newBurstCount bursts)",
-                        categoryDetail = ErrorDetail.DroppedFrames(
-                            totalFrames = totalFrames,
-                            burstCount = newBurstCount,
-                            lastUpdateMs = event.timestampMs,
-                        ),
-                    )
+                    val merged =
+                        last.copy(
+                            // timestampMs deliberately preserved — DiffUtil identity stays stable.
+                            message = "$totalFrames frames dropped ($newBurstCount bursts)",
+                            categoryDetail =
+                                ErrorDetail.DroppedFrames(
+                                    totalFrames = totalFrames,
+                                    burstCount = newBurstCount,
+                                    lastUpdateMs = event.timestampMs,
+                                ),
+                        )
                     current.dropLast(1) + merged
                 }
                 current.size >= MAX_PLAYBACK_ERRORS -> current.drop(1) + event
@@ -131,9 +137,11 @@ internal class SessionStore {
 
     companion object {
         private const val MAX_SEGMENT_METRICS = 500
+
         @VisibleForTesting
         internal const val MAX_TRACK_SWITCH_EVENTS = 200
         private const val MAX_PLAYBACK_ERRORS = 200
+
         @VisibleForTesting
         internal const val DROPPED_FRAMES_DEDUP_WINDOW_MS = 5_000L
     }

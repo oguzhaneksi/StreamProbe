@@ -47,56 +47,47 @@ private val ON_SURFACE = Color(0xFFEBEBF5)
 private val ON_SURFACE_DIM = Color(0xFF8E8E93)
 private val DIVIDER = Color(0xFF38383A)
 
+data class TrackSelectionState(
+    val videoOptions: List<VideoTrackOption>,
+    val audioOptions: List<AudioTrackOption>,
+    val subtitleOptions: List<SubtitleTrackOption>,
+    val selectedVideo: VideoTrackOption,
+    val selectedAudio: AudioTrackOption?,
+    val selectedSubtitle: SubtitleTrackOption,
+)
+
+data class TrackSelectionCallbacks(
+    val onVideoSelected: (VideoTrackOption) -> Unit,
+    val onAudioSelected: (AudioTrackOption) -> Unit,
+    val onSubtitleSelected: (SubtitleTrackOption) -> Unit,
+    val onDismiss: () -> Unit,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackSelectionSheet(
-    videoOptions: List<VideoTrackOption>,
-    audioOptions: List<AudioTrackOption>,
-    subtitleOptions: List<SubtitleTrackOption>,
-    selectedVideo: VideoTrackOption,
-    selectedAudio: AudioTrackOption?,
-    selectedSubtitle: SubtitleTrackOption,
-    onVideoSelected: (VideoTrackOption) -> Unit,
-    onAudioSelected: (AudioTrackOption) -> Unit,
-    onSubtitleSelected: (SubtitleTrackOption) -> Unit,
-    onDismiss: () -> Unit,
+    state: TrackSelectionState,
+    callbacks: TrackSelectionCallbacks,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
-    val tabs = buildList {
-        if (videoOptions.size > 1) add("Quality")
-        if (audioOptions.size > 1) add("Audio")
-        if (subtitleOptions.size > 1) add("Subtitles")
-    }
+    val tabs =
+        buildList {
+            if (state.videoOptions.size > 1) add("Quality")
+            if (state.audioOptions.size > 1) add("Audio")
+            if (state.subtitleOptions.size > 1) add("Subtitles")
+        }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = callbacks.onDismiss,
         sheetState = sheetState,
         containerColor = SURFACE,
         contentColor = ON_SURFACE,
         dragHandle = null,
     ) {
         Column {
-            // ── Sheet handle ─────────────────────────────────────────────
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 4.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(36.dp)
-                        .height(4.dp)
-                        .background(
-                            color = ON_SURFACE_DIM,
-                            shape = RoundedCornerShape(percent = 50),
-                        ),
-                )
-            }
-
-            // ── Title ────────────────────────────────────────────────────
+            SheetHandle()
             Text(
                 text = "Tracks",
                 color = ON_SURFACE,
@@ -104,101 +95,136 @@ fun TrackSelectionSheet(
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
             )
-
-            // ── Tab row ───────────────────────────────────────────────────
-            if (tabs.size > 1) {
-                SecondaryTabRow(
-                    selectedTabIndex = selectedTab.coerceIn(0, tabs.lastIndex),
-                    containerColor = SURFACE,
-                    contentColor = ACCENT,
-                    divider = {
-                        HorizontalDivider(
-                            color = DIVIDER
-                        )
-                    },
-                ) {
-                    tabs.forEachIndexed { index, label ->
-                        Tab(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
-                            text = {
-                                Text(
-                                    text = label,
-                                    color = if (selectedTab == index) ACCENT else ON_SURFACE_DIM,
-                                    fontSize = 14.sp,
-                                    fontWeight = if (selectedTab == index) FontWeight.SemiBold else FontWeight.Normal,
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-
+            SheetTabRow(
+                tabs = tabs,
+                selectedTab = selectedTab,
+                onTabSelected = { selectedTab = it },
+            )
             HorizontalDivider(color = DIVIDER, thickness = 0.5.dp)
-
-            // ── Content ───────────────────────────────────────────────────
             val activeTab = if (tabs.isEmpty()) "" else tabs[selectedTab.coerceIn(0, tabs.lastIndex)]
-
-            when {
-                activeTab == "Quality" || (tabs.size == 1 && videoOptions.size > 1) -> {
-                    TrackOptionList {
-                        items(videoOptions) { option ->
-                            val isSelected = option == selectedVideo
-                            VideoTrackRow(
-                                option = option,
-                                isSelected = isSelected,
-                                onClick = {
-                                    onVideoSelected(option)
-                                    onDismiss()
-                                },
-                            )
-                            HorizontalDivider(color = DIVIDER, thickness = 0.5.dp)
-                        }
-                    }
-                }
-                activeTab == "Audio" || (tabs.size == 1 && audioOptions.size > 1) -> {
-                    TrackOptionList {
-                        items(audioOptions) { option ->
-                            val isSelected = option == selectedAudio
-                            AudioTrackRow(
-                                option = option,
-                                isSelected = isSelected,
-                                onClick = {
-                                    onAudioSelected(option)
-                                    onDismiss()
-                                },
-                            )
-                            HorizontalDivider(color = DIVIDER, thickness = 0.5.dp)
-                        }
-                    }
-                }
-                activeTab == "Subtitles" || (tabs.size == 1 && subtitleOptions.size > 1) -> {
-                    TrackOptionList {
-                        items(subtitleOptions) { option ->
-                            val isSelected = option == selectedSubtitle
-                            SubtitleTrackRow(
-                                option = option,
-                                isSelected = isSelected,
-                                onClick = {
-                                    onSubtitleSelected(option)
-                                    onDismiss()
-                                },
-                            )
-                            HorizontalDivider(color = DIVIDER, thickness = 0.5.dp)
-                        }
-                    }
-                }
-            }
-
+            TrackSelectionContent(
+                state = state,
+                tabs = tabs,
+                activeTab = activeTab,
+                callbacks = callbacks,
+            )
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
 @Composable
-private fun TrackOptionList(
-    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
+private fun SheetHandle() {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp, bottom = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .width(36.dp)
+                    .height(4.dp)
+                    .background(
+                        color = ON_SURFACE_DIM,
+                        shape = RoundedCornerShape(percent = 50),
+                    ),
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SheetTabRow(
+    tabs: List<String>,
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit,
 ) {
+    if (tabs.size > 1) {
+        SecondaryTabRow(
+            selectedTabIndex = selectedTab.coerceIn(0, tabs.lastIndex),
+            containerColor = SURFACE,
+            contentColor = ACCENT,
+            divider = { HorizontalDivider(color = DIVIDER) },
+        ) {
+            tabs.forEachIndexed { index, label ->
+                Tab(
+                    selected = selectedTab == index,
+                    onClick = { onTabSelected(index) },
+                    text = {
+                        Text(
+                            text = label,
+                            color = if (selectedTab == index) ACCENT else ON_SURFACE_DIM,
+                            fontSize = 14.sp,
+                            fontWeight = if (selectedTab == index) FontWeight.SemiBold else FontWeight.Normal,
+                        )
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackSelectionContent(
+    state: TrackSelectionState,
+    tabs: List<String>,
+    activeTab: String,
+    callbacks: TrackSelectionCallbacks,
+) {
+    when {
+        activeTab == "Quality" || (tabs.size == 1 && state.videoOptions.size > 1) -> {
+            TrackOptionList {
+                items(state.videoOptions) { option ->
+                    VideoTrackRow(
+                        option = option,
+                        isSelected = option == state.selectedVideo,
+                        onClick = {
+                            callbacks.onVideoSelected(option)
+                            callbacks.onDismiss()
+                        },
+                    )
+                    HorizontalDivider(color = DIVIDER, thickness = 0.5.dp)
+                }
+            }
+        }
+        activeTab == "Audio" || (tabs.size == 1 && state.audioOptions.size > 1) -> {
+            TrackOptionList {
+                items(state.audioOptions) { option ->
+                    AudioTrackRow(
+                        option = option,
+                        isSelected = option == state.selectedAudio,
+                        onClick = {
+                            callbacks.onAudioSelected(option)
+                            callbacks.onDismiss()
+                        },
+                    )
+                    HorizontalDivider(color = DIVIDER, thickness = 0.5.dp)
+                }
+            }
+        }
+        activeTab == "Subtitles" || (tabs.size == 1 && state.subtitleOptions.size > 1) -> {
+            TrackOptionList {
+                items(state.subtitleOptions) { option ->
+                    SubtitleTrackRow(
+                        option = option,
+                        isSelected = option == state.selectedSubtitle,
+                        onClick = {
+                            callbacks.onSubtitleSelected(option)
+                            callbacks.onDismiss()
+                        },
+                    )
+                    HorizontalDivider(color = DIVIDER, thickness = 0.5.dp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackOptionList(content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         content = content,
@@ -211,16 +237,17 @@ private fun VideoTrackRow(
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
-    val (primary, secondary) = when (option) {
-        is VideoTrackOption.Auto -> "Auto (ABR)" to "Adaptive bitrate — player chooses quality"
-        is VideoTrackOption.Fixed -> {
-            val height = if (option.height > 0) "${option.height}p" else "?"
-            val mbps = if (option.bitrate > 0) "%.1f Mbps".format(option.bitrate / 1_000_000f) else null
-            val label = listOfNotNull(height, mbps).joinToString(" · ")
-            val codec = option.codecs?.substringBefore(".")?.uppercase()
-            label to codec
+    val (primary, secondary) =
+        when (option) {
+            is VideoTrackOption.Auto -> "Auto (ABR)" to "Adaptive bitrate — player chooses quality"
+            is VideoTrackOption.Fixed -> {
+                val height = if (option.height > 0) "${option.height}p" else "?"
+                val mbps = if (option.bitrate > 0) "%.1f Mbps".format(option.bitrate / 1_000_000f) else null
+                val label = listOfNotNull(height, mbps).joinToString(" · ")
+                val codec = option.codecs?.substringBefore(".")?.uppercase()
+                label to codec
+            }
         }
-    }
     TrackRow(primary = primary, secondary = secondary, isSelected = isSelected, onClick = onClick)
 }
 
@@ -230,9 +257,10 @@ private fun AudioTrackRow(
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
-    val displayName = option.label
-        ?: option.language?.uppercase()
-        ?: "Unknown"
+    val displayName =
+        option.label
+            ?: option.language?.uppercase()
+            ?: "Unknown"
     val codec = option.codecs?.substringBefore(".")?.uppercase()
     val channels = if (option.channelCount > 0) "${option.channelCount}ch" else null
     val secondary = listOfNotNull(codec, channels).joinToString(" · ").ifBlank { null }
@@ -245,16 +273,18 @@ private fun SubtitleTrackRow(
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
-    val (primary, secondary) = when (option) {
-        is SubtitleTrackOption.Off -> "Off" to "Disable subtitles"
-        is SubtitleTrackOption.Fixed -> {
-            val name = option.label
-                ?: option.language?.uppercase()
-                ?: "Unknown"
-            val mime = option.mimeType?.substringAfterLast("/")?.uppercase()
-            name to mime
+    val (primary, secondary) =
+        when (option) {
+            is SubtitleTrackOption.Off -> "Off" to "Disable subtitles"
+            is SubtitleTrackOption.Fixed -> {
+                val name =
+                    option.label
+                        ?: option.language?.uppercase()
+                        ?: "Unknown"
+                val mime = option.mimeType?.substringAfterLast("/")?.uppercase()
+                name to mime
+            }
         }
-    }
     TrackRow(primary = primary, secondary = secondary, isSelected = isSelected, onClick = onClick)
 }
 
@@ -266,10 +296,11 @@ private fun TrackRow(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {

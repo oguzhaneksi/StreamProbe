@@ -13,8 +13,8 @@ import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
-import androidx.media3.exoplayer.hls.HlsManifest
 import androidx.media3.exoplayer.dash.manifest.DashManifest
+import androidx.media3.exoplayer.hls.HlsManifest
 import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
 import com.streamprobe.sdk.model.ActiveTrackInfo
@@ -39,8 +39,8 @@ import java.io.IOException
 @UnstableApi
 internal class PlayerInterceptor(
     private val sessionStore: SessionStore,
-) : Player.Listener, AnalyticsListener {
-
+) : Player.Listener,
+    AnalyticsListener {
     private var player: ExoPlayer? = null
     private var lastVideoTrack: ActiveTrackInfo? = null
     private var lastAudioTrack: AudioTrackInfo? = null
@@ -67,7 +67,10 @@ internal class PlayerInterceptor(
 
     // ── Player.Listener callbacks ───────────────────────────────────────────
 
-    override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+    override fun onTimelineChanged(
+        timeline: Timeline,
+        reason: Int,
+    ) {
         player?.let { probeManifest(it) }
     }
 
@@ -96,23 +99,31 @@ internal class PlayerInterceptor(
 
         when (mediaLoadData.trackType) {
             C.TRACK_TYPE_VIDEO,
-            C.TRACK_TYPE_DEFAULT -> {
+            C.TRACK_TYPE_DEFAULT,
+            -> {
                 // DEFAULT only counts as video if dimensions are present.
                 if (mediaLoadData.trackType == C.TRACK_TYPE_DEFAULT &&
-                    format.width <= 0 && format.height <= 0) return
+                    format.width <= 0 &&
+                    format.height <= 0
+                ) {
+                    return
+                }
                 val newTrack = format.toActiveTrackInfo()
                 if (lastVideoTrack == newTrack) return
                 sessionStore.addTrackSwitchEvent(
-                    TrackSwitchEvent.VideoSwitch(timestamp, buffer, reason, lastVideoTrack, newTrack)
+                    TrackSwitchEvent.VideoSwitch(timestamp, buffer, reason, lastVideoTrack, newTrack),
                 )
                 lastVideoTrack = newTrack
-                Log.d(TAG, "Video switch: ${lastVideoTrack?.width}x${lastVideoTrack?.height} → ${newTrack.width}x${newTrack.height} reason=${mediaLoadData.trackSelectionReason}")
+                Log.d(
+                    TAG,
+                    "Video switch: ${lastVideoTrack?.width}x${lastVideoTrack?.height} → ${newTrack.width}x${newTrack.height} reason=${mediaLoadData.trackSelectionReason}",
+                )
             }
             C.TRACK_TYPE_AUDIO -> {
                 val newTrack = format.toAudioTrackInfo()
                 if (lastAudioTrack == newTrack) return
                 sessionStore.addTrackSwitchEvent(
-                    TrackSwitchEvent.AudioSwitch(timestamp, buffer, reason, lastAudioTrack, newTrack)
+                    TrackSwitchEvent.AudioSwitch(timestamp, buffer, reason, lastAudioTrack, newTrack),
                 )
                 sessionStore.updateActiveAudioTrack(newTrack)
                 lastAudioTrack = newTrack
@@ -122,7 +133,7 @@ internal class PlayerInterceptor(
                 val newTrack = format.toSubtitleTrackInfo()
                 if (lastSubtitleTrack == newTrack) return
                 sessionStore.addTrackSwitchEvent(
-                    TrackSwitchEvent.SubtitleSwitch(timestamp, buffer, reason, lastSubtitleTrack, newTrack)
+                    TrackSwitchEvent.SubtitleSwitch(timestamp, buffer, reason, lastSubtitleTrack, newTrack),
                 )
                 sessionStore.updateActiveSubtitleTrack(newTrack)
                 lastSubtitleTrack = newTrack
@@ -138,14 +149,15 @@ internal class PlayerInterceptor(
         error: IOException,
         wasCanceled: Boolean,
     ) {
-        if (wasCanceled) return  // Filtered: cancellations from seeks / track switches are not errors.
+        if (wasCanceled) return // Filtered: cancellations from seeks / track switches are not errors.
 
         // DRM data type is deferred to M8; ignore here to avoid scope overlap.
-        val dataTypePrefix = when (mediaLoadData.dataType) {
-            C.DATA_TYPE_MEDIA    -> ""
-            C.DATA_TYPE_MANIFEST -> "MANIFEST "
-            else                 -> return
-        }
+        val dataTypePrefix =
+            when (mediaLoadData.dataType) {
+                C.DATA_TYPE_MEDIA -> ""
+                C.DATA_TYPE_MANIFEST -> "MANIFEST "
+                else -> return
+            }
 
         val httpStatus = (error as? HttpDataSource.InvalidResponseCodeException)?.responseCode
         val uriPath = loadEventInfo.uri.lastPathSegment ?: loadEventInfo.uri.toString()
@@ -157,7 +169,7 @@ internal class PlayerInterceptor(
                 category = ErrorCategory.LOAD_ERROR,
                 message = "$dataTypePrefix$errorPrefix: $uriPath",
                 detail = error.message ?: error::class.qualifiedName,
-            )
+            ),
         )
         Log.d(TAG, "Load error: $dataTypePrefix$errorPrefix — $uriPath")
     }
@@ -172,7 +184,7 @@ internal class PlayerInterceptor(
                 category = ErrorCategory.VIDEO_CODEC_ERROR,
                 message = videoCodecError.message ?: videoCodecError::class.simpleName ?: "Codec error",
                 detail = videoCodecError.toString(),
-            )
+            ),
         )
         Log.d(TAG, "Video codec error: ${videoCodecError.message}")
     }
@@ -189,12 +201,13 @@ internal class PlayerInterceptor(
                 timestampMs = now,
                 category = ErrorCategory.DROPPED_FRAMES,
                 message = "$droppedFrames frames in ${elapsedMs}ms",
-                categoryDetail = ErrorDetail.DroppedFrames(
-                    totalFrames = droppedFrames,
-                    burstCount = 1,
-                    lastUpdateMs = now,
-                ),
-            )
+                categoryDetail =
+                    ErrorDetail.DroppedFrames(
+                        totalFrames = droppedFrames,
+                        burstCount = 1,
+                        lastUpdateMs = now,
+                    ),
+            ),
         )
         Log.d(TAG, "Dropped $droppedFrames frames in ${elapsedMs}ms")
     }
@@ -209,7 +222,7 @@ internal class PlayerInterceptor(
                 category = ErrorCategory.AUDIO_CODEC_ERROR,
                 message = audioCodecError.message ?: audioCodecError::class.simpleName ?: "Audio codec error",
                 detail = audioCodecError.toString(),
-            )
+            ),
         )
         Log.d(TAG, "Audio codec error: ${audioCodecError.message}")
     }
@@ -224,7 +237,7 @@ internal class PlayerInterceptor(
                 category = ErrorCategory.AUDIO_SINK_ERROR,
                 message = audioSinkError.message ?: audioSinkError::class.simpleName ?: "Audio sink error",
                 detail = audioSinkError.toString(),
-            )
+            ),
         )
         Log.d(TAG, "Audio sink error: ${audioSinkError.message}")
     }
@@ -237,15 +250,20 @@ internal class PlayerInterceptor(
         if (mediaLoadData.dataType != C.DATA_TYPE_MEDIA) return
 
         val cdnInfo = CdnHeaderParser.parse(headers = loadEventInfo.responseHeaders)
-        val metric = SegmentMetric(
-            requestTimestampMs = System.currentTimeMillis() - loadEventInfo.loadDurationMs,
-            totalDurationMs = loadEventInfo.loadDurationMs,
-            sizeBytes = loadEventInfo.bytesLoaded,
-            throughputBytesPerSec = if (loadEventInfo.loadDurationMs > 0)
-                loadEventInfo.bytesLoaded * 1000 / loadEventInfo.loadDurationMs else 0,
-            uri = loadEventInfo.uri.toString(),
-            cdnInfo = cdnInfo,
-        )
+        val metric =
+            SegmentMetric(
+                requestTimestampMs = System.currentTimeMillis() - loadEventInfo.loadDurationMs,
+                totalDurationMs = loadEventInfo.loadDurationMs,
+                sizeBytes = loadEventInfo.bytesLoaded,
+                throughputBytesPerSec =
+                    if (loadEventInfo.loadDurationMs > 0) {
+                        loadEventInfo.bytesLoaded * 1000 / loadEventInfo.loadDurationMs
+                    } else {
+                        0
+                    },
+                uri = loadEventInfo.uri.toString(),
+                cdnInfo = cdnInfo,
+            )
         sessionStore.addSegmentMetric(metric)
     }
 
@@ -255,33 +273,36 @@ internal class PlayerInterceptor(
         when (val manifest = player.currentManifest) {
             is HlsManifest -> {
                 val playlist = manifest.multivariantPlaylist
-                val variants = playlist.variants.map { variant ->
-                    val fmt = variant.format
-                    VariantInfo(
-                        bitrate = fmt.bitrate,
-                        width = fmt.width,
-                        height = fmt.height,
-                        codecs = fmt.codecs,
-                        frameRate = fmt.frameRate,
-                    )
-                }
-                val audioTracks = buildList {
-                    playlist.audios.forEach { rendition ->
-                        add(rendition.format.toAudioTrackInfo(isMuxed = false))
+                val variants =
+                    playlist.variants.map { variant ->
+                        val fmt = variant.format
+                        VariantInfo(
+                            bitrate = fmt.bitrate,
+                            width = fmt.width,
+                            height = fmt.height,
+                            codecs = fmt.codecs,
+                            frameRate = fmt.frameRate,
+                        )
                     }
-                    playlist.muxedAudioFormat?.let { add(it.toAudioTrackInfo(isMuxed = true)) }
-                }
-                val subtitleTracks = buildList {
-                    playlist.subtitles.forEach { rendition ->
-                        add(rendition.format.toSubtitleTrackInfo(SubtitleKind.SIDECAR))
+                val audioTracks =
+                    buildList {
+                        playlist.audios.forEach { rendition ->
+                            add(rendition.format.toAudioTrackInfo(isMuxed = false))
+                        }
+                        playlist.muxedAudioFormat?.let { add(it.toAudioTrackInfo(isMuxed = true)) }
                     }
-                    playlist.closedCaptions.forEach { rendition ->
-                        add(rendition.format.toSubtitleTrackInfo(SubtitleKind.CC))
+                val subtitleTracks =
+                    buildList {
+                        playlist.subtitles.forEach { rendition ->
+                            add(rendition.format.toSubtitleTrackInfo(SubtitleKind.SIDECAR))
+                        }
+                        playlist.closedCaptions.forEach { rendition ->
+                            add(rendition.format.toSubtitleTrackInfo(SubtitleKind.CC))
+                        }
+                        playlist.muxedCaptionFormats?.forEach { fmt ->
+                            add(fmt.toSubtitleTrackInfo(SubtitleKind.CC))
+                        }
                     }
-                    playlist.muxedCaptionFormats?.forEach { fmt ->
-                        add(fmt.toSubtitleTrackInfo(SubtitleKind.CC))
-                    }
-                }
                 sessionStore.updateManifest(HlsManifestInfo(variants, audioTracks, subtitleTracks))
                 Log.d(TAG, "HLS manifest captured: ${variants.size} variants, ${audioTracks.size} audio, ${subtitleTracks.size} subtitle")
             }
@@ -296,13 +317,15 @@ internal class PlayerInterceptor(
                             C.TRACK_TYPE_VIDEO -> {
                                 for (representation in adaptationSet.representations) {
                                     val fmt = representation.format
-                                    variants.add(VariantInfo(
-                                        bitrate = fmt.bitrate,
-                                        width = fmt.width,
-                                        height = fmt.height,
-                                        codecs = fmt.codecs,
-                                        frameRate = fmt.frameRate,
-                                    ))
+                                    variants.add(
+                                        VariantInfo(
+                                            bitrate = fmt.bitrate,
+                                            width = fmt.width,
+                                            height = fmt.height,
+                                            codecs = fmt.codecs,
+                                            frameRate = fmt.frameRate,
+                                        ),
+                                    )
                                 }
                             }
                             C.TRACK_TYPE_AUDIO -> {
@@ -319,7 +342,10 @@ internal class PlayerInterceptor(
                     }
                 }
                 sessionStore.updateManifest(DashManifestInfo(variants, audioTracks, subtitleTracks))
-                Log.d(TAG, "DASH manifest captured: ${variants.size} representations, ${audioTracks.size} audio, ${subtitleTracks.size} subtitle")
+                Log.d(
+                    TAG,
+                    "DASH manifest captured: ${variants.size} representations, ${audioTracks.size} audio, ${subtitleTracks.size} subtitle",
+                )
             }
             else -> Log.d(TAG, "Unknown manifest type: ${manifest?.javaClass?.simpleName}")
         }
@@ -332,14 +358,15 @@ internal class PlayerInterceptor(
 
         for (group in player.currentTracks.groups) {
             if (!group.isSelected) continue
-            val format = (0 until group.length)
-                .firstOrNull { group.isTrackSelected(it) }
-                ?.let { group.getTrackFormat(it) } ?: continue
+            val format =
+                (0 until group.length)
+                    .firstOrNull { group.isTrackSelected(it) }
+                    ?.let { group.getTrackFormat(it) } ?: continue
 
             when (group.type) {
                 C.TRACK_TYPE_VIDEO -> foundVideo = format
                 C.TRACK_TYPE_AUDIO -> foundAudio = format.toAudioTrackInfo()
-                C.TRACK_TYPE_TEXT  -> foundSubtitle = format.toSubtitleTrackInfo()
+                C.TRACK_TYPE_TEXT -> foundSubtitle = format.toSubtitleTrackInfo()
             }
         }
 
@@ -356,7 +383,7 @@ internal class PlayerInterceptor(
                     reason = SwitchReason.MANUAL,
                     previousTrack = lastSubtitleTrack,
                     newTrack = null,
-                )
+                ),
             )
             lastSubtitleTrack = null
         }
@@ -369,53 +396,62 @@ internal class PlayerInterceptor(
 
     // ── Format → model extension functions ─────────────────────────────────
 
-    private fun Format.toActiveTrackInfo() = ActiveTrackInfo(
-        bitrate = bitrate,
-        width = width,
-        height = height,
-        codecs = codecs,
-    )
+    private fun Format.toActiveTrackInfo() =
+        ActiveTrackInfo(
+            bitrate = bitrate,
+            width = width,
+            height = height,
+            codecs = codecs,
+        )
 
-    internal fun Format.toAudioTrackInfo(isMuxed: Boolean) = AudioTrackInfo(
-        language = language,
-        label = labels.firstOrNull()?.value,
-        codecs = codecs,
-        bitrate = bitrate,
-        channelCount = channelCount,
-        sampleRate = sampleRate,
-        isMuxed = isMuxed,
-        id = id,
-    )
+    internal fun Format.toAudioTrackInfo(isMuxed: Boolean) =
+        AudioTrackInfo(
+            language = language,
+            label = labels.firstOrNull()?.value,
+            codecs = codecs,
+            bitrate = bitrate,
+            channelCount = channelCount,
+            sampleRate = sampleRate,
+            isMuxed = isMuxed,
+            id = id,
+        )
 
-    internal fun Format.toSubtitleTrackInfo(kind: SubtitleKind) = SubtitleTrackInfo(
-        language = language,
-        label = labels.firstOrNull()?.value,
-        mimeType = sampleMimeType,
-        kind = kind,
-        id = id,
-    )
+    internal fun Format.toSubtitleTrackInfo(kind: SubtitleKind) =
+        SubtitleTrackInfo(
+            language = language,
+            label = labels.firstOrNull()?.value,
+            mimeType = sampleMimeType,
+            kind = kind,
+            id = id,
+        )
 
-    private fun Format.toAudioTrackInfo() =
-        toAudioTrackInfo(isMuxed = containerMimeType?.startsWith("video/") == true)
+    private fun Format.toAudioTrackInfo() = toAudioTrackInfo(isMuxed = containerMimeType?.startsWith("video/") == true)
 
     private fun Format.toSubtitleTrackInfo(): SubtitleTrackInfo {
-        val kind = if (sampleMimeType == MimeTypes.APPLICATION_CEA608 ||
-                       sampleMimeType == MimeTypes.APPLICATION_CEA708) SubtitleKind.CC
-                   else SubtitleKind.SIDECAR
+        val kind =
+            if (sampleMimeType == MimeTypes.APPLICATION_CEA608 ||
+                sampleMimeType == MimeTypes.APPLICATION_CEA708
+            ) {
+                SubtitleKind.CC
+            } else {
+                SubtitleKind.SIDECAR
+            }
         return toSubtitleTrackInfo(kind)
     }
 
     @VisibleForTesting
-    internal fun mapSelectionReason(reason: Int): SwitchReason = when (reason) {
-        C.SELECTION_REASON_INITIAL    -> SwitchReason.INITIAL
-        C.SELECTION_REASON_ADAPTIVE   -> SwitchReason.ADAPTIVE
-        C.SELECTION_REASON_MANUAL     -> SwitchReason.MANUAL
-        C.SELECTION_REASON_TRICK_PLAY -> SwitchReason.TRICKPLAY
-        else                          -> SwitchReason.UNKNOWN
-    }
+    internal fun mapSelectionReason(reason: Int): SwitchReason =
+        when (reason) {
+            C.SELECTION_REASON_INITIAL -> SwitchReason.INITIAL
+            C.SELECTION_REASON_ADAPTIVE -> SwitchReason.ADAPTIVE
+            C.SELECTION_REASON_MANUAL -> SwitchReason.MANUAL
+            C.SELECTION_REASON_TRICK_PLAY -> SwitchReason.TRICKPLAY
+            else -> SwitchReason.UNKNOWN
+        }
 
     companion object {
         private const val TAG = "StreamProbe"
+
         @VisibleForTesting
         internal const val DROPPED_FRAME_THRESHOLD = 3
     }

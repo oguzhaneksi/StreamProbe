@@ -6,6 +6,7 @@ package com.streamprobe.sdk.model
 enum class SubtitleKind {
     /** Sidecar WebVTT/TTML rendition declared in the manifest. */
     SIDECAR,
+
     /** CEA-608/708 closed caption (declared in manifest or muxed in a video variant). */
     CC,
 }

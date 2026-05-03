@@ -20,5 +20,8 @@ data class AudioTrackInfo(
 
 /** Returns true if [other] refers to the same audio rendition. Prefers [id] when both are non-null. */
 internal fun AudioTrackInfo.isSameRenditionAs(other: AudioTrackInfo): Boolean =
-    if (id != null && other.id != null) id == other.id
-    else language == other.language && codecs == other.codecs && sampleRate == other.sampleRate
+    if (id != null && other.id != null) {
+        id == other.id
+    } else {
+        language == other.language && codecs == other.codecs && sampleRate == other.sampleRate
+    }

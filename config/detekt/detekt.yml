@@ -43,9 +43,6 @@ empty-blocks:
 exceptions:
   active: true
 
-formatting:
-  active: false  # handled by ktlint
-
 naming:
   active: true
   FunctionNaming:

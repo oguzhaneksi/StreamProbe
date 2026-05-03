@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.ui.compose.ContentFrame
+import com.streamprobe.android.PlayerUiState
 import com.streamprobe.android.PlayerViewModel
 import kotlinx.coroutines.delay
 
@@ -36,29 +37,7 @@ fun PlayerScreen(viewModel: PlayerViewModel = viewModel()) {
     var controlsVisible by rememberSaveable { mutableStateOf(true) }
     var showTrackSheet by rememberSaveable { mutableStateOf(false) }
 
-    if (Build.VERSION.SDK_INT > 23) {
-        LifecycleStartEffect(viewModel) {
-            (activity as? ComponentActivity)?.let {
-                viewModel.initializePlayer(it)
-            }
-            onStopOrDispose {
-                if (activity?.isChangingConfigurations == false) {
-                    viewModel.releasePlayer()
-                }
-            }
-        }
-    } else {
-        LifecycleResumeEffect(viewModel) {
-            (activity as? ComponentActivity)?.let {
-                viewModel.initializePlayer(it)
-            }
-            onPauseOrDispose {
-                if (activity?.isChangingConfigurations == false) {
-                    viewModel.releasePlayer()
-                }
-            }
-        }
-    }
+    PlayerLifecycleEffect(viewModel = viewModel, activity = activity as? ComponentActivity)
 
     LaunchedEffect(controlsVisible, uiState.isPlaying) {
         if (controlsVisible && uiState.isPlaying) {
@@ -68,46 +47,95 @@ fun PlayerScreen(viewModel: PlayerViewModel = viewModel()) {
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = { controlsVisible = !controlsVisible }
-            )
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { controlsVisible = !controlsVisible },
+                ),
     ) {
         ContentFrame(
             player = player,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         )
 
         PlayerController(
             uiState = uiState,
             visible = controlsVisible,
             hasMultipleTracks = uiState.hasMultipleTracks,
-            onSeekBack = viewModel::seekBack10s,
-            onTogglePlayPause = viewModel::togglePlayPause,
-            onSeekForward = viewModel::seekForward10s,
-            onScrubPositionChanged = viewModel::onScrubPositionChanged,
-            onScrubFinished = viewModel::onScrubFinished,
-            onUserInteraction = { controlsVisible = true },
-            onTrackSelectionClick = { showTrackSheet = true },
+            callbacks =
+                PlayerControllerCallbacks(
+                    onSeekBack = viewModel::seekBack10s,
+                    onTogglePlayPause = viewModel::togglePlayPause,
+                    onSeekForward = viewModel::seekForward10s,
+                    onScrubPositionChanged = viewModel::onScrubPositionChanged,
+                    onScrubFinished = viewModel::onScrubFinished,
+                    onUserInteraction = { controlsVisible = true },
+                    onTrackSelectionClick = { showTrackSheet = true },
+                ),
         )
     }
 
     if (showTrackSheet) {
-        TrackSelectionSheet(
-            videoOptions = uiState.videoTrackOptions,
-            audioOptions = uiState.audioTrackOptions,
-            subtitleOptions = uiState.subtitleTrackOptions,
-            selectedVideo = uiState.selectedVideoTrack,
-            selectedAudio = uiState.selectedAudioTrack,
-            selectedSubtitle = uiState.selectedSubtitleTrack,
-            onVideoSelected = viewModel::selectVideoTrack,
-            onAudioSelected = viewModel::selectAudioTrack,
-            onSubtitleSelected = viewModel::selectSubtitleTrack,
+        PlayerTrackSheet(
+            uiState = uiState,
+            viewModel = viewModel,
             onDismiss = { showTrackSheet = false },
         )
+    }
+}
+
+@Composable
+private fun PlayerTrackSheet(
+    uiState: PlayerUiState,
+    viewModel: PlayerViewModel,
+    onDismiss: () -> Unit,
+) {
+    TrackSelectionSheet(
+        state =
+            TrackSelectionState(
+                videoOptions = uiState.videoTrackOptions,
+                audioOptions = uiState.audioTrackOptions,
+                subtitleOptions = uiState.subtitleTrackOptions,
+                selectedVideo = uiState.selectedVideoTrack,
+                selectedAudio = uiState.selectedAudioTrack,
+                selectedSubtitle = uiState.selectedSubtitleTrack,
+            ),
+        callbacks =
+            TrackSelectionCallbacks(
+                onVideoSelected = viewModel::selectVideoTrack,
+                onAudioSelected = viewModel::selectAudioTrack,
+                onSubtitleSelected = viewModel::selectSubtitleTrack,
+                onDismiss = onDismiss,
+            ),
+    )
+}
+
+@Composable
+private fun PlayerLifecycleEffect(
+    viewModel: PlayerViewModel,
+    activity: ComponentActivity?,
+) {
+    if (Build.VERSION.SDK_INT > 23) {
+        LifecycleStartEffect(viewModel) {
+            activity?.let { viewModel.initializePlayer(it) }
+            onStopOrDispose {
+                if (activity?.isChangingConfigurations == false) {
+                    viewModel.releasePlayer()
+                }
+            }
+        }
+    } else {
+        LifecycleResumeEffect(viewModel) {
+            activity?.let { viewModel.initializePlayer(it) }
+            onPauseOrDispose {
+                if (activity?.isChangingConfigurations == false) {
+                    viewModel.releasePlayer()
+                }
+            }
+        }
     }
 }

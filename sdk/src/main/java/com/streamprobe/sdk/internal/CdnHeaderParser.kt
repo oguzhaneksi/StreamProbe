@@ -14,18 +14,18 @@ import java.util.Locale
  * null and [CacheStatus.UNKNOWN] is returned.
  */
 internal object CdnHeaderParser {
-
-    private val CDN_SPECIFIC_HEADERS = setOf(
-        "cf-cache-status",
-        "cf-ray",
-        "x-amz-cf-pop",
-        "x-amz-cf-id",
-        "x-served-by",
-        "x-cache-hits",
-        "x-akamai-request-id",
-        "x-cdn",
-        "akamai-grn",
-    )
+    private val CDN_SPECIFIC_HEADERS =
+        setOf(
+            "cf-cache-status",
+            "cf-ray",
+            "x-amz-cf-pop",
+            "x-amz-cf-id",
+            "x-served-by",
+            "x-cache-hits",
+            "x-akamai-request-id",
+            "x-cdn",
+            "akamai-grn",
+        )
 
     fun parse(headers: Map<String, List<String>>): CdnHeaderInfo {
         // Build a lowercase-keyed map for case-insensitive lookup.
@@ -36,9 +36,10 @@ internal object CdnHeaderParser {
         val viaValues = lower["via"] ?: emptyList()
         val via = viaValues.firstOrNull()
 
-        val cdnSpecificHeaders = CDN_SPECIFIC_HEADERS
-            .mapNotNull { key -> lower[key]?.firstOrNull()?.let { key to it } }
-            .toMap()
+        val cdnSpecificHeaders =
+            CDN_SPECIFIC_HEADERS
+                .mapNotNull { key -> lower[key]?.firstOrNull()?.let { key to it } }
+                .toMap()
 
         val cacheStatus = determineCacheStatus(xCache, cdnSpecificHeaders)
         val cdnProvider = determineCdnProvider(cdnSpecificHeaders, viaValues)
@@ -112,16 +113,18 @@ internal object CdnHeaderParser {
             return CdnProvider.FASTLY
         }
         // Akamai: X-Akamai-Request-Id, Akamai-GRN, or X-CDN: Akamai
-        if ("x-akamai-request-id" in cdnHeaders || "akamai-grn" in cdnHeaders ||
+        if ("x-akamai-request-id" in cdnHeaders ||
+            "akamai-grn" in cdnHeaders ||
             cdnHeaders["x-cdn"]?.equals("akamai", ignoreCase = true) == true
         ) {
             return CdnProvider.AKAMAI
         }
         // Fallback: scan all via values (each entry may itself be comma-separated).
         // Do not infer Fastly from generic "Varnish" tokens alone.
-        val viaTokens = viaValues
-            .flatMap { it.split(",") }
-            .map { it.trim().uppercase(Locale.ROOT) }
+        val viaTokens =
+            viaValues
+                .flatMap { it.split(",") }
+                .map { it.trim().uppercase(Locale.ROOT) }
         return when {
             viaTokens.any { it.contains("CLOUDFRONT") } -> CdnProvider.CLOUDFRONT
             else -> CdnProvider.UNKNOWN

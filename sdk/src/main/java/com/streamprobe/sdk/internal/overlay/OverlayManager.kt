@@ -37,7 +37,6 @@ import kotlinx.coroutines.launch
 internal class OverlayManager(
     private val sessionStore: SessionStore,
 ) {
-
     private enum class ViewMode { TRACKS, SEGMENTS, SWITCHES, ERRORS }
 
     private var overlayView: OverlayPanelView? = null
@@ -109,24 +108,29 @@ internal class OverlayManager(
     }
 
     @VisibleForTesting
-    internal fun overlayViewForTest(): OverlayPanelView = overlayView
-        ?: error("overlay not shown")
+    internal fun overlayViewForTest(): OverlayPanelView =
+        overlayView
+            ?: error("overlay not shown")
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
     private fun attachLifecycle(activity: ComponentActivity) {
-        val observer = object : DefaultLifecycleObserver {
-            override fun onDestroy(owner: LifecycleOwner) {
-                hide()
+        val observer =
+            object : DefaultLifecycleObserver {
+                override fun onDestroy(owner: LifecycleOwner) {
+                    hide()
+                }
             }
-        }
         activity.lifecycle.addObserver(observer)
         lifecycleObserver = observer
     }
 
     // ── Sizing helpers ───────────────────────────────────────────────────────
 
-    private fun computeBodyMaxHeightPx(activity: ComponentActivity, isLandscape: Boolean): Int {
+    private fun computeBodyMaxHeightPx(
+        activity: ComponentActivity,
+        isLandscape: Boolean,
+    ): Int {
         val dm = activity.resources.displayMetrics
         return if (isLandscape) {
             val targetPx = (dm.heightPixels * 0.55f).toInt()
@@ -138,7 +142,10 @@ internal class OverlayManager(
         }
     }
 
-    private fun computePanelWidthPx(activity: ComponentActivity, isLandscape: Boolean): Int {
+    private fun computePanelWidthPx(
+        activity: ComponentActivity,
+        isLandscape: Boolean,
+    ): Int {
         val density = activity.resources.displayMetrics.density
         return ((if (isLandscape) 440 else 310) * density).toInt()
     }
@@ -148,9 +155,11 @@ internal class OverlayManager(
     private fun clampToParent(overlay: OverlayPanelView) {
         val parent = overlay.parent as? ViewGroup ?: return
         if (parent.width == 0 || parent.height == 0 || overlay.width == 0 || overlay.height == 0) return
-        val insets: Insets = ViewCompat.getRootWindowInsets(overlay)
-            ?.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            ?: Insets.NONE
+        val insets: Insets =
+            ViewCompat
+                .getRootWindowInsets(overlay)
+                ?.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+                ?: Insets.NONE
         val minX = insets.left.toFloat()
         val maxX = (parent.width - overlay.width - insets.right).toFloat().coerceAtLeast(minX)
         val minY = insets.top.toFloat()
@@ -250,19 +259,24 @@ internal class OverlayManager(
         overlay.shareButton.setOnClickListener {
             val activity = currentActivity ?: return@setOnClickListener
             val errors = sessionStore.playbackErrors.value
-            val text = OverlayFormatters.formatErrorsForExport(
-                errors = errors,
-                baseTimestampMs = errors.firstOrNull()?.timestampMs ?: 0L,
-            )
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, text)
-            }
+            val text =
+                OverlayFormatters.formatErrorsForExport(
+                    errors = errors,
+                    baseTimestampMs = errors.firstOrNull()?.timestampMs ?: 0L,
+                )
+            val intent =
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, text)
+                }
             activity.startActivity(Intent.createChooser(intent, "Share errors"))
         }
     }
 
-    private fun applyViewMode(overlay: OverlayPanelView, mode: ViewMode) {
+    private fun applyViewMode(
+        overlay: OverlayPanelView,
+        mode: ViewMode,
+    ) {
         val isErrors = mode == ViewMode.ERRORS
         overlay.tracksChip.isChecked = mode == ViewMode.TRACKS
         overlay.segmentsChip.isChecked = mode == ViewMode.SEGMENTS
@@ -280,32 +294,41 @@ internal class OverlayManager(
         }
         overlay.errorsViewHeader.visibility = if (isErrors) View.VISIBLE else View.GONE
 
-        overlay.trackList.adapter = when (mode) {
-            ViewMode.TRACKS -> renditionAdapter
-            ViewMode.SEGMENTS -> segmentAdapter
-            ViewMode.SWITCHES -> switchAdapter
-            ViewMode.ERRORS -> errorAdapter
-        }
+        overlay.trackList.adapter =
+            when (mode) {
+                ViewMode.TRACKS -> renditionAdapter
+                ViewMode.SEGMENTS -> segmentAdapter
+                ViewMode.SWITCHES -> switchAdapter
+                ViewMode.ERRORS -> errorAdapter
+            }
         if (mode == ViewMode.ERRORS) {
             val errorCount = sessionStore.playbackErrors.value.size
             overlay.errorsTitle.text = "Errors ($errorCount)"
         }
     }
 
-    private fun attachAutoScrollToEnd(list: RecyclerView, adapter: RecyclerView.Adapter<*>) {
-        adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
-            override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
-                if (list.adapter !== adapter) return
-                val lm = list.layoutManager as? LinearLayoutManager ?: return
-                val total = adapter.itemCount
-                if (total == 0) return
-                val last = lm.findLastCompletelyVisibleItemPosition()
-                val threshold = total - itemCount - 2
-                if (last !in 0..<threshold) {
-                    list.scrollToPosition(total - 1)
+    private fun attachAutoScrollToEnd(
+        list: RecyclerView,
+        adapter: RecyclerView.Adapter<*>,
+    ) {
+        adapter.registerAdapterDataObserver(
+            object : RecyclerView.AdapterDataObserver() {
+                override fun onItemRangeInserted(
+                    positionStart: Int,
+                    itemCount: Int,
+                ) {
+                    if (list.adapter !== adapter) return
+                    val lm = list.layoutManager as? LinearLayoutManager ?: return
+                    val total = adapter.itemCount
+                    if (total == 0) return
+                    val last = lm.findLastCompletelyVisibleItemPosition()
+                    val threshold = total - itemCount - 2
+                    if (last !in 0..<threshold) {
+                        list.scrollToPosition(total - 1)
+                    }
                 }
-            }
-        })
+            },
+        )
     }
 
     // ── Observation ─────────────────────────────────────────────────────────
@@ -316,20 +339,21 @@ internal class OverlayManager(
         scope?.launch {
             sessionStore.manifestInfo.collect { info ->
                 if (info != null) {
-                    val items = buildList {
-                        if (info.variants.isNotEmpty()) {
-                            add(RenditionListItem.SectionHeader("VIDEO"))
-                            info.variants.forEach { add(RenditionListItem.Video(it)) }
+                    val items =
+                        buildList {
+                            if (info.variants.isNotEmpty()) {
+                                add(RenditionListItem.SectionHeader("VIDEO"))
+                                info.variants.forEach { add(RenditionListItem.Video(it)) }
+                            }
+                            if (info.audioTracks.isNotEmpty()) {
+                                add(RenditionListItem.SectionHeader("AUDIO"))
+                                info.audioTracks.forEach { add(RenditionListItem.Audio(it)) }
+                            }
+                            if (info.subtitleTracks.isNotEmpty()) {
+                                add(RenditionListItem.SectionHeader("SUBTITLES"))
+                                info.subtitleTracks.forEach { add(RenditionListItem.Subtitle(it)) }
+                            }
                         }
-                        if (info.audioTracks.isNotEmpty()) {
-                            add(RenditionListItem.SectionHeader("AUDIO"))
-                            info.audioTracks.forEach { add(RenditionListItem.Audio(it)) }
-                        }
-                        if (info.subtitleTracks.isNotEmpty()) {
-                            add(RenditionListItem.SectionHeader("SUBTITLES"))
-                            info.subtitleTracks.forEach { add(RenditionListItem.Subtitle(it)) }
-                        }
-                    }
                     renditionAdapter?.submitList(items)
                 }
             }
@@ -396,5 +420,4 @@ internal class OverlayManager(
             }
         }
     }
-
 }

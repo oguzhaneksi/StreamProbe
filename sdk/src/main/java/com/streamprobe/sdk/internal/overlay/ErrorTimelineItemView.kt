@@ -11,8 +11,9 @@ import android.widget.TextView
 import androidx.core.graphics.toColorInt
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 
-internal class ErrorTimelineItemView(context: Context) : LinearLayout(context) {
-
+internal class ErrorTimelineItemView(
+    context: Context,
+) : LinearLayout(context) {
     private val indexView: TextView
     private val dotView: View
     private val categoryView: TextView
@@ -30,101 +31,134 @@ internal class ErrorTimelineItemView(context: Context) : LinearLayout(context) {
 
         // ── Summary row ───────────────────────────────────────────────────────
 
-        val summaryRow = LinearLayout(context).apply {
-            orientation = HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            val hPad = dp(10f).toInt()
-            val vPad = dp(5f).toInt()
-            setPadding(hPad, vPad, hPad, vPad)
-        }
+        val summaryRow =
+            LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                val hPad = dp(10f).toInt()
+                val vPad = dp(5f).toInt()
+                setPadding(hPad, vPad, hPad, vPad)
+            }
 
-        indexView = TextView(context).apply {
-            setTextColor("#99FFFFFF".toColorInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            minWidth = dp(28f).toInt()
-        }
+        indexView =
+            TextView(context).apply {
+                setTextColor("#99FFFFFF".toColorInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                minWidth = dp(28f).toInt()
+            }
         summaryRow.addView(indexView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
 
-        dotView = View(context).apply {
-            val size = dp(8f).toInt()
-            layoutParams = LayoutParams(size, size).also {
-                it.marginStart = dp(4f).toInt()
+        dotView =
+            View(context).apply {
+                val size = dp(8f).toInt()
+                layoutParams =
+                    LayoutParams(size, size).also {
+                        it.marginStart = dp(4f).toInt()
+                    }
             }
-        }
-        summaryRow.addView(dotView, LayoutParams(dp(8f).toInt(), dp(8f).toInt()).also {
-            it.marginStart = dp(4f).toInt()
-        })
+        summaryRow.addView(
+            dotView,
+            LayoutParams(dp(8f).toInt(), dp(8f).toInt()).also {
+                it.marginStart = dp(4f).toInt()
+            },
+        )
 
-        categoryView = TextView(context).apply {
-            setTextColor("#CCFFFFFF".toColorInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
-            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-        }
-        summaryRow.addView(categoryView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
-            it.marginStart = dp(4f).toInt()
-        })
+        categoryView =
+            TextView(context).apply {
+                setTextColor("#CCFFFFFF".toColorInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+                typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            }
+        summaryRow.addView(
+            categoryView,
+            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
+                it.marginStart = dp(4f).toInt()
+            },
+        )
 
-        messageView = TextView(context).apply {
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            ellipsize = android.text.TextUtils.TruncateAt.END
-            maxLines = 1
-        }
-        summaryRow.addView(messageView, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).also {
-            it.marginStart = dp(4f).toInt()
-        })
+        messageView =
+            TextView(context).apply {
+                setTextColor(Color.WHITE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                maxLines = 1
+            }
+        summaryRow.addView(
+            messageView,
+            LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).also {
+                it.marginStart = dp(4f).toInt()
+            },
+        )
 
-        timestampView = TextView(context).apply {
-            setTextColor("#66FFFFFF".toColorInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
-        }
-        summaryRow.addView(timestampView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
-            it.marginStart = dp(4f).toInt()
-        })
+        timestampView =
+            TextView(context).apply {
+                setTextColor("#66FFFFFF".toColorInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            }
+        summaryRow.addView(
+            timestampView,
+            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
+                it.marginStart = dp(4f).toInt()
+            },
+        )
 
-        chevronView = TextView(context).apply {
-            text = "▾"
-            setTextColor("#66FFFFFF".toColorInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            gravity = Gravity.CENTER
-        }
-        summaryRow.addView(chevronView, LayoutParams(dp(20f).toInt(), LayoutParams.WRAP_CONTENT).also {
-            it.marginStart = dp(2f).toInt()
-        })
+        chevronView =
+            TextView(context).apply {
+                text = "▾"
+                setTextColor("#66FFFFFF".toColorInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                gravity = Gravity.CENTER
+            }
+        summaryRow.addView(
+            chevronView,
+            LayoutParams(dp(20f).toInt(), LayoutParams.WRAP_CONTENT).also {
+                it.marginStart = dp(2f).toInt()
+            },
+        )
 
         addView(summaryRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
         // ── Detail container (collapsible) ────────────────────────────────────
 
-        detailContainer = LinearLayout(context).apply {
-            orientation = VERTICAL
-            visibility = GONE
-            val hPad = dp(10f).toInt()
-            val vPad = dp(6f).toInt()
-            setPadding(hPad, 0, hPad, vPad)
-        }
+        detailContainer =
+            LinearLayout(context).apply {
+                orientation = VERTICAL
+                visibility = GONE
+                val hPad = dp(10f).toInt()
+                val vPad = dp(6f).toInt()
+                setPadding(hPad, 0, hPad, vPad)
+            }
 
-        fullMessageView = TextView(context).apply {
-            setTextColor("#CCFFFFFF".toColorInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-        }
-        detailContainer.addView(fullMessageView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).also {
-            it.bottomMargin = dp(2f).toInt()
-        })
+        fullMessageView =
+            TextView(context).apply {
+                setTextColor("#CCFFFFFF".toColorInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            }
+        detailContainer.addView(
+            fullMessageView,
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).also {
+                it.bottomMargin = dp(2f).toInt()
+            },
+        )
 
-        detailView = TextView(context).apply {
-            setTextColor("#99FFFFFF".toColorInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
-        }
-        detailContainer.addView(detailView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).also {
-            it.bottomMargin = dp(2f).toInt()
-        })
+        detailView =
+            TextView(context).apply {
+                setTextColor("#99FFFFFF".toColorInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            }
+        detailContainer.addView(
+            detailView,
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).also {
+                it.bottomMargin = dp(2f).toInt()
+            },
+        )
 
-        absoluteTimestampView = TextView(context).apply {
-            setTextColor("#66FFFFFF".toColorInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
-        }
+        absoluteTimestampView =
+            TextView(context).apply {
+                setTextColor("#66FFFFFF".toColorInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            }
         detailContainer.addView(absoluteTimestampView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
         addView(detailContainer, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))

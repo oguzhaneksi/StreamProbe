@@ -21,8 +21,9 @@ import com.streamprobe.sdk.model.isSameRenditionAs
  * The architecture mirrors [VariantItemView] (dot + top row + bottom row) but binds
  * polymorphically via the [RenditionListItem] sealed type.
  */
-internal class RenditionItemView(context: Context) : LinearLayout(context) {
-
+internal class RenditionItemView(
+    context: Context,
+) : LinearLayout(context) {
     private val dot: View
     private val topLine: TextView
     private val bottomLine: TextView
@@ -33,35 +34,45 @@ internal class RenditionItemView(context: Context) : LinearLayout(context) {
         val vPad = dp(6f).toInt()
         setPadding(hPad, vPad, hPad, vPad)
 
-        val firstRow = LinearLayout(context).apply {
-            orientation = HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
+        val firstRow =
+            LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
 
-        dot = View(context).apply {
-            background = OverlayDrawables.dotInactive()
-        }
-        firstRow.addView(dot, LayoutParams(dp(8f).toInt(), dp(8f).toInt()).also {
-            it.marginEnd = dp(8f).toInt()
-        })
+        dot =
+            View(context).apply {
+                background = OverlayDrawables.dotInactive()
+            }
+        firstRow.addView(
+            dot,
+            LayoutParams(dp(8f).toInt(), dp(8f).toInt()).also {
+                it.marginEnd = dp(8f).toInt()
+            },
+        )
 
-        topLine = TextView(context).apply {
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        }
+        topLine =
+            TextView(context).apply {
+                setTextColor(Color.WHITE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            }
         firstRow.addView(topLine, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
         addView(firstRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
-        bottomLine = TextView(context).apply {
-            setTextColor("#66FFFFFF".toColorInt())
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
-        }
-        addView(bottomLine, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).also {
-            it.marginStart = dp(16f).toInt()  // dot(8dp) + dot marginEnd(8dp)
-            it.topMargin = dp(2f).toInt()
-        })
+        bottomLine =
+            TextView(context).apply {
+                setTextColor("#66FFFFFF".toColorInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            }
+        addView(
+            bottomLine,
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).also {
+                it.marginStart = dp(16f).toInt() // dot(8dp) + dot marginEnd(8dp)
+                it.topMargin = dp(2f).toInt()
+            },
+        )
     }
 
     fun bind(
@@ -78,40 +89,55 @@ internal class RenditionItemView(context: Context) : LinearLayout(context) {
         }
     }
 
-    private fun bindVideo(item: RenditionListItem.Video, active: ActiveTrackInfo?) {
+    private fun bindVideo(
+        item: RenditionListItem.Video,
+        active: ActiveTrackInfo?,
+    ) {
         val info = item.info
-        val isActive = active != null &&
-            info.width == active.width &&
-            info.height == active.height &&
-            info.bitrate == active.bitrate
+        val isActive =
+            active != null &&
+                info.width == active.width &&
+                info.height == active.height &&
+                info.bitrate == active.bitrate
 
         dot.background = if (isActive) OverlayDrawables.dotActive() else OverlayDrawables.dotInactive()
-        topLine.text = buildString {
-            append(OverlayFormatters.formatResolution(info.width, info.height))
-            append("  \u00b7  ")
-            append(OverlayFormatters.formatBitrate(info.bitrate))
-        }
+        topLine.text =
+            buildString {
+                append(OverlayFormatters.formatResolution(info.width, info.height))
+                append("  \u00b7  ")
+                append(OverlayFormatters.formatBitrate(info.bitrate))
+            }
         bottomLine.text = info.codecs ?: ""
         bottomLine.isVisible = !info.codecs.isNullOrEmpty()
     }
 
-    private fun bindAudio(item: RenditionListItem.Audio, active: AudioTrackInfo?) {
+    private fun bindAudio(
+        item: RenditionListItem.Audio,
+        active: AudioTrackInfo?,
+    ) {
         val info = item.info
         val isActive = active != null && info.isSameRenditionAs(active)
 
         dot.background = if (isActive) OverlayDrawables.dotActive() else OverlayDrawables.dotInactive()
 
         val topParts = mutableListOf<String>()
-        val displayName = info.label
-            ?: info.language?.let { java.util.Locale.forLanguageTag(it).displayLanguage.takeIf { l -> l.isNotBlank() } }
+        val displayName =
+            info.label
+                ?: info.language?.let {
+                    java.util.Locale
+                        .forLanguageTag(it)
+                        .displayLanguage
+                        .takeIf { l -> l.isNotBlank() }
+                }
         if (!displayName.isNullOrBlank()) topParts += displayName
-        val channels = when (info.channelCount) {
-            1    -> "mono"
-            2    -> "stereo"
-            6    -> "5.1"
-            8    -> "7.1"
-            else -> if (info.channelCount > 0) "${info.channelCount}ch" else null
-        }
+        val channels =
+            when (info.channelCount) {
+                1 -> "mono"
+                2 -> "stereo"
+                6 -> "5.1"
+                8 -> "7.1"
+                else -> if (info.channelCount > 0) "${info.channelCount}ch" else null
+            }
         if (channels != null) topParts += channels
         if (info.bitrate > 0) topParts += OverlayFormatters.formatBitrate(info.bitrate)
         topLine.text = topParts.joinToString("  \u00b7  ").ifBlank { "Audio" }
@@ -123,26 +149,36 @@ internal class RenditionItemView(context: Context) : LinearLayout(context) {
         bottomLine.isVisible = bottomParts.isNotEmpty()
     }
 
-    private fun bindSubtitle(item: RenditionListItem.Subtitle, active: SubtitleTrackInfo?) {
+    private fun bindSubtitle(
+        item: RenditionListItem.Subtitle,
+        active: SubtitleTrackInfo?,
+    ) {
         val info = item.info
         val isActive = active != null && info.isSameRenditionAs(active)
 
         dot.background = if (isActive) OverlayDrawables.dotActive() else OverlayDrawables.dotInactive()
 
         val topParts = mutableListOf<String>()
-        val displayName = info.label
-            ?: info.language?.let { java.util.Locale.forLanguageTag(it).displayLanguage.takeIf { l -> l.isNotBlank() } }
+        val displayName =
+            info.label
+                ?: info.language?.let {
+                    java.util.Locale
+                        .forLanguageTag(it)
+                        .displayLanguage
+                        .takeIf { l -> l.isNotBlank() }
+                }
         if (!displayName.isNullOrBlank()) topParts += displayName
         if (info.kind == SubtitleKind.CC) topParts += "(CC)"
         topLine.text = topParts.joinToString("  ").ifBlank { "Subtitle" }
 
-        val mimeShort = when (info.mimeType) {
-            "text/vtt", "application/x-media3-webvtt" -> "WebVTT"
-            "application/ttml+xml"                    -> "TTML"
-            "application/x-subrip"                    -> "SRT"
-            "text/x-ssa"                              -> "SSA"
-            else -> info.mimeType?.substringAfterLast("/")
-        }
+        val mimeShort =
+            when (info.mimeType) {
+                "text/vtt", "application/x-media3-webvtt" -> "WebVTT"
+                "application/ttml+xml" -> "TTML"
+                "application/x-subrip" -> "SRT"
+                "text/x-ssa" -> "SSA"
+                else -> info.mimeType?.substringAfterLast("/")
+            }
         bottomLine.text = mimeShort ?: ""
         bottomLine.isVisible = !mimeShort.isNullOrBlank()
     }

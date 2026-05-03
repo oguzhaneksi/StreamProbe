@@ -19,7 +19,7 @@ dokka = "2.0.0"
 datastore = "1.2.1"
 navigationCompose = "2.9.8"
 kotlinxSerialization = "1.11.0"
-ktlint = "12.3.0"
+ktlint = "14.2.0"
 detekt = "1.23.8"
 
 [libraries]

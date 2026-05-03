@@ -16,7 +16,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OverlayFormattingTest {
-
     private fun makeCdnInfo(
         status: CacheStatus = CacheStatus.UNKNOWN,
         xCache: String? = null,
@@ -81,28 +80,32 @@ class OverlayFormattingTest {
         val result = OverlayFormatters.formatCdnStatus(null)
         assertEquals("\u2014", result)
     }
+
     @Test
     fun `formatCdnStatus with known provider prepends provider tag`() {
-        val result = OverlayFormatters.formatCdnStatus(
-            makeCdnInfo(status = CacheStatus.HIT, cdnProvider = CdnProvider.CLOUDFLARE)
-        )
+        val result =
+            OverlayFormatters.formatCdnStatus(
+                makeCdnInfo(status = CacheStatus.HIT, cdnProvider = CdnProvider.CLOUDFLARE),
+            )
         assertTrue("Expected '[CLOUDFLARE]' prefix in: $result", result.startsWith("[CLOUDFLARE]"))
         assertTrue("Expected 'HIT' in: $result", result.contains("HIT"))
     }
 
     @Test
     fun `formatCdnStatus with UNKNOWN provider omits provider tag`() {
-        val result = OverlayFormatters.formatCdnStatus(
-            makeCdnInfo(status = CacheStatus.HIT, cdnProvider = CdnProvider.UNKNOWN)
-        )
+        val result =
+            OverlayFormatters.formatCdnStatus(
+                makeCdnInfo(status = CacheStatus.HIT, cdnProvider = CdnProvider.UNKNOWN),
+            )
         assertTrue("Expected no brackets in: $result", !result.startsWith("["))
     }
 
     @Test
     fun `formatCdnStatus with null provider omits provider tag`() {
-        val result = OverlayFormatters.formatCdnStatus(
-            makeCdnInfo(status = CacheStatus.MISS, cdnProvider = null)
-        )
+        val result =
+            OverlayFormatters.formatCdnStatus(
+                makeCdnInfo(status = CacheStatus.MISS, cdnProvider = null),
+            )
         assertTrue("Expected no brackets in: $result", !result.startsWith("["))
     }
 
@@ -114,15 +117,19 @@ class OverlayFormattingTest {
             CdnProvider.FASTLY to "[FASTLY]",
             CdnProvider.AKAMAI to "[AKAMAI]",
         ).forEach { (provider, expectedTag) ->
-            val result = OverlayFormatters.formatCdnStatus(
-                makeCdnInfo(status = CacheStatus.HIT, cdnProvider = provider)
-            )
+            val result =
+                OverlayFormatters.formatCdnStatus(
+                    makeCdnInfo(status = CacheStatus.HIT, cdnProvider = provider),
+                )
             assertTrue("Expected '$expectedTag' in: $result", result.startsWith(expectedTag))
         }
     }
     // ── ABR formatting tests ──────────────────────────────────────────────────
 
-    private fun makeTrack(height: Int, bitrate: Int = 2_500_000) = ActiveTrackInfo(
+    private fun makeTrack(
+        height: Int,
+        bitrate: Int = 2_500_000,
+    ) = ActiveTrackInfo(
         bitrate = bitrate,
         width = height * 16 / 9,
         height = height,
@@ -203,18 +210,19 @@ class OverlayFormattingTest {
     @Test
     fun `formatErrorsForExport produces correct header and rows`() {
         val base = 1_000L
-        val errors = listOf(
-            PlaybackErrorEvent(
-                timestampMs = base + 23_000L,
-                category = ErrorCategory.LOAD_ERROR,
-                message = "HTTP 404: seg_42.ts",
-            ),
-            PlaybackErrorEvent(
-                timestampMs = base + 65_000L,
-                category = ErrorCategory.DROPPED_FRAMES,
-                message = "5 frames in 100ms",
-            ),
-        )
+        val errors =
+            listOf(
+                PlaybackErrorEvent(
+                    timestampMs = base + 23_000L,
+                    category = ErrorCategory.LOAD_ERROR,
+                    message = "HTTP 404: seg_42.ts",
+                ),
+                PlaybackErrorEvent(
+                    timestampMs = base + 65_000L,
+                    category = ErrorCategory.DROPPED_FRAMES,
+                    message = "5 frames in 100ms",
+                ),
+            )
 
         val result = OverlayFormatters.formatErrorsForExport(errors, base)
 
@@ -226,21 +234,22 @@ class OverlayFormattingTest {
         assertTrue("Expected FRAMES category", result.contains("FRAMES"))
         assertTrue(
             "Expected absolute timestamp in [HH:mm:ss.SSS] format",
-            result.contains(Regex("\\[\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\]"))
+            result.contains(Regex("\\[\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\]")),
         )
     }
 
     @Test
     fun `formatErrorsForExport includes detail on second line when present`() {
         val base = 1_000L
-        val errors = listOf(
-            PlaybackErrorEvent(
-                timestampMs = base + 5_000L,
-                category = ErrorCategory.LOAD_ERROR,
-                message = "HTTP 500: seg_1.ts",
-                detail = "java.io.IOException: connection reset",
-            ),
-        )
+        val errors =
+            listOf(
+                PlaybackErrorEvent(
+                    timestampMs = base + 5_000L,
+                    category = ErrorCategory.LOAD_ERROR,
+                    message = "HTTP 500: seg_1.ts",
+                    detail = "java.io.IOException: connection reset",
+                ),
+            )
 
         val result = OverlayFormatters.formatErrorsForExport(errors, base)
 
@@ -311,9 +320,10 @@ class OverlayFormattingTest {
 
     @Test
     fun `formatActiveAudio with no language and no label returns Unknown`() {
-        val result = OverlayFormatters.formatActiveAudio(
-            makeAudio(language = null, label = null, codecs = null, bitrate = 0, channelCount = 0, sampleRate = 0)
-        )
+        val result =
+            OverlayFormatters.formatActiveAudio(
+                makeAudio(language = null, label = null, codecs = null, bitrate = 0, channelCount = 0, sampleRate = 0),
+            )
         assertEquals("Unknown", result)
     }
 
@@ -363,10 +373,10 @@ class OverlayFormattingTest {
 
     @Test
     fun `formatActiveSubtitle with no language and no label returns Unknown`() {
-        val result = OverlayFormatters.formatActiveSubtitle(
-            makeSubtitle(language = null, label = null, mimeType = null)
-        )
+        val result =
+            OverlayFormatters.formatActiveSubtitle(
+                makeSubtitle(language = null, label = null, mimeType = null),
+            )
         assertEquals("Unknown", result)
     }
-
 }

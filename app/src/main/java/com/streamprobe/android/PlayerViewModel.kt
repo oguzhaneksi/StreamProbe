@@ -30,17 +30,22 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+private data class RawTracks(
+    val videoOptions: List<VideoTrackOption.Fixed>,
+    val audioOptions: List<AudioTrackOption>,
+    val subtitleOptions: List<SubtitleTrackOption>,
+)
+
 class PlayerViewModel(
     private val appContext: Context,
     private val repo: DebugSettingsRepository,
 ) : ViewModel() {
-
     private val streamProbe = StreamProbe()
 
     var player: ExoPlayer? by mutableStateOf(null)
         private set
 
-    private val _selectedStream = MutableStateFlow<Stream?>(null)
+    private val selectedStream = MutableStateFlow<Stream?>(null)
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState
@@ -49,74 +54,86 @@ class PlayerViewModel(
     private var updateJob: Job? = null
 
     /** Listens for track availability changes to update the selection UI. */
-    private val playerListener = object : Player.Listener {
-        override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
-            player?.let { enumerateTracks(it) }
+    private val playerListener =
+        object : Player.Listener {
+            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                player?.let { enumerateTracks(it) }
+            }
         }
-    }
 
     fun selectStream(stream: Stream) {
-        _selectedStream.value = stream
+        selectedStream.value = stream
     }
 
     fun clearStream() {
-        _selectedStream.value = null
+        selectedStream.value = null
     }
 
     @OptIn(UnstableApi::class)
     fun initializePlayer(activity: ComponentActivity) {
         streamProbe.show(activity)
-        val stream = _selectedStream.value ?: return
+        val stream = selectedStream.value ?: return
         if (player != null) return
-        initJob = viewModelScope.launch {
-            val injectErrors = repo.injectErrorsFlow.first()
-            buildPlayer(stream, injectErrors)
-        }
+        initJob =
+            viewModelScope.launch {
+                val injectErrors = repo.injectErrorsFlow.first()
+                buildPlayer(stream, injectErrors)
+            }
     }
 
     @OptIn(UnstableApi::class)
-    private fun buildPlayer(stream: Stream, injectErrors: Boolean) {
-        val dataSourceFactory: DataSource.Factory = if (injectErrors) {
-            DebugDataSourceFactory(DefaultHttpDataSource.Factory(), errorRate = 0.2f)
-        } else {
-            DefaultHttpDataSource.Factory()
-        }
+    private fun buildPlayer(
+        stream: Stream,
+        injectErrors: Boolean,
+    ) {
+        val dataSourceFactory: DataSource.Factory =
+            if (injectErrors) {
+                DebugDataSourceFactory(DefaultHttpDataSource.Factory(), errorRate = 0.2f)
+            } else {
+                DefaultHttpDataSource.Factory()
+            }
         val mediaSourceFactory = DefaultMediaSourceFactory(appContext).setDataSourceFactory(dataSourceFactory)
 
-        player = ExoPlayer.Builder(appContext)
-            .setMediaSourceFactory(mediaSourceFactory)
-            .build().apply {
-                streamProbe.attach(this)
-                addListener(playerListener)
-                val mediaItem = if (stream.mimeType != null) {
-                    MediaItem.Builder()
-                        .setUri(stream.url)
-                        .setMimeType(stream.mimeType)
-                        .build()
-                } else {
-                    MediaItem.fromUri(stream.url)
+        player =
+            ExoPlayer
+                .Builder(appContext)
+                .setMediaSourceFactory(mediaSourceFactory)
+                .build()
+                .apply {
+                    streamProbe.attach(this)
+                    addListener(playerListener)
+                    val mediaItem =
+                        if (stream.mimeType != null) {
+                            MediaItem
+                                .Builder()
+                                .setUri(stream.url)
+                                .setMimeType(stream.mimeType)
+                                .build()
+                        } else {
+                            MediaItem.fromUri(stream.url)
+                        }
+                    setMediaItem(mediaItem)
+                    prepare()
+                    playWhenReady = true
                 }
-                setMediaItem(mediaItem)
-                prepare()
-                playWhenReady = true
-            }
 
-        updateJob = viewModelScope.launch {
-            while (isActive) {
-                player?.let { p ->
-                    _uiState.update { current ->
-                        current.copy(
-                            positionMs = if (current.isScrubbing) current.positionMs else p.currentPosition,
-                            durationMs = if (p.duration == C.TIME_UNSET) 0L else p.duration,
-                            bufferedPositionMs = p.bufferedPosition,
-                            isPlaying = p.isPlaying,
-                            isBuffering = p.playbackState == Player.STATE_BUFFERING,
-                        )
+        updateJob =
+            viewModelScope.launch {
+                while (isActive) {
+                    player?.let { p ->
+                        _uiState.update { current ->
+                            current.copy(
+                                positionMs = if (current.isScrubbing) current.positionMs else p.currentPosition,
+                                durationMs = if (p.duration == C.TIME_UNSET) 0L else p.duration,
+                                bufferedPositionMs = p.bufferedPosition,
+                                isPlaying = p.isPlaying,
+                                isBuffering = p.playbackState == Player.STATE_BUFFERING,
+                            )
+                        }
                     }
+                    delay(500)
                 }
-                delay(500)
             }
-        }
     }
 
     fun releasePlayer() {
@@ -145,111 +162,104 @@ class PlayerViewModel(
 
     @OptIn(UnstableApi::class)
     private fun enumerateTracks(player: ExoPlayer) {
-        val tracks = player.currentTracks
-        val rawVideoOptions = mutableListOf<VideoTrackOption.Fixed>()
-        val audioOptions = mutableListOf<AudioTrackOption>()
-        val subtitleOptions = mutableListOf<SubtitleTrackOption>(SubtitleTrackOption.Off)
-
-        for ((groupIndex, group) in tracks.groups.withIndex()) {
-            for (trackIndex in 0 until group.length) {
-                if (!group.isTrackSupported(trackIndex)) continue
-                val format = group.getTrackFormat(trackIndex)
-                when (group.type) {
-                    C.TRACK_TYPE_VIDEO -> rawVideoOptions.add(
-                        VideoTrackOption.Fixed(
-                            width = format.width,
-                            height = format.height,
-                            bitrate = format.bitrate,
-                            codecs = format.codecs,
-                            groupIndex = groupIndex,
-                            trackIndex = trackIndex,
-                        )
-                    )
-                    C.TRACK_TYPE_AUDIO -> audioOptions.add(
-                        AudioTrackOption(
-                            language = format.language,
-                            label = format.labels.firstOrNull()?.value,
-                            codecs = format.codecs,
-                            channelCount = format.channelCount,
-                            bitrate = format.bitrate,
-                            groupIndex = groupIndex,
-                            trackIndex = trackIndex,
-                        )
-                    )
-                    C.TRACK_TYPE_TEXT -> subtitleOptions.add(
-                        SubtitleTrackOption.Fixed(
-                            language = format.language,
-                            label = format.labels.firstOrNull()?.value,
-                            mimeType = format.sampleMimeType,
-                            groupIndex = groupIndex,
-                            trackIndex = trackIndex,
-                        )
-                    )
-                }
+        val (rawVideoOptions, audioOptions, subtitleOptions) = collectRawTracks(player)
+        val videoOptions =
+            mutableListOf<VideoTrackOption>(VideoTrackOption.Auto).apply {
+                addAll(rawVideoOptions)
             }
-        }
-
-        // Preserve every enumerated video track so the picker can expose all
-        // selectable renditions. Auto is always first in the list.
-        val videoOptions = mutableListOf<VideoTrackOption>(VideoTrackOption.Auto).apply {
-            addAll(rawVideoOptions)
-        }
-
-        val hasMultiple = videoOptions.size > 1 || audioOptions.size > 1 || subtitleOptions.size > 1
-
+        val hasMultiple =
+            videoOptions.size > 1 || audioOptions.size > 1 || subtitleOptions.size > 1
         val currentVideo = resolveCurrentVideo(player, videoOptions)
         val currentAudio = resolveCurrentAudio(player, audioOptions)
         val currentSubtitle = resolveCurrentSubtitle(player, subtitleOptions)
+        updateTrackState(
+            videoOptions,
+            audioOptions,
+            subtitleOptions,
+            currentVideo,
+            currentAudio,
+            currentSubtitle,
+            hasMultiple,
+        )
+    }
 
+    private fun updateTrackState(
+        videoOptions: List<VideoTrackOption>,
+        audioOptions: List<AudioTrackOption>,
+        subtitleOptions: List<SubtitleTrackOption>,
+        selectedVideo: VideoTrackOption,
+        selectedAudio: AudioTrackOption?,
+        selectedSubtitle: SubtitleTrackOption,
+        hasMultipleTracks: Boolean,
+    ) {
         _uiState.update { current ->
             current.copy(
                 videoTrackOptions = videoOptions,
                 audioTrackOptions = audioOptions,
                 subtitleTrackOptions = subtitleOptions,
-                selectedVideoTrack = currentVideo,
-                selectedAudioTrack = currentAudio,
-                selectedSubtitleTrack = currentSubtitle,
-                hasMultipleTracks = hasMultiple,
+                selectedVideoTrack = selectedVideo,
+                selectedAudioTrack = selectedAudio,
+                selectedSubtitleTrack = selectedSubtitle,
+                hasMultipleTracks = hasMultipleTracks,
             )
         }
     }
 
     @OptIn(UnstableApi::class)
-    private fun resolveCurrentVideo(player: ExoPlayer, options: List<VideoTrackOption>): VideoTrackOption {
-        val override = player.trackSelectionParameters.overrides.values
-            .firstOrNull { it.mediaTrackGroup.type == C.TRACK_TYPE_VIDEO }
-            ?: return VideoTrackOption.Auto
-        val overriddenTrackIndex = override.trackIndices.firstOrNull() ?: return VideoTrackOption.Auto
-        val overriddenGroupIndex = player.currentTracks.groups.indexOfFirst { group ->
-            group.type == C.TRACK_TYPE_VIDEO && group.mediaTrackGroup == override.mediaTrackGroup
+    private fun resolveCurrentVideo(
+        player: ExoPlayer,
+        options: List<VideoTrackOption>,
+    ): VideoTrackOption {
+        val override =
+            player.trackSelectionParameters.overrides.values
+                .firstOrNull { it.mediaTrackGroup.type == C.TRACK_TYPE_VIDEO }
+        val overriddenTrackIndex = override?.trackIndices?.firstOrNull()
+        val overriddenGroupIndex =
+            override?.let { ov ->
+                player.currentTracks.groups.indexOfFirst { group ->
+                    group.type == C.TRACK_TYPE_VIDEO && group.mediaTrackGroup == ov.mediaTrackGroup
+                }
+            }
+        return if (overriddenTrackIndex == null || overriddenGroupIndex == null || overriddenGroupIndex == -1) {
+            VideoTrackOption.Auto
+        } else {
+            options
+                .filterIsInstance<VideoTrackOption.Fixed>()
+                .find { it.groupIndex == overriddenGroupIndex && it.trackIndex == overriddenTrackIndex }
+                ?: VideoTrackOption.Auto
         }
-        if (overriddenGroupIndex == -1) return VideoTrackOption.Auto
-        return options.filterIsInstance<VideoTrackOption.Fixed>()
-            .find { it.groupIndex == overriddenGroupIndex && it.trackIndex == overriddenTrackIndex }
-            ?: VideoTrackOption.Auto
     }
 
-    private fun resolveCurrentAudio(player: ExoPlayer, options: List<AudioTrackOption>): AudioTrackOption? {
-        for ((groupIndex, group) in player.currentTracks.groups.withIndex()) {
-            if (group.type != C.TRACK_TYPE_AUDIO || !group.isSelected) continue
-            val trackIndex = (0 until group.length).firstOrNull { group.isTrackSelected(it) } ?: continue
-            return options.find { it.groupIndex == groupIndex && it.trackIndex == trackIndex }
-        }
-        return options.firstOrNull()
-    }
+    private fun resolveCurrentAudio(
+        player: ExoPlayer,
+        options: List<AudioTrackOption>,
+    ): AudioTrackOption? =
+        player.currentTracks.groups
+            .withIndex()
+            .filter { (_, group) -> group.type == C.TRACK_TYPE_AUDIO && group.isSelected }
+            .firstNotNullOfOrNull { (groupIndex, group) ->
+                val trackIndex = (0 until group.length).firstOrNull { group.isTrackSelected(it) }
+                trackIndex?.let { options.find { opt -> opt.groupIndex == groupIndex && opt.trackIndex == it } }
+            } ?: options.firstOrNull()
 
-    private fun resolveCurrentSubtitle(player: ExoPlayer, options: List<SubtitleTrackOption>): SubtitleTrackOption {
+    private fun resolveCurrentSubtitle(
+        player: ExoPlayer,
+        options: List<SubtitleTrackOption>,
+    ): SubtitleTrackOption {
         if (C.TRACK_TYPE_TEXT in player.trackSelectionParameters.disabledTrackTypes) {
             return SubtitleTrackOption.Off
         }
-        for ((groupIndex, group) in player.currentTracks.groups.withIndex()) {
-            if (group.type != C.TRACK_TYPE_TEXT || !group.isSelected) continue
-            val trackIndex = (0 until group.length).firstOrNull { group.isTrackSelected(it) } ?: continue
-            return options.filterIsInstance<SubtitleTrackOption.Fixed>()
-                .find { it.groupIndex == groupIndex && it.trackIndex == trackIndex }
-                ?: SubtitleTrackOption.Off
-        }
-        return SubtitleTrackOption.Off
+        return player.currentTracks.groups
+            .withIndex()
+            .filter { (_, group) -> group.type == C.TRACK_TYPE_TEXT && group.isSelected }
+            .firstNotNullOfOrNull { (groupIndex, group) ->
+                val trackIndex = (0 until group.length).firstOrNull { group.isTrackSelected(it) }
+                trackIndex?.let {
+                    options
+                        .filterIsInstance<SubtitleTrackOption.Fixed>()
+                        .find { opt -> opt.groupIndex == groupIndex && opt.trackIndex == it }
+                }
+            } ?: SubtitleTrackOption.Off
     }
 
     // ── Track selection ──────────────────────────────────────────────────────
@@ -257,19 +267,23 @@ class PlayerViewModel(
     @OptIn(UnstableApi::class)
     fun selectVideoTrack(option: VideoTrackOption) {
         val p = player ?: return
-        p.trackSelectionParameters = when (option) {
-            is VideoTrackOption.Auto -> p.trackSelectionParameters.buildUpon()
-                .clearVideoSizeConstraints()
-                .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
-                .build()
-            is VideoTrackOption.Fixed -> {
-                val group = p.currentTracks.groups.getOrNull(option.groupIndex) ?: return
-                p.trackSelectionParameters.buildUpon()
-                    .setOverrideForType(
-                        TrackSelectionOverride(group.mediaTrackGroup, listOf(option.trackIndex))
-                    ).build()
+        p.trackSelectionParameters =
+            when (option) {
+                is VideoTrackOption.Auto ->
+                    p.trackSelectionParameters
+                        .buildUpon()
+                        .clearVideoSizeConstraints()
+                        .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+                        .build()
+                is VideoTrackOption.Fixed -> {
+                    val group = p.currentTracks.groups.getOrNull(option.groupIndex) ?: return
+                    p.trackSelectionParameters
+                        .buildUpon()
+                        .setOverrideForType(
+                            TrackSelectionOverride(group.mediaTrackGroup, listOf(option.trackIndex)),
+                        ).build()
+                }
             }
-        }
         _uiState.update { it.copy(selectedVideoTrack = option) }
     }
 
@@ -277,30 +291,36 @@ class PlayerViewModel(
     fun selectAudioTrack(option: AudioTrackOption) {
         val p = player ?: return
         val group = p.currentTracks.groups.getOrNull(option.groupIndex) ?: return
-        p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
-            .setOverrideForType(
-                TrackSelectionOverride(group.mediaTrackGroup, listOf(option.trackIndex))
-            ).build()
+        p.trackSelectionParameters =
+            p.trackSelectionParameters
+                .buildUpon()
+                .setOverrideForType(
+                    TrackSelectionOverride(group.mediaTrackGroup, listOf(option.trackIndex)),
+                ).build()
         _uiState.update { it.copy(selectedAudioTrack = option) }
     }
 
     @OptIn(UnstableApi::class)
     fun selectSubtitleTrack(option: SubtitleTrackOption) {
         val p = player ?: return
-        p.trackSelectionParameters = when (option) {
-            is SubtitleTrackOption.Off -> p.trackSelectionParameters.buildUpon()
-                .setDisabledTrackTypes(setOf(C.TRACK_TYPE_TEXT))
-                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
-                .build()
-            is SubtitleTrackOption.Fixed -> {
-                val group = p.currentTracks.groups.getOrNull(option.groupIndex) ?: return
-                p.trackSelectionParameters.buildUpon()
-                    .setDisabledTrackTypes(emptySet())
-                    .setOverrideForType(
-                        TrackSelectionOverride(group.mediaTrackGroup, listOf(option.trackIndex))
-                    ).build()
+        p.trackSelectionParameters =
+            when (option) {
+                is SubtitleTrackOption.Off ->
+                    p.trackSelectionParameters
+                        .buildUpon()
+                        .setDisabledTrackTypes(setOf(C.TRACK_TYPE_TEXT))
+                        .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                        .build()
+                is SubtitleTrackOption.Fixed -> {
+                    val group = p.currentTracks.groups.getOrNull(option.groupIndex) ?: return
+                    p.trackSelectionParameters
+                        .buildUpon()
+                        .setDisabledTrackTypes(emptySet())
+                        .setOverrideForType(
+                            TrackSelectionOverride(group.mediaTrackGroup, listOf(option.trackIndex)),
+                        ).build()
+                }
             }
-        }
         _uiState.update { it.copy(selectedSubtitleTrack = option) }
     }
 
@@ -345,7 +365,7 @@ class PlayerViewModel(
         _uiState.update {
             it.copy(
                 isScrubbing = false,
-                positionMs = state.scrubPositionMs
+                positionMs = state.scrubPositionMs,
             )
         }
     }
@@ -356,8 +376,60 @@ class PlayerViewModel(
     }
 
     companion object {
-        fun factory(app: StreamProbeApplication) = viewModelFactory {
-            initializer { PlayerViewModel(app.applicationContext, app.debugSettings) }
+        fun factory(app: StreamProbeApplication) =
+            viewModelFactory {
+                initializer { PlayerViewModel(app.applicationContext, app.debugSettings) }
+            }
+    }
+}
+
+@OptIn(UnstableApi::class)
+private fun collectRawTracks(player: ExoPlayer): RawTracks {
+    val tracks = player.currentTracks
+    val rawVideoOptions = mutableListOf<VideoTrackOption.Fixed>()
+    val audioOptions = mutableListOf<AudioTrackOption>()
+    val subtitleOptions = mutableListOf<SubtitleTrackOption>(SubtitleTrackOption.Off)
+
+    for ((groupIndex, group) in tracks.groups.withIndex()) {
+        for (trackIndex in 0 until group.length) {
+            if (!group.isTrackSupported(trackIndex)) continue
+            val format = group.getTrackFormat(trackIndex)
+            when (group.type) {
+                C.TRACK_TYPE_VIDEO ->
+                    rawVideoOptions.add(
+                        VideoTrackOption.Fixed(
+                            width = format.width,
+                            height = format.height,
+                            bitrate = format.bitrate,
+                            codecs = format.codecs,
+                            groupIndex = groupIndex,
+                            trackIndex = trackIndex,
+                        ),
+                    )
+                C.TRACK_TYPE_AUDIO ->
+                    audioOptions.add(
+                        AudioTrackOption(
+                            language = format.language,
+                            label = format.labels.firstOrNull()?.value,
+                            codecs = format.codecs,
+                            channelCount = format.channelCount,
+                            bitrate = format.bitrate,
+                            groupIndex = groupIndex,
+                            trackIndex = trackIndex,
+                        ),
+                    )
+                C.TRACK_TYPE_TEXT ->
+                    subtitleOptions.add(
+                        SubtitleTrackOption.Fixed(
+                            language = format.language,
+                            label = format.labels.firstOrNull()?.value,
+                            mimeType = format.sampleMimeType,
+                            groupIndex = groupIndex,
+                            trackIndex = trackIndex,
+                        ),
+                    )
+            }
         }
     }
+    return RawTracks(rawVideoOptions, audioOptions, subtitleOptions)
 }

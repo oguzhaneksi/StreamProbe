@@ -9,8 +9,9 @@ import androidx.core.graphics.toColorInt
 /**
  * A compact section header row ("VIDEO", "AUDIO", "SUBTITLES") used in the rendition list.
  */
-internal class RenditionSectionHeaderView(context: Context) : TextView(context) {
-
+internal class RenditionSectionHeaderView(
+    context: Context,
+) : TextView(context) {
     init {
         setTextColor("#80FFFFFF".toColorInt())
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)

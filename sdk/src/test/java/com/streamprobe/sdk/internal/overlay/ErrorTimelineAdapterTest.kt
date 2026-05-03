@@ -13,7 +13,6 @@ import org.robolectric.RuntimeEnvironment
 
 @RunWith(RobolectricTestRunner::class)
 class ErrorTimelineAdapterTest {
-
     private lateinit var adapter: ErrorTimelineAdapter
 
     @Before
@@ -21,7 +20,10 @@ class ErrorTimelineAdapterTest {
         adapter = ErrorTimelineAdapter()
     }
 
-    private fun makeErrors(count: Int, baseTime: Long = 1000L): List<PlaybackErrorEvent> =
+    private fun makeErrors(
+        count: Int,
+        baseTime: Long = 1000L,
+    ): List<PlaybackErrorEvent> =
         (0 until count).map { i ->
             PlaybackErrorEvent(
                 timestampMs = baseTime + i * 1000L,
@@ -38,19 +40,21 @@ class ErrorTimelineAdapterTest {
         timestampMs = timestampMs,
         category = ErrorCategory.DROPPED_FRAMES,
         message = "$frames frames in ${elapsedMs}ms",
-        categoryDetail = ErrorDetail.DroppedFrames(
-            totalFrames = frames,
-            burstCount = 1,
-            lastUpdateMs = timestampMs,
-        ),
+        categoryDetail =
+            ErrorDetail.DroppedFrames(
+                totalFrames = frames,
+                burstCount = 1,
+                lastUpdateMs = timestampMs,
+            ),
     )
 
     @Test
     fun `tap row toggles expansion`() {
         val context = RuntimeEnvironment.getApplication()
-        val parent = RecyclerView(context).also { rv ->
-            rv.adapter = adapter
-        }
+        val parent =
+            RecyclerView(context).also { rv ->
+                rv.adapter = adapter
+            }
 
         adapter.submitList(makeErrors(3)) {
             // Create a ViewHolder and simulate toggle
@@ -77,9 +81,10 @@ class ErrorTimelineAdapterTest {
     @Test
     fun `tap different row collapses previous`() {
         val context = RuntimeEnvironment.getApplication()
-        val parent = RecyclerView(context).also { rv ->
-            rv.adapter = adapter
-        }
+        val parent =
+            RecyclerView(context).also { rv ->
+                rv.adapter = adapter
+            }
 
         adapter.submitList(makeErrors(3))
 
@@ -108,15 +113,17 @@ class ErrorTimelineAdapterTest {
     fun `dropped-frames merge DiffUtil stability - change not remove plus insert`() {
         val t = 1000L
         val original = makeDropFrameEvent(t, frames = 5)
-        val merged = original.copy(
-            // timestampMs unchanged - same DiffUtil identity
-            message = "8 frames dropped (2 bursts)",
-            categoryDetail = ErrorDetail.DroppedFrames(
-                totalFrames = 8,
-                burstCount = 2,
-                lastUpdateMs = t + 2000L,
-            ),
-        )
+        val merged =
+            original.copy(
+                // timestampMs unchanged - same DiffUtil identity
+                message = "8 frames dropped (2 bursts)",
+                categoryDetail =
+                    ErrorDetail.DroppedFrames(
+                        totalFrames = 8,
+                        burstCount = 2,
+                        lastUpdateMs = t + 2000L,
+                    ),
+            )
 
         // Nest submitList calls inside commit callbacks so each diff is fully
         // applied before the next one starts, avoiding async-diff race conditions.

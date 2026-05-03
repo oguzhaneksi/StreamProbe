@@ -15,16 +15,18 @@ import androidx.core.graphics.toColorInt
  * transparent fill with 1dp accent outline (unchecked). Mirrors the existing
  * programmatic-view + [OverlayDrawables] pattern used throughout the overlay.
  */
-internal class OverlayFilterChip(context: Context) : TextView(context) {
-
+internal class OverlayFilterChip(
+    context: Context,
+) : TextView(context) {
     var isChecked: Boolean = false
         set(value) {
             field = value
-            background = if (value) {
-                OverlayDrawables.filterChipCheckedBackground(context)
-            } else {
-                OverlayDrawables.filterChipUncheckedBackground(context)
-            }
+            background =
+                if (value) {
+                    OverlayDrawables.filterChipCheckedBackground(context)
+                } else {
+                    OverlayDrawables.filterChipUncheckedBackground(context)
+                }
             setTextColor(if (value) Color.WHITE else "#66B2FF".toColorInt())
         }
 

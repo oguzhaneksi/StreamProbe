@@ -28,7 +28,10 @@ class MainActivity : ComponentActivity() {
                 NavHost(navController = nav, startDestination = StreamSelect) {
                     composable<StreamSelect> {
                         StreamSelectionScreen(
-                            onStreamSelected = { playerVm.selectStream(it); nav.navigate(Player) },
+                            onStreamSelected = {
+                                playerVm.selectStream(it)
+                                nav.navigate(Player)
+                            },
                             onSettingsClick = { nav.navigate(Settings) },
                         )
                     }

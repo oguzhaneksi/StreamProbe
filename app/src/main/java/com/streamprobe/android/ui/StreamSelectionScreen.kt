@@ -36,17 +36,22 @@ import com.streamprobe.android.StreamType
 import com.streamprobe.android.defaultStreams
 
 @Composable
-fun StreamSelectionScreen(onStreamSelected: (Stream) -> Unit, onSettingsClick: () -> Unit = {}) {
+fun StreamSelectionScreen(
+    onStreamSelected: (Stream) -> Unit,
+    onSettingsClick: () -> Unit = {},
+) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .statusBarsPadding()
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .statusBarsPadding(),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 24.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -68,7 +73,7 @@ fun StreamSelectionScreen(onStreamSelected: (Stream) -> Unit, onSettingsClick: (
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(defaultStreams) { stream ->
                 StreamItem(stream = stream, onClick = { onStreamSelected(stream) })
@@ -78,27 +83,32 @@ fun StreamSelectionScreen(onStreamSelected: (Stream) -> Unit, onSettingsClick: (
 }
 
 @Composable
-private fun StreamItem(stream: Stream, onClick: () -> Unit) {
+private fun StreamItem(
+    stream: Stream,
+    onClick: () -> Unit,
+) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E))
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
                 text = stream.title,
                 color = Color.White,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             Spacer(modifier = Modifier.width(12.dp))
             StreamTypeBadge(type = stream.type)
@@ -108,11 +118,12 @@ private fun StreamItem(stream: Stream, onClick: () -> Unit) {
 
 @Composable
 private fun StreamTypeBadge(type: StreamType) {
-    val (label, color) = when (type) {
-        StreamType.MP4  -> "MP4"  to Color(0xFF0A84FF)
-        StreamType.HLS  -> "HLS"  to Color(0xFF30D158)
-        StreamType.DASH -> "DASH" to Color(0xFFFF9F0A)
-    }
+    val (label, color) =
+        when (type) {
+            StreamType.MP4 -> "MP4" to Color(0xFF0A84FF)
+            StreamType.HLS -> "HLS" to Color(0xFF30D158)
+            StreamType.DASH -> "DASH" to Color(0xFFFF9F0A)
+        }
 
     Surface(
         shape = RoundedCornerShape(6.dp),
@@ -123,7 +134,7 @@ private fun StreamTypeBadge(type: StreamType) {
             color = color,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
         )
     }
 }
