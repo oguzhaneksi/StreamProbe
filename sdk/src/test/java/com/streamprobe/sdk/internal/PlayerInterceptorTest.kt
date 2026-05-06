@@ -69,9 +69,8 @@ class PlayerInterceptorTest {
 
             interceptor.attach(player)
 
-            val info = sessionStore.trackListInfo.first()
-            assertNotNull(info)
-            assertTrue(info!!.variants.isEmpty())
+            val info = requireNotNull(sessionStore.trackListInfo.first())
+            assertTrue(info.variants.isEmpty())
             assertTrue(info.audioTracks.isEmpty())
             assertTrue(info.subtitleTracks.isEmpty())
         }
@@ -89,20 +88,14 @@ class PlayerInterceptorTest {
                     .build()
             `when`(player.currentTracks).thenReturn(makeSingleVideoTrackGroup(format1080p))
             interceptor.attach(player)
-            assertEquals(
-                1,
-                sessionStore.trackListInfo
-                    .first()!!
-                    .variants.size,
-            )
+            assertEquals(1, requireNotNull(sessionStore.trackListInfo.first()).variants.size)
 
             // Simulate a transition to empty tracks (e.g., between media items).
             `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
             interceptor.onTracksChanged(Tracks.EMPTY)
 
-            val info = sessionStore.trackListInfo.first()
-            assertNotNull(info)
-            assertTrue(info!!.variants.isEmpty())
+            val info = requireNotNull(sessionStore.trackListInfo.first())
+            assertTrue(info.variants.isEmpty())
         }
 
     @Test
