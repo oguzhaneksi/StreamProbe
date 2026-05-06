@@ -102,11 +102,17 @@ internal class PlayerInterceptor(
         val reason = mapSelectionReason(mediaLoadData.trackSelectionReason)
 
         when (mediaLoadData.trackType) {
-            C.TRACK_TYPE_VIDEO,
-            C.TRACK_TYPE_DEFAULT,
-            -> {
+            C.TRACK_TYPE_VIDEO -> {
                 // Cache the reason; the VideoSwitch event is emitted in onVideoInputFormatChanged.
                 pendingVideoSwitchReason = reason
+            }
+            C.TRACK_TYPE_DEFAULT -> {
+                // Only cache the reason when the format has valid video dimensions, to avoid
+                // overwriting the pending reason for a non-video DEFAULT event (e.g., audio muxed
+                // in the default track with NO_VALUE width/height).
+                if (format.width > 0 || format.height > 0) {
+                    pendingVideoSwitchReason = reason
+                }
             }
             C.TRACK_TYPE_AUDIO -> {
                 val newTrack = format.toAudioTrackInfoDetecting().takeIf { it != lastAudioTrack }

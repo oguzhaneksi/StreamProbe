@@ -311,6 +311,44 @@ class PlayerInterceptorTest {
         }
 
     @Test
+    fun `DEFAULT track type with no video dimensions does not overwrite pendingVideoSwitchReason`() =
+        runTest {
+            val videoFormat = makeVideoFormat(720)
+            val audioFormat =
+                Format
+                    .Builder()
+                    .setSampleMimeType(MimeTypes.AUDIO_AAC)
+                    .setAverageBitrate(128_000)
+                    .setWidth(Format.NO_VALUE)
+                    .setHeight(Format.NO_VALUE)
+                    .build()
+
+            // Set pending reason to INITIAL via a real video downstream event.
+            interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(videoFormat, C.SELECTION_REASON_INITIAL))
+
+            // A DEFAULT event with no video dimensions (e.g., muxed audio) fires with ADAPTIVE.
+            interceptor.onDownstreamFormatChanged(
+                makeEventTime(),
+                MediaLoadData(
+                    C.DATA_TYPE_MEDIA,
+                    C.TRACK_TYPE_DEFAULT,
+                    audioFormat,
+                    C.SELECTION_REASON_ADAPTIVE,
+                    null,
+                    0L,
+                    0L,
+                ),
+            )
+
+            // The video input format event should still use the original INITIAL reason.
+            interceptor.onVideoInputFormatChanged(makeEventTime(), videoFormat, null)
+
+            val events = sessionStore.trackSwitchEvents.first()
+            assertEquals(1, events.size)
+            assertEquals(SwitchReason.INITIAL, (events[0] as TrackSwitchEvent.VideoSwitch).reason)
+        }
+
+    @Test
     fun `onDownstreamFormatChanged with DEFAULT track type does not emit VideoSwitch`() =
         runTest {
             val format = makeVideoFormat(720)
