@@ -39,24 +39,27 @@ StreamProbe is deliberately *not*:
 
 ## 3. Features
 
-### 3.1 Manifest Parsing
+### 3.1 Track Enumeration
 
-When a master playlist (HLS) or MPD (DASH) is loaded, StreamProbe reads the manifest from `ExoPlayer.currentManifest` after the player has loaded it. The content is parsed into a structured object containing:
+When the player's track selection changes, StreamProbe reads `player.currentTracks` (the Media3 `Tracks` API) and builds a protocol-agnostic `TracksSnapshot` containing:
 
-- All variant streams and renditions
-- Codec, bitrate, and resolution per variant
+- All video variants in the current track groups
+- All audio renditions in the current track groups
+- All subtitle / closed-caption renditions in the current track groups
 
-> **Timing consideration:** `getCurrentManifest()` returns `null` until the player has fetched and parsed the manifest. All consumers (including the overlay) must handle the `null` case — typically by rendering a loading/placeholder state until the manifest is available.
+Each track entry carries an `isSelected` flag set from `Tracks.Group.isTrackSelected(i)`, which the overlay reads directly — no secondary active-track comparison is needed. `VariantInfo` and `AudioTrackInfo` also carry a nullable `id` field (the Media3 `Format.id`) that is preferred over dimension/bitrate matching when building DiffUtil identity keys.
+
+> **Protocol-agnostic:** This approach works identically for HLS, DASH, and any other source type ExoPlayer supports. No format-specific manifest parsing is required.
 
 ### 3.2 Variant and Rendition Listing
 
 Every available video, audio, and subtitle rendition is enumerated and displayed in the **Tracks** tab, grouped into three sections: `VIDEO`, `AUDIO`, and `SUBTITLES`.
 
 - **Video**: Bandwidth, Resolution, and Codec per variant.
-- **Audio**: Language/label, channel layout, codec, bitrate, and sample rate per audio rendition. Muxed audio entries (HLS `muxedAudioFormat`) carry an `isMuxed` flag and a visual badge.
-- **Subtitles**: Language/label and kind (`SIDECAR` for WebVTT/TTML, `CC_DECLARED` / `CC_MUXED` for closed captions) per subtitle rendition.
+- **Audio**: Language/label, channel layout, codec, bitrate, and sample rate per audio rendition. Muxed audio entries carry an `isMuxed` flag and a visual badge.
+- **Subtitles**: Language/label and kind (`SIDECAR` for WebVTT/TTML, `CC` for closed captions) per subtitle rendition.
 
-The currently selected rendition in each section is flagged with an active-dot indicator in real time.
+The currently selected rendition in each section is flagged with an active-dot indicator in real time. Active state is determined by the `isSelected` field on each track model, set from `Tracks.Group.isTrackSelected(i)` in `onTracksChanged` — no secondary comparison against a separate active-track `StateFlow` is required in the adapter.
 
 ### 3.3 Segment Download Metrics
 
@@ -165,8 +168,12 @@ probe.detach()         // tears down interceptor, clears session, hides overlay
 
 **Captured per session:**
 
-- **`ManifestInfo.audioTracks: List<AudioTrackInfo>`** — audio renditions parsed from the manifest. For HLS, explicit `#EXT-X-MEDIA:TYPE=AUDIO` entries plus one synthetic `isMuxed = true` entry when the primary variant stream carries muxed audio. For DASH, `AdaptationSet` elements with `TRACK_TYPE_AUDIO`.
-- **`ManifestInfo.subtitleTracks: List<SubtitleTrackInfo>`** — subtitle/CC renditions. For HLS, `#EXT-X-MEDIA:TYPE=SUBTITLES` entries (`SubtitleKind.SIDECAR`), `#EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS` entries (`SubtitleKind.CC`), and inline muxed caption formats (also represented as `SubtitleKind.CC`). For DASH, `AdaptationSet` elements with `TRACK_TYPE_TEXT`.
+- **`TrackListInfo` / `TracksSnapshot`** — a protocol-agnostic snapshot built from `player.currentTracks`. `TracksSnapshot` is the concrete implementation of the `TrackListInfo` sealed interface and holds:
+  - `variants: List<VariantInfo>` — all video track groups, each with `bitrate`, `width`, `height`, `codecs`, `frameRate`, `id`, and `isSelected`.
+  - `audioTracks: List<AudioTrackInfo>` — all audio track groups, including muxed audio (detected via container MIME type), each with `isSelected`.
+  - `subtitleTracks: List<SubtitleTrackInfo>` — all subtitle/CC track groups, each with `isSelected`.
+
+  The snapshot replaces the former `ManifestInfo` / `HlsManifestInfo` / `DashManifestInfo` hierarchy. Source is `player.currentTracks` (not HLS/DASH manifest fields), so the same code path handles all stream formats.
 
 **Active track state (real-time `StateFlow`):**
 
@@ -202,10 +209,10 @@ sealed interface TrackSwitchEvent
 
 StreamProbe instruments a single layer via a standard Media3 `AnalyticsListener` wired to the player:
 
-- **`onTimelineChanged`** — reads `ExoPlayer.currentManifest` to extract manifest info (HLS multivariant playlist or DASH MPD) into SDK-owned models. Parses video variants, audio renditions (including muxed), and subtitle/CC tracks.
+- **`onTracksChanged`** — calls `probeTracks()` which iterates `player.currentTracks` and builds a `TracksSnapshot` containing all video, audio, and subtitle track groups with `isSelected` set per track. The snapshot is pushed to `SessionStore.trackListInfo`. `probeTracks()` also updates `activeAudioTrack` / `activeSubtitleTrack` state flows and emits a `SubtitleSwitch(newTrack = null)` when a previously selected subtitle track is disabled.
+- **`onVideoInputFormatChanged`** — the authoritative source for `VideoSwitch` events. Emits a `TrackSwitchEvent.VideoSwitch` using the selection reason cached by `onDownstreamFormatChanged`, then resets the pending reason to `INITIAL`.
+- **`onDownstreamFormatChanged`** — for `TRACK_TYPE_VIDEO` / `TRACK_TYPE_DEFAULT` (with valid dimensions): caches the selection reason in `pendingVideoSwitchReason` for use in `onVideoInputFormatChanged`. For `TRACK_TYPE_AUDIO` / `TRACK_TYPE_TEXT`: emits `AudioSwitch` / `SubtitleSwitch` events directly. `TRACK_TYPE_DEFAULT` events without valid video dimensions are ignored to avoid overwriting the pending reason with non-video (e.g., muxed audio) events.
 - **`onLoadCompleted`** — captures per-segment download duration, byte count, computed throughput, and HTTP response headers (CDN cache hit/miss). Works regardless of the underlying HTTP stack.
-- **`onTracksChanged`** — calls `probeTracks()` to update the active video, audio, and subtitle tracks in real time. Also emits `SubtitleSwitch(newTrack = null)` when a previously selected subtitle track is disabled.
-- **`onDownstreamFormatChanged`** — detects video, audio, and subtitle track switches; records `TrackSwitchEvent.VideoSwitch` / `AudioSwitch` / `SubtitleSwitch` with the previous/new track, buffer state, and Media3 selection reason. Duplicate events (same format) are deduplicated per track type.
 - **`onLoadError`** — captures segment and manifest HTTP errors; cancellations (`wasCanceled=true`) and DRM data types are filtered out.
 - **`onVideoCodecError`** — captures hardware/software codec failures.
 - **`onDroppedVideoFrames`** — captures dropped-frame bursts ≥ 3 frames with dedup logic.
@@ -251,7 +258,7 @@ A no-op stub artifact may be published alongside the real SDK to simplify Option
 
 ### 4.4 Distribution
 
-- **Current**: Maven Central — `io.github.oguzhaneksi:streamprobe:0.1.0`.
+- **Current**: Maven Central — `io.github.oguzhaneksi:streamprobe:0.3.2`.
 - **Future**: A no-op stub artifact (`streamprobe-noop`) to simplify release-build exclusion without `BuildConfig` guards.
 
 ---

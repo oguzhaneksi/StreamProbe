@@ -50,15 +50,15 @@ ExoPlayer's built-in `EventLogger` and `DebugTextViewHelper` only surface player
 │   │                                     │                   │
 │   │  ┌──────────────────────────────┐   │                   │
 │   │  │  AnalyticsListener (Media3)  │   │                   │
-│   │  │  onTimelineChanged           │   │                   │
-│   │  │  onLoadCompleted             │   │                   │
 │   │  │  onTracksChanged             │   │                   │
+│   │  │  onLoadCompleted             │   │                   │
+│   │  │  onVideoInputFormatChanged   │   │                   │
 │   │  │  onDownstreamFormatChanged   │   │                   │
 │   │  └──────────────┬───────────────┘   │                   │
 │   └─────────────────┼─────────────────  ┘                   │
 │                     │                                       │
 │                     ▼                                       │
-│     manifest info · segment metrics · track switch events   │
+│       track snapshot · segment metrics · switch events      │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ▼
@@ -68,9 +68,9 @@ ExoPlayer's built-in `EventLogger` and `DebugTextViewHelper` only surface player
 
 A single `AnalyticsListener` wired to the player feeds an in-memory session store that the overlay reads from:
 
-- **Manifest info** — read from `ExoPlayer.currentManifest` on `onTimelineChanged`; all variant streams, codecs, resolutions, and bitrates are extracted into SDK-owned models.
+- **Track snapshot** — built from `player.currentTracks` on `onTracksChanged`; all video variants, audio renditions, and subtitle tracks are enumerated into a protocol-agnostic `TracksSnapshot` (works identically for HLS and DASH). Each track carries an `isSelected` flag that drives the active-dot indicator in the overlay without secondary comparison.
 - **Segment metrics and CDN headers** — captured on `onLoadCompleted`; per-segment download duration, size, throughput, and HTTP response headers (including cache hit/miss status) are stored for the session.
-- **Track switch events** — captured on `onDownstreamFormatChanged` and `onTracksChanged`; every video quality change, audio rendition switch, and subtitle selection (including disable) is recorded as a `TrackSwitchEvent` (`VideoSwitch` / `AudioSwitch` / `SubtitleSwitch`) with the previous/new track, buffer state at switch time, and the reason Media3 reports (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`). Events are kept in a capped chronological list and displayed in the overlay's Switches tab.
+- **Track switch events** — `VideoSwitch` events are emitted from `onVideoInputFormatChanged` (the decoder-level format change is the authoritative signal); audio and subtitle switch events are emitted from `onDownstreamFormatChanged`. Every video quality change, audio rendition switch, and subtitle selection (including disable) is recorded as a `TrackSwitchEvent` (`VideoSwitch` / `AudioSwitch` / `SubtitleSwitch`) with the previous/new track, buffer state at switch time, and the reason Media3 reports (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`). Events are kept in a capped chronological list and displayed in the overlay's Switches tab.
 
 StreamProbe is distributed as a standard `implementation` dependency. Host apps guard the `attach()` calls behind `BuildConfig.DEBUG` to ensure zero runtime overhead in release builds.
 
@@ -198,8 +198,8 @@ Coarse milestones. Each will be broken down into a TODO checklist as work begins
 - **M1 — HLS MVP** ✅: Master playlist parsing, variant/rendition listing, basic overlay with active track display.
 - **M2 — Segment & CDN** ✅: Per-segment timing (total duration, size, throughput) and CDN response header capture with cache hit/miss flagging.
 - **M3 — ABR Log** ✅: Track switch event recording with buffer state, switch reason, and chronological timeline view in the overlay.
-- **M4 — DASH Support** ✅: MPD parsing, feature parity with HLS across all prior milestones.
-- **M5 — Distribution** ✅: Published to Maven Central (`io.github.oguzhaneksi:streamprobe:0.1.0`).
+- **M4 — DASH Support** ✅: DASH track enumeration via the Media3 `Tracks` API, feature parity with HLS across all prior milestones.
+- **M5 — Distribution** ✅: Published to Maven Central (`io.github.oguzhaneksi:streamprobe:0.3.2`).
 - **M6 — Background Error Tracking** ✅: Exposing silent, non-fatal background errors — segment load failures (HTTP 404/5xx), video codec errors (`onVideoCodecError`), audio codec errors (`onAudioCodecError`), dropped frame bursts (`onDroppedVideoFrames`), and audio sink errors (`onAudioSinkError`) — as a real-time Errors view in the overlay, reachable via a header `⚠ N` indicator.
 - **M7 — Audio & Subtitle Tracks** ✅: Audio/subtitle rendition enumeration (HLS muxed sources included) + active audio/subtitle overlay; ABR switch events expanded to sealed `TrackSwitchEvent` covering video, audio and subtitle switches.
 - **M8 — DRM Monitoring** *(Planned)*: Capturing DRM session lifecycle events, license loading latency, Widevine/PlayReady statuses, and DRM-specific errors.
@@ -210,8 +210,8 @@ Coarse milestones. Each will be broken down into a TODO checklist as work begins
 
 ## Known Limitations
 
-- **Multi-period DASH:** Representations from all Periods are flattened into a single variant list. If the same Representation appears in multiple Periods (e.g., around ad boundaries), it will be listed multiple times. Period-aware grouping is a planned future enhancement.
-- **Audio-Only Streams:** StreamProbe currently focuses heavily on video variant and segment analysis. Audio-only HLS/DASH streams are not officially supported yet and may yield incomplete manifest or ABR logs.
+- **Multi-period DASH:** ExoPlayer merges tracks from all Periods into a single `Tracks` object. If the same representation appears in multiple Periods (e.g., around ad boundaries), it may be listed more than once. Period-aware grouping is a planned future enhancement.
+- **Audio-Only Streams:** StreamProbe currently focuses heavily on video variant and segment analysis. Audio-only HLS/DASH streams are not officially supported yet and may yield incomplete track or ABR logs.
 
 ---
 
