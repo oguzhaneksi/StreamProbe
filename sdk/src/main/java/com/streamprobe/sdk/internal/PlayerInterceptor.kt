@@ -78,13 +78,15 @@ internal class PlayerInterceptor(
         val newTrack = format.toActiveTrackInfo().takeIf { it != lastVideoTrack } ?: return
         val timestamp = System.currentTimeMillis()
         val buffer = player?.totalBufferedDuration ?: 0L
+        val switchReason = pendingVideoSwitchReason
         sessionStore.addTrackSwitchEvent(
-            TrackSwitchEvent.VideoSwitch(timestamp, buffer, pendingVideoSwitchReason, lastVideoTrack, newTrack),
+            TrackSwitchEvent.VideoSwitch(timestamp, buffer, switchReason, lastVideoTrack, newTrack),
         )
+        pendingVideoSwitchReason = SwitchReason.INITIAL
         sessionStore.updateActiveTrack(newTrack)
         val switchMsg =
             "${lastVideoTrack?.width}x${lastVideoTrack?.height}" +
-                " \u2192 ${newTrack.width}x${newTrack.height} reason=$pendingVideoSwitchReason"
+                " \u2192 ${newTrack.width}x${newTrack.height} reason=$switchReason"
         lastVideoTrack = newTrack
         Log.d(TAG, "Video input format changed: $switchMsg")
     }
