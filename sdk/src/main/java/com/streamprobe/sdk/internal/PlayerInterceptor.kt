@@ -285,8 +285,8 @@ internal class PlayerInterceptor(
             }
         }
 
+        sessionStore.updateTrackList(TracksSnapshot(variants, audioTracks, subtitleTracks))
         if (variants.isNotEmpty() || audioTracks.isNotEmpty() || subtitleTracks.isNotEmpty()) {
-            sessionStore.updateTrackList(TracksSnapshot(variants, audioTracks, subtitleTracks))
             Log.d(TAG, "Tracks updated: ${variants.size} video, ${audioTracks.size} audio, ${subtitleTracks.size} subtitle")
         }
 
