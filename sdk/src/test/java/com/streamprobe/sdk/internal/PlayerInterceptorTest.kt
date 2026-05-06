@@ -89,7 +89,12 @@ class PlayerInterceptorTest {
                     .build()
             `when`(player.currentTracks).thenReturn(makeSingleVideoTrackGroup(format1080p))
             interceptor.attach(player)
-            assertEquals(1, sessionStore.trackListInfo.first()!!.variants.size)
+            assertEquals(
+                1,
+                sessionStore.trackListInfo
+                    .first()!!
+                    .variants.size,
+            )
 
             // Simulate a transition to empty tracks (e.g., between media items).
             `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
