@@ -63,13 +63,41 @@ class PlayerInterceptorTest {
     }
 
     @Test
-    fun `track list remains null when player has no tracks`() =
+    fun `track list is empty snapshot when player has no tracks`() =
         runTest {
             `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
 
             interceptor.attach(player)
 
-            assertNull(sessionStore.trackListInfo.first())
+            val info = sessionStore.trackListInfo.first()
+            assertNotNull(info)
+            assertTrue(info!!.variants.isEmpty())
+            assertTrue(info.audioTracks.isEmpty())
+            assertTrue(info.subtitleTracks.isEmpty())
+        }
+
+    @Test
+    fun `trackListInfo is cleared to empty snapshot when player transitions to no tracks`() =
+        runTest {
+            val format1080p =
+                Format
+                    .Builder()
+                    .setSampleMimeType(MimeTypes.VIDEO_H264)
+                    .setAverageBitrate(5_000_000)
+                    .setWidth(1920)
+                    .setHeight(1080)
+                    .build()
+            `when`(player.currentTracks).thenReturn(makeSingleVideoTrackGroup(format1080p))
+            interceptor.attach(player)
+            assertEquals(1, sessionStore.trackListInfo.first()!!.variants.size)
+
+            // Simulate a transition to empty tracks (e.g., between media items).
+            `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
+            interceptor.onTracksChanged(Tracks.EMPTY)
+
+            val info = sessionStore.trackListInfo.first()
+            assertNotNull(info)
+            assertTrue(info!!.variants.isEmpty())
         }
 
     @Test
