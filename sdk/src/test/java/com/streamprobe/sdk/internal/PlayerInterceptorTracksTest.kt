@@ -8,14 +8,7 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
-import androidx.media3.exoplayer.dash.manifest.AdaptationSet
-import androidx.media3.exoplayer.dash.manifest.BaseUrl
-import androidx.media3.exoplayer.dash.manifest.DashManifest
-import androidx.media3.exoplayer.dash.manifest.Period
-import androidx.media3.exoplayer.dash.manifest.Representation
-import androidx.media3.exoplayer.dash.manifest.SegmentBase.SingleSegmentBase
 import androidx.media3.exoplayer.source.MediaLoadData
-import com.streamprobe.sdk.model.DashManifestInfo
 import com.streamprobe.sdk.model.SubtitleKind
 import com.streamprobe.sdk.model.TrackSwitchEvent
 import kotlinx.coroutines.flow.first
@@ -32,7 +25,7 @@ import org.robolectric.RobolectricTestRunner
 
 @UnstableApi
 @RunWith(RobolectricTestRunner::class)
-class PlayerInterceptorDashManifestTest {
+class PlayerInterceptorTracksTest {
     private lateinit var sessionStore: SessionStore
     private lateinit var interceptor: PlayerInterceptor
     private lateinit var player: ExoPlayer
@@ -46,66 +39,47 @@ class PlayerInterceptorDashManifestTest {
 
     private fun makeEventTime(): AnalyticsListener.EventTime = mock(AnalyticsListener.EventTime::class.java)
 
-    // ── DASH manifest test helpers ────────────────────────────────────────────
+    // ── Track group helpers ───────────────────────────────────────────────────
 
-    private fun makeVideoRepresentation(format: Format): Representation =
-        Representation.newInstance(0L, format, listOf(BaseUrl("")), SingleSegmentBase())
+    private fun makeVideoTracksGroup(
+        vararg formats: Format,
+        selectedIndex: Int = 0,
+    ): Tracks {
+        val trackGroup = TrackGroup(*formats)
+        val trackSelected = BooleanArray(formats.size) { it == selectedIndex }
+        val trackSupport = IntArray(formats.size) { C.FORMAT_HANDLED }
+        val group = Tracks.Group(trackGroup, true, trackSupport, trackSelected)
+        return Tracks(listOf(group))
+    }
 
-    private fun makeAdaptationSet(
-        type: Int,
-        vararg representations: Representation,
-    ): AdaptationSet =
-        AdaptationSet(
-            // id=
-            0L,
-            // type=
-            type,
-            // representations=
-            representations.toList(),
-            // accessibilityDescriptors=
-            emptyList(),
-            // essentialProperties=
-            emptyList(),
-            // supplementalProperties=
-            emptyList(),
-        )
+    private fun makeSingleSelectedTrackGroup(format: Format): Tracks {
+        val trackGroup = TrackGroup(format)
+        val group =
+            Tracks.Group(
+                trackGroup,
+                // adaptiveSupported=
+                false,
+                // trackSupport=
+                intArrayOf(C.FORMAT_HANDLED),
+                // trackSelected=
+                booleanArrayOf(true),
+            )
+        return Tracks(listOf(group))
+    }
 
-    private fun makeDashPeriod(vararg adaptationSets: AdaptationSet): Period = Period("period-0", 0L, adaptationSets.toList())
+    private fun makeTracksWithVideoAndAudio(
+        videoFormat: Format,
+        audioFormat: Format,
+    ): Tracks {
+        val videoGroup = Tracks.Group(TrackGroup(videoFormat), false, intArrayOf(C.FORMAT_HANDLED), booleanArrayOf(true))
+        val audioGroup = Tracks.Group(TrackGroup(audioFormat), false, intArrayOf(C.FORMAT_HANDLED), booleanArrayOf(true))
+        return Tracks(listOf(videoGroup, audioGroup))
+    }
 
-    private fun makeDashManifest(vararg periods: Period): DashManifest =
-        DashManifest(
-            // availabilityStartTimeMs=
-            0L,
-            // durationMs=
-            60_000L,
-            // minBufferTimeMs=
-            1_500L,
-            // dynamic=
-            false,
-            // minUpdatePeriodMs=
-            C.TIME_UNSET,
-            // timeShiftBufferDepthMs=
-            C.TIME_UNSET,
-            // suggestedPresentationDelayMs=
-            C.TIME_UNSET,
-            // publishTimeMs=
-            C.TIME_UNSET,
-            // programInformation=
-            null,
-            // utcTiming=
-            null,
-            // serviceDescription=
-            null,
-            // location=
-            null,
-            // periods=
-            periods.toList(),
-        )
-
-    // ── DASH manifest tests ───────────────────────────────────────────────────
+    // ── probeTracks manifest building tests ──────────────────────────────────
 
     @Test
-    fun `probes DASH manifest immediately on attach when available`() =
+    fun `probeTracks populates manifest info with multiple video renditions`() =
         runTest {
             val format1080p =
                 Format
@@ -128,27 +102,17 @@ class PlayerInterceptorDashManifestTest {
                     .setFrameRate(30f)
                     .build()
 
-            val adaptationSet =
-                makeAdaptationSet(
-                    C.TRACK_TYPE_VIDEO,
-                    makeVideoRepresentation(format1080p),
-                    makeVideoRepresentation(format720p),
-                )
-            val manifest = makeDashManifest(makeDashPeriod(adaptationSet))
-
-            `when`(player.currentManifest).thenReturn(manifest)
-            `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
+            `when`(player.currentTracks).thenReturn(makeVideoTracksGroup(format1080p, format720p, selectedIndex = 1))
 
             interceptor.attach(player)
 
-            val result = sessionStore.manifestInfo.first()
+            val result = sessionStore.trackListInfo.first()
             assertNotNull(result)
-            assertTrue(result is DashManifestInfo)
             assertEquals(2, result!!.variants.size)
         }
 
     @Test
-    fun `DASH manifest extracts correct format fields`() =
+    fun `probeTracks extracts correct format fields into VariantInfo`() =
         runTest {
             val format =
                 Format
@@ -161,17 +125,11 @@ class PlayerInterceptorDashManifestTest {
                     .setFrameRate(60f)
                     .build()
 
-            val manifest =
-                makeDashManifest(
-                    makeDashPeriod(makeAdaptationSet(C.TRACK_TYPE_VIDEO, makeVideoRepresentation(format))),
-                )
-
-            `when`(player.currentManifest).thenReturn(manifest)
-            `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
+            `when`(player.currentTracks).thenReturn(makeSingleSelectedTrackGroup(format))
 
             interceptor.attach(player)
 
-            val variant = sessionStore.manifestInfo.first()!!.variants[0]
+            val variant = sessionStore.trackListInfo.first()!!.variants[0]
             assertEquals(5_000_000, variant.bitrate)
             assertEquals(1920, variant.width)
             assertEquals(1080, variant.height)
@@ -180,7 +138,7 @@ class PlayerInterceptorDashManifestTest {
         }
 
     @Test
-    fun `DASH manifest captures audio AdaptationSets`() =
+    fun `probeTracks captures audio tracks alongside video`() =
         runTest {
             val videoFormat =
                 Format
@@ -200,16 +158,11 @@ class PlayerInterceptorDashManifestTest {
                     .setSampleRate(48_000)
                     .build()
 
-            val videoAdaptationSet = makeAdaptationSet(C.TRACK_TYPE_VIDEO, makeVideoRepresentation(videoFormat))
-            val audioAdaptationSet = makeAdaptationSet(C.TRACK_TYPE_AUDIO, makeVideoRepresentation(audioFormat))
-            val manifest = makeDashManifest(makeDashPeriod(videoAdaptationSet, audioAdaptationSet))
-
-            `when`(player.currentManifest).thenReturn(manifest)
-            `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
+            `when`(player.currentTracks).thenReturn(makeTracksWithVideoAndAudio(videoFormat, audioFormat))
 
             interceptor.attach(player)
 
-            val result = sessionStore.manifestInfo.first()!!
+            val result = sessionStore.trackListInfo.first()!!
             assertEquals(1, result.variants.size)
             assertEquals(720, result.variants[0].height)
             assertEquals(1, result.audioTracks.size)
@@ -217,56 +170,36 @@ class PlayerInterceptorDashManifestTest {
         }
 
     @Test
-    fun `DASH manifest flattens multiple Periods`() =
+    fun `probeTracks sets isSelected true only for selected video rendition`() =
         runTest {
-            val format1 =
+            val format360p =
                 Format
                     .Builder()
                     .setSampleMimeType(MimeTypes.VIDEO_H264)
-                    .setAverageBitrate(1_000_000)
                     .setWidth(640)
                     .setHeight(360)
                     .build()
-            val format2 =
+            val format1080p =
                 Format
                     .Builder()
                     .setSampleMimeType(MimeTypes.VIDEO_H264)
-                    .setAverageBitrate(5_000_000)
                     .setWidth(1920)
                     .setHeight(1080)
                     .build()
 
-            val period1 = makeDashPeriod(makeAdaptationSet(C.TRACK_TYPE_VIDEO, makeVideoRepresentation(format1)))
-            val period2 = makeDashPeriod(makeAdaptationSet(C.TRACK_TYPE_VIDEO, makeVideoRepresentation(format2)))
-            val manifest = makeDashManifest(period1, period2)
-
-            `when`(player.currentManifest).thenReturn(manifest)
-            `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
+            // Select 1080p (index 1)
+            `when`(player.currentTracks).thenReturn(makeVideoTracksGroup(format360p, format1080p, selectedIndex = 1))
 
             interceptor.attach(player)
 
-            val result = sessionStore.manifestInfo.first()!!
-            assertEquals(2, result.variants.size)
-            assertEquals(360, result.variants[0].height)
-            assertEquals(1080, result.variants[1].height)
+            val variants = sessionStore.trackListInfo.first()!!.variants
+            assertEquals(2, variants.size)
+            val sorted = variants.sortedBy { it.height }
+            assertTrue(!sorted[0].isSelected) // 360p not selected
+            assertTrue(sorted[1].isSelected) // 1080p selected
         }
 
     // ── probeTracks / onDownstreamFormatChanged track type inference ──────────
-
-    private fun makeSingleSelectedTrackGroup(format: Format): Tracks {
-        val trackGroup = TrackGroup(format)
-        val group =
-            Tracks.Group(
-                trackGroup,
-                // adaptiveSupported=
-                false,
-                // trackSupport=
-                intArrayOf(C.FORMAT_HANDLED),
-                // trackSelected=
-                booleanArrayOf(true),
-            )
-        return Tracks(listOf(group))
-    }
 
     @Test
     fun `probeTracks infers isMuxed true when audio containerMimeType starts with video`() =
@@ -282,7 +215,6 @@ class PlayerInterceptorDashManifestTest {
                     .setSampleRate(48_000)
                     .build()
 
-            `when`(player.currentManifest).thenReturn(null)
             `when`(player.currentTracks).thenReturn(makeSingleSelectedTrackGroup(muxedAudioFormat))
 
             interceptor.attach(player)
@@ -305,7 +237,6 @@ class PlayerInterceptorDashManifestTest {
                     .setSampleRate(48_000)
                     .build()
 
-            `when`(player.currentManifest).thenReturn(null)
             `when`(player.currentTracks).thenReturn(makeSingleSelectedTrackGroup(audioFormat))
 
             interceptor.attach(player)
@@ -325,7 +256,6 @@ class PlayerInterceptorDashManifestTest {
                     .setLanguage("en")
                     .build()
 
-            `when`(player.currentManifest).thenReturn(null)
             `when`(player.currentTracks).thenReturn(makeSingleSelectedTrackGroup(ccFormat))
 
             interceptor.attach(player)
@@ -345,7 +275,6 @@ class PlayerInterceptorDashManifestTest {
                     .setLanguage("fr")
                     .build()
 
-            `when`(player.currentManifest).thenReturn(null)
             `when`(player.currentTracks).thenReturn(makeSingleSelectedTrackGroup(sidecarFormat))
 
             interceptor.attach(player)

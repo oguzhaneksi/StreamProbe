@@ -15,4 +15,8 @@ data class VariantInfo(
     val codecs: String?,
     /** Frame rate in fps, or -1f if unknown. */
     val frameRate: Float,
+    /** Player/Format-provided track identifier used for reliable active-track matching. Null if unavailable. */
+    val id: String? = null,
+    /** True if this variant is currently selected by the player. Set from player.currentTracks. */
+    val isSelected: Boolean = false,
 )

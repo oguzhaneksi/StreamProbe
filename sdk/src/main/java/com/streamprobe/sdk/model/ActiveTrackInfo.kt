@@ -12,4 +12,6 @@ data class ActiveTrackInfo(
     val height: Int,
     /** Codec string, or null if unavailable. */
     val codecs: String?,
+    /** Media3 Format id; used for reliable active-track matching. Null if unavailable. */
+    val id: String? = null,
 )

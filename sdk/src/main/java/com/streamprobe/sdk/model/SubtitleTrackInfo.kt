@@ -24,6 +24,8 @@ data class SubtitleTrackInfo(
     val kind: SubtitleKind,
     /** Format id from the manifest; used for reliable active-track matching. Null if unavailable. */
     val id: String? = null,
+    /** True if this subtitle rendition is currently selected by the player. Set from player.currentTracks. */
+    val isSelected: Boolean = false,
 )
 
 /** Returns true if [other] refers to the same subtitle rendition. Prefers [id] when both are non-null. */

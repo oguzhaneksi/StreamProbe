@@ -5,35 +5,29 @@ import androidx.annotation.VisibleForTesting
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.Player
-import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
-import androidx.media3.exoplayer.dash.manifest.AdaptationSet
-import androidx.media3.exoplayer.dash.manifest.DashManifest
-import androidx.media3.exoplayer.hls.HlsManifest
 import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
-import com.streamprobe.sdk.model.DashManifestInfo
 import com.streamprobe.sdk.model.ErrorCategory
 import com.streamprobe.sdk.model.ErrorDetail
-import com.streamprobe.sdk.model.HlsManifestInfo
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
-import com.streamprobe.sdk.model.SubtitleKind
 import com.streamprobe.sdk.model.SubtitleTrackInfo
 import com.streamprobe.sdk.model.SwitchReason
 import com.streamprobe.sdk.model.TrackSwitchEvent
+import com.streamprobe.sdk.model.TracksSnapshot
 import com.streamprobe.sdk.model.VariantInfo
 import java.io.IOException
 
 /**
- * Listens to a [Player] for manifest availability and track selection changes,
+ * Listens to a [Player] for track selection changes,
  * mapping Media3 types into SDK-owned models and pushing them into [SessionStore].
  */
 @UnstableApi
@@ -46,13 +40,15 @@ internal class PlayerInterceptor(
     private var lastAudioTrack: AudioTrackInfo? = null
     private var lastSubtitleTrack: SubtitleTrackInfo? = null
 
+    // Caches the selection reason reported by onDownstreamFormatChanged for use in onVideoInputFormatChanged.
+    private var pendingVideoSwitchReason: SwitchReason = SwitchReason.INITIAL
+
     fun attach(player: ExoPlayer) {
         this.player = player
         player.addListener(this)
         player.addAnalyticsListener(this)
 
-        // Probe immediately — manifest may already be available if the player is prepared.
-        probeManifest(player)
+        // Probe immediately in case the player is already prepared.
         probeTracks(player)
     }
 
@@ -63,31 +59,41 @@ internal class PlayerInterceptor(
         lastVideoTrack = null
         lastAudioTrack = null
         lastSubtitleTrack = null
+        pendingVideoSwitchReason = SwitchReason.INITIAL
     }
 
     // ── Player.Listener callbacks ───────────────────────────────────────────
-
-    override fun onTimelineChanged(
-        timeline: Timeline,
-        reason: Int,
-    ) {
-        player?.let { probeManifest(it) }
-    }
 
     override fun onTracksChanged(tracks: Tracks) {
         probeTracks(player ?: return)
     }
 
-    // AnalyticsListener — fires on every input-format change, including bitrate-only ABR switches.
+    // AnalyticsListener — fires when the decoder receives a new format; used as the authoritative
+    // source for active video track state. The selection reason is cached from onDownstreamFormatChanged.
     override fun onVideoInputFormatChanged(
         eventTime: AnalyticsListener.EventTime,
         format: Format,
         decoderReuseEvaluation: DecoderReuseEvaluation?,
     ) {
-        updateActiveTrack(format)
+        val newTrack = format.toActiveTrackInfo().takeIf { it != lastVideoTrack } ?: return
+        val timestamp = System.currentTimeMillis()
+        val buffer = player?.totalBufferedDuration ?: 0L
+        val switchReason = pendingVideoSwitchReason
+        sessionStore.addTrackSwitchEvent(
+            TrackSwitchEvent.VideoSwitch(timestamp, buffer, switchReason, lastVideoTrack, newTrack),
+        )
+        pendingVideoSwitchReason = SwitchReason.INITIAL
+        sessionStore.updateActiveTrack(newTrack)
+        val switchMsg =
+            "${lastVideoTrack?.width}x${lastVideoTrack?.height}" +
+                " \u2192 ${newTrack.width}x${newTrack.height} reason=$switchReason"
+        lastVideoTrack = newTrack
+        Log.d(TAG, "Video input format changed: $switchMsg")
     }
 
-    // AnalyticsListener — fires when the downstream selected format/track changes; used to track switches.
+    // AnalyticsListener — fires when the downstream selected format/track changes.
+    // For video/default: only caches the selection reason for use in onVideoInputFormatChanged.
+    // For audio/text: emits switch events directly.
     override fun onDownstreamFormatChanged(
         eventTime: AnalyticsListener.EventTime,
         mediaLoadData: MediaLoadData,
@@ -98,24 +104,16 @@ internal class PlayerInterceptor(
         val reason = mapSelectionReason(mediaLoadData.trackSelectionReason)
 
         when (mediaLoadData.trackType) {
-            C.TRACK_TYPE_VIDEO,
-            C.TRACK_TYPE_DEFAULT,
-            -> {
-                // DEFAULT only counts as video if dimensions are present.
-                val isDefaultWithNoDimensions =
-                    mediaLoadData.trackType == C.TRACK_TYPE_DEFAULT &&
-                        format.width <= 0 &&
-                        format.height <= 0
-                val newTrack = format.toActiveTrackInfo().takeIf { !isDefaultWithNoDimensions && it != lastVideoTrack }
-                newTrack?.let {
-                    sessionStore.addTrackSwitchEvent(
-                        TrackSwitchEvent.VideoSwitch(timestamp, buffer, reason, lastVideoTrack, it),
-                    )
-                    val switchMsg =
-                        "${lastVideoTrack?.width}x${lastVideoTrack?.height}" +
-                            " \u2192 ${it.width}x${it.height} reason=${mediaLoadData.trackSelectionReason}"
-                    lastVideoTrack = it
-                    Log.d(TAG, "Video switch: $switchMsg")
+            C.TRACK_TYPE_VIDEO -> {
+                // Cache the reason; the VideoSwitch event is emitted in onVideoInputFormatChanged.
+                pendingVideoSwitchReason = reason
+            }
+            C.TRACK_TYPE_DEFAULT -> {
+                // Only cache the reason when the format has valid video dimensions, to avoid
+                // overwriting the pending reason for a non-video DEFAULT event (e.g., audio muxed
+                // in the default track with NO_VALUE width/height).
+                if (format.width > 0 || format.height > 0) {
+                    pendingVideoSwitchReason = reason
                 }
             }
             C.TRACK_TYPE_AUDIO -> {
@@ -124,7 +122,6 @@ internal class PlayerInterceptor(
                     sessionStore.addTrackSwitchEvent(
                         TrackSwitchEvent.AudioSwitch(timestamp, buffer, reason, lastAudioTrack, it),
                     )
-                    sessionStore.updateActiveAudioTrack(it)
                     lastAudioTrack = it
                     Log.d(TAG, "Audio switch: ${it.language} ${it.codecs}")
                 }
@@ -135,7 +132,6 @@ internal class PlayerInterceptor(
                     sessionStore.addTrackSwitchEvent(
                         TrackSwitchEvent.SubtitleSwitch(timestamp, buffer, reason, lastSubtitleTrack, it),
                     )
-                    sessionStore.updateActiveSubtitleTrack(it)
                     lastSubtitleTrack = it
                     Log.d(TAG, "Subtitle switch: ${it.language} ${it.mimeType}")
                 }
@@ -270,124 +266,36 @@ internal class PlayerInterceptor(
 
     // ── Internal helpers ────────────────────────────────────────────────────
 
-    private fun probeManifest(player: ExoPlayer) {
-        when (val manifest = player.currentManifest) {
-            is HlsManifest -> probeHlsManifest(manifest)
-            is DashManifest -> probeDashManifest(manifest)
-            else -> Log.d(TAG, "Unknown manifest type: ${manifest?.javaClass?.simpleName}")
-        }
-    }
-
-    private fun probeHlsManifest(manifest: HlsManifest) {
-        val playlist = manifest.multivariantPlaylist
-        val variants =
-            playlist.variants.map { variant ->
-                val fmt = variant.format
-                VariantInfo(
-                    bitrate = fmt.bitrate,
-                    width = fmt.width,
-                    height = fmt.height,
-                    codecs = fmt.codecs,
-                    frameRate = fmt.frameRate,
-                )
-            }
-        val audioTracks =
-            buildList {
-                playlist.audios.forEach { rendition ->
-                    add(rendition.format.toAudioTrackInfo(isMuxed = false))
-                }
-                playlist.muxedAudioFormat?.let { add(it.toAudioTrackInfo(isMuxed = true)) }
-            }
-        val subtitleTracks =
-            buildList {
-                playlist.subtitles.forEach { rendition ->
-                    add(rendition.format.toSubtitleTrackInfo(SubtitleKind.SIDECAR))
-                }
-                playlist.closedCaptions.forEach { rendition ->
-                    add(rendition.format.toSubtitleTrackInfo(SubtitleKind.CC))
-                }
-                playlist.muxedCaptionFormats?.forEach { fmt ->
-                    add(fmt.toSubtitleTrackInfo(SubtitleKind.CC))
-                }
-            }
-        sessionStore.updateManifest(HlsManifestInfo(variants, audioTracks, subtitleTracks))
-        Log.d(TAG, "HLS manifest captured: ${variants.size} variants, ${audioTracks.size} audio, ${subtitleTracks.size} subtitle")
-    }
-
-    private fun probeDashManifest(manifest: DashManifest) {
+    /**
+     * Builds the full track list from [player.currentTracks], capturing all renditions
+     * (selected or not) with [isSelected] set via [Tracks.Group.isTrackSelected].
+     * The result is pushed into [SessionStore] so the rendition adapter always reflects
+     * the player's current state without needing secondary comparisons.
+     */
+    private fun probeTracks(player: Player) {
         val variants = mutableListOf<VariantInfo>()
         val audioTracks = mutableListOf<AudioTrackInfo>()
         val subtitleTracks = mutableListOf<SubtitleTrackInfo>()
-        val allAdaptationSets = (0 until manifest.periodCount).flatMap { manifest.getPeriod(it).adaptationSets }
-        for (adaptationSet in allAdaptationSets) {
-            processDashAdaptationSet(adaptationSet, variants, audioTracks, subtitleTracks)
-        }
-        sessionStore.updateManifest(DashManifestInfo(variants, audioTracks, subtitleTracks))
-        Log.d(
-            TAG,
-            "DASH manifest captured: ${variants.size} representations, ${audioTracks.size} audio, ${subtitleTracks.size} subtitle",
-        )
-    }
 
-    private fun processDashAdaptationSet(
-        adaptationSet: AdaptationSet,
-        variants: MutableList<VariantInfo>,
-        audioTracks: MutableList<AudioTrackInfo>,
-        subtitleTracks: MutableList<SubtitleTrackInfo>,
-    ) {
-        when (adaptationSet.type) {
-            C.TRACK_TYPE_VIDEO -> {
-                for (representation in adaptationSet.representations) {
-                    val fmt = representation.format
-                    variants.add(
-                        VariantInfo(
-                            bitrate = fmt.bitrate,
-                            width = fmt.width,
-                            height = fmt.height,
-                            codecs = fmt.codecs,
-                            frameRate = fmt.frameRate,
-                        ),
-                    )
-                }
-            }
-            C.TRACK_TYPE_AUDIO -> {
-                for (representation in adaptationSet.representations) {
-                    audioTracks.add(representation.format.toAudioTrackInfo(isMuxed = false))
-                }
-            }
-            C.TRACK_TYPE_TEXT -> {
-                for (representation in adaptationSet.representations) {
-                    subtitleTracks.add(representation.format.toSubtitleTrackInfo(SubtitleKind.SIDECAR))
-                }
+        player.currentTracks.groups.forEach { group ->
+            when (group.type) {
+                C.TRACK_TYPE_VIDEO -> collectVideoTracks(group, variants)
+                C.TRACK_TYPE_AUDIO -> collectAudioTracks(group, audioTracks)
+                C.TRACK_TYPE_TEXT -> collectSubtitleTracks(group, subtitleTracks)
             }
         }
-    }
 
-    private fun probeTracks(player: Player) {
-        var foundVideo: Format? = null
-        var foundAudio: AudioTrackInfo? = null
-        var foundSubtitle: SubtitleTrackInfo? = null
+        sessionStore.updateTrackList(TracksSnapshot(variants, audioTracks, subtitleTracks))
+        if (variants.isNotEmpty() || audioTracks.isNotEmpty() || subtitleTracks.isNotEmpty()) {
+            Log.d(TAG, "Tracks updated: ${variants.size} video, ${audioTracks.size} audio, ${subtitleTracks.size} subtitle")
+        }
 
-        player.currentTracks.groups
-            .filter { it.isSelected }
-            .forEach { group ->
-                val format =
-                    (0 until group.length)
-                        .firstOrNull { group.isTrackSelected(it) }
-                        ?.let { group.getTrackFormat(it) } ?: return@forEach
+        val foundAudio = audioTracks.find { it.isSelected }
+        val foundSubtitle = subtitleTracks.find { it.isSelected }
 
-                when (group.type) {
-                    C.TRACK_TYPE_VIDEO -> foundVideo = format
-                    C.TRACK_TYPE_AUDIO -> foundAudio = format.toAudioTrackInfoDetecting()
-                    C.TRACK_TYPE_TEXT -> foundSubtitle = format.toSubtitleTrackInfoDetecting()
-                }
-            }
-
-        foundVideo?.let { updateActiveTrack(it) }
         sessionStore.updateActiveAudioTrack(foundAudio)
         sessionStore.updateActiveSubtitleTrack(foundSubtitle)
 
-        // Subtitle disabled: emit a SubtitleSwitch with null newTrack.
         if (lastSubtitleTrack != null && foundSubtitle == null) {
             sessionStore.addTrackSwitchEvent(
                 TrackSwitchEvent.SubtitleSwitch(
@@ -402,9 +310,47 @@ internal class PlayerInterceptor(
         }
     }
 
-    private fun updateActiveTrack(format: Format) {
-        sessionStore.updateActiveTrack(format.toActiveTrackInfo())
-        Log.d(TAG, "Active track: ${format.width}x${format.height} @ ${format.bitrate} bps")
+    private fun collectVideoTracks(
+        group: Tracks.Group,
+        out: MutableList<VariantInfo>,
+    ) {
+        for (i in 0 until group.length) {
+            val fmt = group.getTrackFormat(i)
+            if (fmt.width <= 0 && fmt.height <= 0) continue
+            out.add(
+                VariantInfo(
+                    bitrate = fmt.bitrate,
+                    width = fmt.width,
+                    height = fmt.height,
+                    codecs = fmt.codecs,
+                    frameRate = fmt.frameRate,
+                    id = fmt.id,
+                    isSelected = group.isTrackSelected(i),
+                ),
+            )
+        }
+    }
+
+    private fun collectAudioTracks(
+        group: Tracks.Group,
+        out: MutableList<AudioTrackInfo>,
+    ) {
+        for (i in 0 until group.length) {
+            val isSelected = group.isTrackSelected(i)
+            val info = group.getTrackFormat(i).toAudioTrackInfoDetecting(isSelected = isSelected)
+            out.add(info)
+        }
+    }
+
+    private fun collectSubtitleTracks(
+        group: Tracks.Group,
+        out: MutableList<SubtitleTrackInfo>,
+    ) {
+        for (i in 0 until group.length) {
+            val isSelected = group.isTrackSelected(i)
+            val info = group.getTrackFormat(i).toSubtitleTrackInfoDetecting(isSelected = isSelected)
+            out.add(info)
+        }
     }
 
     // ── Format → model extension functions (see FormatExtensions.kt) ───────

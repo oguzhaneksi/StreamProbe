@@ -15,38 +15,49 @@ internal fun Format.toActiveTrackInfo() =
         width = width,
         height = height,
         codecs = codecs,
-    )
-
-@UnstableApi
-internal fun Format.toAudioTrackInfo(isMuxed: Boolean) =
-    AudioTrackInfo(
-        language = language,
-        label = labels.firstOrNull()?.value,
-        codecs = codecs,
-        bitrate = bitrate,
-        channelCount = channelCount,
-        sampleRate = sampleRate,
-        isMuxed = isMuxed,
         id = id,
     )
 
 @UnstableApi
-internal fun Format.toSubtitleTrackInfo(kind: SubtitleKind) =
-    SubtitleTrackInfo(
-        language = language,
-        label = labels.firstOrNull()?.value,
-        mimeType = sampleMimeType,
-        kind = kind,
-        id = id,
-    )
+internal fun Format.toAudioTrackInfo(
+    isMuxed: Boolean,
+    isSelected: Boolean = false,
+) = AudioTrackInfo(
+    language = language,
+    label = labels.firstOrNull()?.value,
+    codecs = codecs,
+    bitrate = bitrate,
+    channelCount = channelCount,
+    sampleRate = sampleRate,
+    isMuxed = isMuxed,
+    id = id,
+    isSelected = isSelected,
+)
+
+@UnstableApi
+internal fun Format.toSubtitleTrackInfo(
+    kind: SubtitleKind,
+    isSelected: Boolean = false,
+) = SubtitleTrackInfo(
+    language = language,
+    label = labels.firstOrNull()?.value,
+    mimeType = sampleMimeType,
+    kind = kind,
+    id = id,
+    isSelected = isSelected,
+)
 
 /** Infers [isMuxed] from the container MIME type. */
 @UnstableApi
-internal fun Format.toAudioTrackInfoDetecting() = toAudioTrackInfo(isMuxed = containerMimeType?.startsWith("video/") == true)
+internal fun Format.toAudioTrackInfoDetecting(isSelected: Boolean = false) =
+    toAudioTrackInfo(
+        isMuxed = containerMimeType?.startsWith("video/") == true,
+        isSelected = isSelected,
+    )
 
 /** Infers [SubtitleKind] from the sample MIME type. */
 @UnstableApi
-internal fun Format.toSubtitleTrackInfoDetecting(): SubtitleTrackInfo {
+internal fun Format.toSubtitleTrackInfoDetecting(isSelected: Boolean = false): SubtitleTrackInfo {
     val kind =
         if (sampleMimeType == MimeTypes.APPLICATION_CEA608 ||
             sampleMimeType == MimeTypes.APPLICATION_CEA708
@@ -55,5 +66,5 @@ internal fun Format.toSubtitleTrackInfoDetecting(): SubtitleTrackInfo {
         } else {
             SubtitleKind.SIDECAR
         }
-    return toSubtitleTrackInfo(kind)
+    return toSubtitleTrackInfo(kind, isSelected = isSelected)
 }
