@@ -69,9 +69,8 @@ class PlayerInterceptorTest {
 
             interceptor.attach(player)
 
-            val info = sessionStore.trackListInfo.first()
-            assertNotNull(info)
-            assertTrue(info!!.variants.isEmpty())
+            val info = requireNotNull(sessionStore.trackListInfo.first())
+            assertTrue(info.variants.isEmpty())
             assertTrue(info.audioTracks.isEmpty())
             assertTrue(info.subtitleTracks.isEmpty())
         }
@@ -95,9 +94,8 @@ class PlayerInterceptorTest {
             `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
             interceptor.onTracksChanged(Tracks.EMPTY)
 
-            val info = sessionStore.trackListInfo.first()
-            assertNotNull(info)
-            assertTrue(info!!.variants.isEmpty())
+            val info = requireNotNull(sessionStore.trackListInfo.first())
+            assertTrue(info.variants.isEmpty())
         }
 
     @Test
