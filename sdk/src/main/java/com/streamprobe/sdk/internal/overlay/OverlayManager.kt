@@ -347,21 +347,18 @@ internal class OverlayManager(
         scope?.launch {
             sessionStore.activeTrack.collect { track ->
                 overlay.activeTrackView.text = OverlayFormatters.formatActiveTrack(track)
-                renditionAdapter?.activeVideo = track
             }
         }
 
         scope?.launch {
             sessionStore.activeAudioTrack.collect { audio ->
                 overlay.activeAudioView.text = OverlayFormatters.formatActiveAudio(audio)
-                renditionAdapter?.activeAudio = audio
             }
         }
 
         scope?.launch {
             sessionStore.activeSubtitleTrack.collect { subtitle ->
                 overlay.activeSubtitleView.text = OverlayFormatters.formatActiveSubtitle(subtitle)
-                renditionAdapter?.activeSubtitle = subtitle
             }
         }
 

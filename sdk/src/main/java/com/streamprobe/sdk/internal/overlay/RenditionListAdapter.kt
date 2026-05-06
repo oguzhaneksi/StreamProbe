@@ -4,7 +4,6 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.SubtitleTrackInfo
 import com.streamprobe.sdk.model.VariantInfo
@@ -33,68 +32,11 @@ internal sealed interface RenditionListItem {
 
 /**
  * Adapter for the Tracks tab in the debug overlay.
- * Shows all video, audio and subtitle renditions with active-track indicators.
+ * Shows all video, audio and subtitle renditions; [isSelected] on each item's info
+ * model is set by the player via [Tracks.Group.isTrackSelected], so no secondary
+ * comparison is needed here.
  */
 internal class RenditionListAdapter : ListAdapter<RenditionListItem, RecyclerView.ViewHolder>(DIFF) {
-    var activeVideo: ActiveTrackInfo? = null
-        set(value) {
-            val prev = field
-            if (prev == value) return
-            field = value
-            val prevPos = findPositionForVideo(prev)
-            val newPos = findPositionForVideo(value)
-            if (prevPos != RecyclerView.NO_POSITION) notifyItemChanged(prevPos)
-            if (newPos != RecyclerView.NO_POSITION && newPos != prevPos) notifyItemChanged(newPos)
-        }
-
-    var activeAudio: AudioTrackInfo? = null
-        set(value) {
-            val prev = field
-            if (prev == value) return
-            field = value
-            val prevPos = findPositionForAudio(prev)
-            val newPos = findPositionForAudio(value)
-            if (prevPos != RecyclerView.NO_POSITION) notifyItemChanged(prevPos)
-            if (newPos != RecyclerView.NO_POSITION && newPos != prevPos) notifyItemChanged(newPos)
-        }
-
-    var activeSubtitle: SubtitleTrackInfo? = null
-        set(value) {
-            val prev = field
-            if (prev == value) return
-            field = value
-            val prevPos = findPositionForSubtitle(prev)
-            val newPos = findPositionForSubtitle(value)
-            if (prevPos != RecyclerView.NO_POSITION) notifyItemChanged(prevPos)
-            if (newPos != RecyclerView.NO_POSITION && newPos != prevPos) notifyItemChanged(newPos)
-        }
-
-    internal fun findPositionForVideo(track: ActiveTrackInfo?): Int {
-        if (track == null) return RecyclerView.NO_POSITION
-        return currentList
-            .indexOfFirst { item ->
-                item is RenditionListItem.Video &&
-                    item.info.bitrate == track.bitrate &&
-                    item.info.width == track.width &&
-                    item.info.height == track.height
-            }.takeIf { it >= 0 } ?: RecyclerView.NO_POSITION
-    }
-
-    internal fun findPositionForAudio(track: AudioTrackInfo?): Int {
-        if (track == null) return RecyclerView.NO_POSITION
-        return currentList
-            .indexOfFirst { item ->
-                item is RenditionListItem.Audio && item.info.isSameRenditionAs(track)
-            }.takeIf { it >= 0 } ?: RecyclerView.NO_POSITION
-    }
-
-    internal fun findPositionForSubtitle(track: SubtitleTrackInfo?): Int {
-        if (track == null) return RecyclerView.NO_POSITION
-        return currentList
-            .indexOfFirst { item ->
-                item is RenditionListItem.Subtitle && item.info.isSameRenditionAs(track)
-            }.takeIf { it >= 0 } ?: RecyclerView.NO_POSITION
-    }
 
     override fun getItemViewType(position: Int): Int =
         when (getItem(position)) {
@@ -121,11 +63,11 @@ internal class RenditionListAdapter : ListAdapter<RenditionListItem, RecyclerVie
             is RenditionListItem.SectionHeader ->
                 (holder as RenditionSectionHeaderViewHolder).bind(item.title)
             is RenditionListItem.Video ->
-                (holder as RenditionItemViewHolder).view.bind(item, activeVideo)
+                (holder as RenditionItemViewHolder).view.bind(item)
             is RenditionListItem.Audio ->
-                (holder as RenditionItemViewHolder).view.bind(item, activeAudio = activeAudio)
+                (holder as RenditionItemViewHolder).view.bind(item)
             is RenditionListItem.Subtitle ->
-                (holder as RenditionItemViewHolder).view.bind(item, activeSubtitle = activeSubtitle)
+                (holder as RenditionItemViewHolder).view.bind(item)
         }
     }
 
@@ -157,10 +99,11 @@ internal class RenditionListAdapter : ListAdapter<RenditionListItem, RecyclerVie
                         is RenditionListItem.SectionHeader if new is RenditionListItem.SectionHeader ->
                             old.title == new.title
 
-                        is RenditionListItem.Video if new is RenditionListItem.Video ->
-                            old.info.bitrate == new.info.bitrate &&
-                                old.info.width == new.info.width &&
-                                old.info.height == new.info.height
+                        is RenditionListItem.Video if new is RenditionListItem.Video -> {
+                            val o = old.info; val n = new.info
+                            if (o.id != null && n.id != null) o.id == n.id
+                            else o.width == n.width && o.height == n.height && o.bitrate == n.bitrate
+                        }
 
                         is RenditionListItem.Audio if new is RenditionListItem.Audio ->
                             old.info.isSameRenditionAs(new.info)

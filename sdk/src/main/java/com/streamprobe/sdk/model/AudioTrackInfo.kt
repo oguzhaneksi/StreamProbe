@@ -16,6 +16,8 @@ data class AudioTrackInfo(
     val isMuxed: Boolean = false,
     /** Format id from the manifest; used for reliable active-track matching. Null if unavailable. */
     val id: String? = null,
+    /** True if this audio rendition is currently selected by the player. Set from player.currentTracks. */
+    val isSelected: Boolean = false,
 )
 
 /** Returns true if [other] refers to the same audio rendition. Prefers [id] when both are non-null. */

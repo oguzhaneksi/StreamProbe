@@ -4,14 +4,12 @@ import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.TrackGroup
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
-import androidx.media3.exoplayer.hls.HlsManifest
-import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist
-import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist
 import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
 import com.streamprobe.sdk.model.CacheStatus
@@ -47,7 +45,6 @@ class PlayerInterceptorTest {
 
     @Test
     fun `attach registers listener on player`() {
-        `when`(player.currentManifest).thenReturn(null)
         `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
 
         interceptor.attach(player)
@@ -57,7 +54,6 @@ class PlayerInterceptorTest {
 
     @Test
     fun `detach removes listener from player`() {
-        `when`(player.currentManifest).thenReturn(null)
         `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
 
         interceptor.attach(player)
@@ -67,9 +63,8 @@ class PlayerInterceptorTest {
     }
 
     @Test
-    fun `manifest remains null for non-HLS content`() =
+    fun `manifest remains null when player has no tracks`() =
         runTest {
-            `when`(player.currentManifest).thenReturn("not an HLS manifest")
             `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
 
             interceptor.attach(player)
@@ -78,7 +73,7 @@ class PlayerInterceptorTest {
         }
 
     @Test
-    fun `probes manifest immediately on attach when available`() =
+    fun `probes tracks immediately on attach when available`() =
         runTest {
             val format1080p =
                 Format
@@ -91,63 +86,7 @@ class PlayerInterceptorTest {
                     .setFrameRate(30f)
                     .build()
 
-            val variant =
-                HlsMultivariantPlaylist.Variant(
-                    // url=
-                    Uri.EMPTY,
-                    // format=
-                    format1080p,
-                    // videoGroupId=
-                    null,
-                    // audioGroupId=
-                    null,
-                    // subtitleGroupId=
-                    null,
-                    // captionGroupId=
-                    null,
-                    // pathwayId=
-                    null,
-                    // stableVariantId=
-                    null,
-                )
-
-            val multivariantPlaylist =
-                HlsMultivariantPlaylist(
-                    // baseUri=
-                    "https://example.com/master.m3u8",
-                    // tags=
-                    emptyList(),
-                    // variants=
-                    listOf(variant),
-                    // videos=
-                    emptyList(),
-                    // audios=
-                    emptyList(),
-                    // subtitles=
-                    emptyList(),
-                    // closedCaptions=
-                    emptyList(),
-                    // muxedAudioFormat=
-                    null,
-                    // muxedCaptionFormats=
-                    null,
-                    // hasIndependentSegments=
-                    false,
-                    // variableDefinitions=
-                    emptyMap(),
-                    // sessionKeyDrmInitData=
-                    emptyList(),
-                )
-
-            val mediaPlaylist = mock(HlsMediaPlaylist::class.java)
-            val manifest =
-                HlsManifest::class.java
-                    .getDeclaredConstructor(HlsMultivariantPlaylist::class.java, HlsMediaPlaylist::class.java)
-                    .also { it.isAccessible = true }
-                    .newInstance(multivariantPlaylist, mediaPlaylist)
-
-            `when`(player.currentManifest).thenReturn(manifest)
-            `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
+            `when`(player.currentTracks).thenReturn(makeSingleVideoTrackGroup(format1080p))
 
             interceptor.attach(player)
 
@@ -166,7 +105,6 @@ class PlayerInterceptorTest {
     @Test
     fun `clear after detach resets session store`() =
         runTest {
-            `when`(player.currentManifest).thenReturn(null)
             `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
 
             interceptor.attach(player)
@@ -373,7 +311,7 @@ class PlayerInterceptorTest {
         }
 
     @Test
-    fun `onDownstreamFormatChanged with DEFAULT track type and video dimensions creates VideoSwitch event`() =
+    fun `onDownstreamFormatChanged with DEFAULT track type does not emit VideoSwitch`() =
         runTest {
             val format = makeVideoFormat(720)
             val mediaLoadData =
@@ -389,17 +327,15 @@ class PlayerInterceptorTest {
 
             interceptor.onDownstreamFormatChanged(makeEventTime(), mediaLoadData)
 
-            val events = sessionStore.trackSwitchEvents.first()
-            assertEquals(1, events.size)
-            assertEquals(720, (events[0] as TrackSwitchEvent.VideoSwitch).newTrack.height)
+            assertTrue(sessionStore.trackSwitchEvents.first().isEmpty())
         }
 
     @Test
-    fun `initial downstream format creates VideoSwitch event with null previousTrack`() =
+    fun `initial video input format creates VideoSwitch event with null previousTrack`() =
         runTest {
             val format = makeVideoFormat(720)
 
-            interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(format, C.SELECTION_REASON_INITIAL))
+            interceptor.onVideoInputFormatChanged(makeEventTime(), format, null)
 
             val events = sessionStore.trackSwitchEvents.first()
             assertEquals(1, events.size)
@@ -410,13 +346,16 @@ class PlayerInterceptorTest {
         }
 
     @Test
-    fun `second downstream format creates VideoSwitch event with previous track`() =
+    fun `second video input format creates VideoSwitch event with previous track and cached reason`() =
         runTest {
             val format480 = makeVideoFormat(480)
             val format720 = makeVideoFormat(720)
 
+            // Prime the pending reason then fire the input format events.
             interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(format480, C.SELECTION_REASON_INITIAL))
+            interceptor.onVideoInputFormatChanged(makeEventTime(), format480, null)
             interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(format720, C.SELECTION_REASON_ADAPTIVE))
+            interceptor.onVideoInputFormatChanged(makeEventTime(), format720, null)
 
             val events = sessionStore.trackSwitchEvents.first()
             assertEquals(2, events.size)
@@ -427,12 +366,12 @@ class PlayerInterceptorTest {
         }
 
     @Test
-    fun `same format repeated does not create duplicate VideoSwitch event`() =
+    fun `same video input format repeated does not create duplicate VideoSwitch event`() =
         runTest {
             val format = makeVideoFormat(720)
 
-            interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(format, C.SELECTION_REASON_INITIAL))
-            interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(format, C.SELECTION_REASON_ADAPTIVE))
+            interceptor.onVideoInputFormatChanged(makeEventTime(), format, null)
+            interceptor.onVideoInputFormatChanged(makeEventTime(), format, null)
 
             val events = sessionStore.trackSwitchEvents.first()
             assertEquals(1, events.size)
@@ -441,12 +380,11 @@ class PlayerInterceptorTest {
     @Test
     fun `VideoSwitch event captures buffer duration`() =
         runTest {
-            `when`(player.currentManifest).thenReturn(null)
             `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
             `when`(player.totalBufferedDuration).thenReturn(12_400L)
 
             interceptor.attach(player)
-            interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(makeVideoFormat()))
+            interceptor.onVideoInputFormatChanged(makeEventTime(), makeVideoFormat(), null)
 
             val events = sessionStore.trackSwitchEvents.first()
             assertEquals(12_400L, (events[0] as TrackSwitchEvent.VideoSwitch).bufferDurationMs)
@@ -463,21 +401,19 @@ class PlayerInterceptorTest {
     }
 
     @Test
-    fun `detach resets lastDownstreamTrack so next event has null previousTrack`() =
+    fun `detach resets video state so next input format event has null previousTrack`() =
         runTest {
-            `when`(player.currentManifest).thenReturn(null)
             `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
 
             interceptor.attach(player)
-            interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(makeVideoFormat(480), C.SELECTION_REASON_INITIAL))
+            interceptor.onVideoInputFormatChanged(makeEventTime(), makeVideoFormat(480), null)
             interceptor.detach()
             sessionStore.clear()
 
             val player2 = mock(ExoPlayer::class.java)
-            `when`(player2.currentManifest).thenReturn(null)
             `when`(player2.currentTracks).thenReturn(Tracks.EMPTY)
             interceptor.attach(player2)
-            interceptor.onDownstreamFormatChanged(makeEventTime(), makeVideoMediaLoadData(makeVideoFormat(720), C.SELECTION_REASON_INITIAL))
+            interceptor.onVideoInputFormatChanged(makeEventTime(), makeVideoFormat(720), null)
 
             val events = sessionStore.trackSwitchEvents.first()
             assertEquals(1, events.size)
@@ -485,7 +421,7 @@ class PlayerInterceptorTest {
         }
 
     @Test
-    fun `onVideoInputFormatChanged still updates active track`() =
+    fun `onVideoInputFormatChanged updates active track and emits VideoSwitch`() =
         runTest {
             val format = makeVideoFormat(1080)
 
@@ -494,5 +430,24 @@ class PlayerInterceptorTest {
             val track = sessionStore.activeTrack.first()
             assertNotNull(track)
             assertEquals(1080, track!!.height)
+
+            val events = sessionStore.trackSwitchEvents.first()
+            assertEquals(1, events.size)
+            assertEquals(1080, (events[0] as TrackSwitchEvent.VideoSwitch).newTrack.height)
         }
+
+    private fun makeSingleVideoTrackGroup(format: Format): Tracks {
+        val trackGroup = TrackGroup(format)
+        val group =
+            Tracks.Group(
+                trackGroup,
+                // adaptiveSupported=
+                false,
+                // trackSupport=
+                intArrayOf(C.FORMAT_HANDLED),
+                // trackSelected=
+                booleanArrayOf(true),
+            )
+        return Tracks(listOf(group))
+    }
 }

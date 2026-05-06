@@ -10,11 +10,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
-import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.SubtitleKind
-import com.streamprobe.sdk.model.SubtitleTrackInfo
-import com.streamprobe.sdk.model.isSameRenditionAs
 
 /**
  * A single row in the rendition list — handles video, audio and subtitle items.
@@ -75,30 +72,18 @@ internal class RenditionItemView(
         )
     }
 
-    fun bind(
-        item: RenditionListItem,
-        activeVideo: ActiveTrackInfo? = null,
-        activeAudio: AudioTrackInfo? = null,
-        activeSubtitle: SubtitleTrackInfo? = null,
-    ) {
+    fun bind(item: RenditionListItem) {
         when (item) {
-            is RenditionListItem.Video -> bindVideo(item, activeVideo)
-            is RenditionListItem.Audio -> bindAudio(item, activeAudio)
-            is RenditionListItem.Subtitle -> bindSubtitle(item, activeSubtitle)
+            is RenditionListItem.Video -> bindVideo(item)
+            is RenditionListItem.Audio -> bindAudio(item)
+            is RenditionListItem.Subtitle -> bindSubtitle(item)
             is RenditionListItem.SectionHeader -> { /* handled by separate view holder */ }
         }
     }
 
-    private fun bindVideo(
-        item: RenditionListItem.Video,
-        active: ActiveTrackInfo?,
-    ) {
+    private fun bindVideo(item: RenditionListItem.Video) {
         val info = item.info
-        val isActive =
-            active != null &&
-                info.width == active.width &&
-                info.height == active.height &&
-                info.bitrate == active.bitrate
+        val isActive = info.isSelected
 
         dot.background = if (isActive) OverlayDrawables.dotActive() else OverlayDrawables.dotInactive()
         topLine.text =
@@ -111,12 +96,9 @@ internal class RenditionItemView(
         bottomLine.isVisible = !info.codecs.isNullOrEmpty()
     }
 
-    private fun bindAudio(
-        item: RenditionListItem.Audio,
-        active: AudioTrackInfo?,
-    ) {
+    private fun bindAudio(item: RenditionListItem.Audio) {
         val info = item.info
-        val isActive = active != null && info.isSameRenditionAs(active)
+        val isActive = info.isSelected
 
         dot.background = if (isActive) OverlayDrawables.dotActive() else OverlayDrawables.dotInactive()
         topLine.text = buildAudioTopLine(info)
@@ -152,12 +134,9 @@ internal class RenditionItemView(
         return topParts.joinToString("  \u00b7  ").ifBlank { "Audio" }
     }
 
-    private fun bindSubtitle(
-        item: RenditionListItem.Subtitle,
-        active: SubtitleTrackInfo?,
-    ) {
+    private fun bindSubtitle(item: RenditionListItem.Subtitle) {
         val info = item.info
-        val isActive = active != null && info.isSameRenditionAs(active)
+        val isActive = info.isSelected
 
         dot.background = if (isActive) OverlayDrawables.dotActive() else OverlayDrawables.dotInactive()
 
