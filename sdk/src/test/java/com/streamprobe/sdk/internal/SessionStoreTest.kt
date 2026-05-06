@@ -4,13 +4,12 @@ import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
-import com.streamprobe.sdk.model.DashManifestInfo
-import com.streamprobe.sdk.model.HlsManifestInfo
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SubtitleKind
 import com.streamprobe.sdk.model.SubtitleTrackInfo
 import com.streamprobe.sdk.model.SwitchReason
 import com.streamprobe.sdk.model.TrackSwitchEvent
+import com.streamprobe.sdk.model.TracksSnapshot
 import com.streamprobe.sdk.model.VariantInfo
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -30,15 +29,15 @@ class SessionStoreTest {
     @Test
     fun `initial state is null`() =
         runTest {
-            assertNull(store.manifestInfo.first())
+            assertNull(store.trackListInfo.first())
             assertNull(store.activeTrack.first())
         }
 
     @Test
-    fun `updateManifest publishes manifest info`() =
+    fun `updateTrackList publishes track list info`() =
         runTest {
             val info =
-                HlsManifestInfo(
+                TracksSnapshot(
                     variants =
                         listOf(
                             VariantInfo(
@@ -51,17 +50,17 @@ class SessionStoreTest {
                         ),
                 )
 
-            store.updateManifest(info)
+            store.updateTrackList(info)
 
-            val result = store.manifestInfo.first()
+            val result = store.trackListInfo.first()
             assertEquals(info, result)
         }
 
     @Test
-    fun `updateManifest accepts DashManifestInfo`() =
+    fun `updateTrackList accepts TracksSnapshot`() =
         runTest {
             val info =
-                DashManifestInfo(
+                TracksSnapshot(
                     variants =
                         listOf(
                             VariantInfo(
@@ -74,9 +73,9 @@ class SessionStoreTest {
                         ),
                 )
 
-            store.updateManifest(info)
+            store.updateTrackList(info)
 
-            val result = store.manifestInfo.first()
+            val result = store.trackListInfo.first()
             assertEquals(info, result)
             assertEquals(1, result!!.variants.size)
             assertEquals(720, result.variants[0].height)
@@ -102,8 +101,8 @@ class SessionStoreTest {
     @Test
     fun `clear resets all state to null`() =
         runTest {
-            store.updateManifest(
-                HlsManifestInfo(
+            store.updateTrackList(
+                TracksSnapshot(
                     variants =
                         listOf(
                             VariantInfo(1_000_000, 640, 360, null, -1f),
@@ -116,7 +115,7 @@ class SessionStoreTest {
 
             store.clear()
 
-            assertNull(store.manifestInfo.first())
+            assertNull(store.trackListInfo.first())
             assertNull(store.activeTrack.first())
         }
 
@@ -124,11 +123,11 @@ class SessionStoreTest {
     fun `multiple updates overwrite previous values`() =
         runTest {
             val first =
-                HlsManifestInfo(
+                TracksSnapshot(
                     variants = listOf(VariantInfo(1_000_000, 640, 360, null, -1f)),
                 )
             val second =
-                HlsManifestInfo(
+                TracksSnapshot(
                     variants =
                         listOf(
                             VariantInfo(1_000_000, 640, 360, null, -1f),
@@ -136,18 +135,18 @@ class SessionStoreTest {
                         ),
                 )
 
-            store.updateManifest(first)
+            store.updateTrackList(first)
             assertEquals(
                 1,
-                store.manifestInfo
+                store.trackListInfo
                     .first()!!
                     .variants.size,
             )
 
-            store.updateManifest(second)
+            store.updateTrackList(second)
             assertEquals(
                 2,
-                store.manifestInfo
+                store.trackListInfo
                     .first()!!
                     .variants.size,
             )

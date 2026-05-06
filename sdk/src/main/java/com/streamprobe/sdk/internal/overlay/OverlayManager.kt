@@ -342,7 +342,7 @@ internal class OverlayManager(
     private fun startObserving(overlay: OverlayPanelView) {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-        observeManifestInfo()
+        observeTrackListInfo()
 
         scope?.launch {
             sessionStore.activeTrack.collect { track ->
@@ -384,9 +384,9 @@ internal class OverlayManager(
         observePlaybackErrors(overlay)
     }
 
-    private fun observeManifestInfo() {
+    private fun observeTrackListInfo() {
         scope?.launch {
-            sessionStore.manifestInfo.collect { info ->
+            sessionStore.trackListInfo.collect { info ->
                 if (info != null) {
                     val items =
                         buildList {

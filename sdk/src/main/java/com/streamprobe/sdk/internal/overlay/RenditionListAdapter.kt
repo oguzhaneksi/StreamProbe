@@ -37,7 +37,6 @@ internal sealed interface RenditionListItem {
  * comparison is needed here.
  */
 internal class RenditionListAdapter : ListAdapter<RenditionListItem, RecyclerView.ViewHolder>(DIFF) {
-
     override fun getItemViewType(position: Int): Int =
         when (getItem(position)) {
             is RenditionListItem.SectionHeader -> VIEW_TYPE_HEADER
@@ -100,9 +99,13 @@ internal class RenditionListAdapter : ListAdapter<RenditionListItem, RecyclerVie
                             old.title == new.title
 
                         is RenditionListItem.Video if new is RenditionListItem.Video -> {
-                            val o = old.info; val n = new.info
-                            if (o.id != null && n.id != null) o.id == n.id
-                            else o.width == n.width && o.height == n.height && o.bitrate == n.bitrate
+                            val o = old.info
+                            val n = new.info
+                            if (o.id != null && n.id != null) {
+                                o.id == n.id
+                            } else {
+                                o.width == n.width && o.height == n.height && o.bitrate == n.bitrate
+                            }
                         }
 
                         is RenditionListItem.Audio if new is RenditionListItem.Audio ->

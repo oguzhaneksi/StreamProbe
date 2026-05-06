@@ -1,10 +1,11 @@
 package com.streamprobe.sdk.model
 
 /**
- * Parsed representation of an HLS multivariant (master) playlist.
+ * Concrete implementation of [TrackListInfo] built from the player's
+ * [androidx.media3.common.Tracks] API. Protocol-agnostic: covers both HLS and DASH streams.
  */
-data class HlsManifestInfo(
+data class TracksSnapshot(
     override val variants: List<VariantInfo>,
     override val audioTracks: List<AudioTrackInfo> = emptyList(),
     override val subtitleTracks: List<SubtitleTrackInfo> = emptyList(),
-) : ManifestInfo
+) : TrackListInfo

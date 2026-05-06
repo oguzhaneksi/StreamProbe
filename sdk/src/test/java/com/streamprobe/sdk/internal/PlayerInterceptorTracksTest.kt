@@ -106,7 +106,7 @@ class PlayerInterceptorTracksTest {
 
             interceptor.attach(player)
 
-            val result = sessionStore.manifestInfo.first()
+            val result = sessionStore.trackListInfo.first()
             assertNotNull(result)
             assertEquals(2, result!!.variants.size)
         }
@@ -129,7 +129,7 @@ class PlayerInterceptorTracksTest {
 
             interceptor.attach(player)
 
-            val variant = sessionStore.manifestInfo.first()!!.variants[0]
+            val variant = sessionStore.trackListInfo.first()!!.variants[0]
             assertEquals(5_000_000, variant.bitrate)
             assertEquals(1920, variant.width)
             assertEquals(1080, variant.height)
@@ -162,7 +162,7 @@ class PlayerInterceptorTracksTest {
 
             interceptor.attach(player)
 
-            val result = sessionStore.manifestInfo.first()!!
+            val result = sessionStore.trackListInfo.first()!!
             assertEquals(1, result.variants.size)
             assertEquals(720, result.variants[0].height)
             assertEquals(1, result.audioTracks.size)
@@ -173,20 +173,30 @@ class PlayerInterceptorTracksTest {
     fun `probeTracks sets isSelected true only for selected video rendition`() =
         runTest {
             val format360p =
-                Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).setWidth(640).setHeight(360).build()
+                Format
+                    .Builder()
+                    .setSampleMimeType(MimeTypes.VIDEO_H264)
+                    .setWidth(640)
+                    .setHeight(360)
+                    .build()
             val format1080p =
-                Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).setWidth(1920).setHeight(1080).build()
+                Format
+                    .Builder()
+                    .setSampleMimeType(MimeTypes.VIDEO_H264)
+                    .setWidth(1920)
+                    .setHeight(1080)
+                    .build()
 
             // Select 1080p (index 1)
             `when`(player.currentTracks).thenReturn(makeVideoTracksGroup(format360p, format1080p, selectedIndex = 1))
 
             interceptor.attach(player)
 
-            val variants = sessionStore.manifestInfo.first()!!.variants
+            val variants = sessionStore.trackListInfo.first()!!.variants
             assertEquals(2, variants.size)
             val sorted = variants.sortedBy { it.height }
-            assertTrue(!sorted[0].isSelected)  // 360p not selected
-            assertTrue(sorted[1].isSelected)   // 1080p selected
+            assertTrue(!sorted[0].isSelected) // 360p not selected
+            assertTrue(sorted[1].isSelected) // 1080p selected
         }
 
     // ── probeTracks / onDownstreamFormatChanged track type inference ──────────

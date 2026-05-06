@@ -63,13 +63,13 @@ class PlayerInterceptorTest {
     }
 
     @Test
-    fun `manifest remains null when player has no tracks`() =
+    fun `track list remains null when player has no tracks`() =
         runTest {
             `when`(player.currentTracks).thenReturn(Tracks.EMPTY)
 
             interceptor.attach(player)
 
-            assertNull(sessionStore.manifestInfo.first())
+            assertNull(sessionStore.trackListInfo.first())
         }
 
     @Test
@@ -90,7 +90,7 @@ class PlayerInterceptorTest {
 
             interceptor.attach(player)
 
-            val result = sessionStore.manifestInfo.first()
+            val result = sessionStore.trackListInfo.first()
             assertNotNull(result)
             assertEquals(1, result!!.variants.size)
 
@@ -111,7 +111,7 @@ class PlayerInterceptorTest {
             interceptor.detach()
             sessionStore.clear()
 
-            assertNull(sessionStore.manifestInfo.first())
+            assertNull(sessionStore.trackListInfo.first())
             assertNull(sessionStore.activeTrack.first())
         }
 

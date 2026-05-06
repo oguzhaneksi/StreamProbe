@@ -376,8 +376,8 @@ class PlaybackErrorTrackingTest {
     @Test
     fun `clearPlaybackErrors empties errors but preserves other state`() =
         runTest {
-            sessionStore.updateManifest(
-                com.streamprobe.sdk.model.HlsManifestInfo(
+            sessionStore.updateTrackList(
+                com.streamprobe.sdk.model.TracksSnapshot(
                     variants =
                         listOf(
                             com.streamprobe.sdk.model
@@ -396,10 +396,10 @@ class PlaybackErrorTrackingTest {
             sessionStore.clearPlaybackErrors()
 
             assertTrue(sessionStore.playbackErrors.first().isEmpty())
-            // manifestInfo should still be present
+            // trackListInfo should still be present
             assertEquals(
                 1,
-                sessionStore.manifestInfo
+                sessionStore.trackListInfo
                     .first()!!
                     .variants.size,
             )
@@ -419,6 +419,6 @@ class PlaybackErrorTrackingTest {
             sessionStore.clear()
 
             assertTrue(sessionStore.playbackErrors.first().isEmpty())
-            assertNull(sessionStore.manifestInfo.first())
+            assertNull(sessionStore.trackListInfo.first())
         }
 }

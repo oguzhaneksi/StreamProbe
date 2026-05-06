@@ -5,10 +5,10 @@ import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.ErrorCategory
 import com.streamprobe.sdk.model.ErrorDetail
-import com.streamprobe.sdk.model.ManifestInfo
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SubtitleTrackInfo
+import com.streamprobe.sdk.model.TrackListInfo
 import com.streamprobe.sdk.model.TrackSwitchEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,8 +21,8 @@ import kotlinx.coroutines.flow.update
  * components write via the update methods.
  */
 internal class SessionStore {
-    private val _manifestInfo = MutableStateFlow<ManifestInfo?>(null)
-    val manifestInfo: StateFlow<ManifestInfo?> = _manifestInfo.asStateFlow()
+    private val _trackListInfo = MutableStateFlow<TrackListInfo?>(null)
+    val trackListInfo: StateFlow<TrackListInfo?> = _trackListInfo.asStateFlow()
 
     private val _activeTrack = MutableStateFlow<ActiveTrackInfo?>(null)
     val activeTrack: StateFlow<ActiveTrackInfo?> = _activeTrack.asStateFlow()
@@ -45,8 +45,8 @@ internal class SessionStore {
     private val _playbackErrors = MutableStateFlow<List<PlaybackErrorEvent>>(emptyList())
     val playbackErrors: StateFlow<List<PlaybackErrorEvent>> = _playbackErrors.asStateFlow()
 
-    fun updateManifest(info: ManifestInfo) {
-        _manifestInfo.value = info
+    fun updateTrackList(info: TrackListInfo) {
+        _trackListInfo.value = info
     }
 
     fun updateActiveTrack(info: ActiveTrackInfo) {
@@ -87,36 +87,29 @@ internal class SessionStore {
             val last = current.lastOrNull()
             val lastDrop = last?.categoryDetail as? ErrorDetail.DroppedFrames
             val incomingDrop = event.categoryDetail as? ErrorDetail.DroppedFrames
-            val timestampDiffMs = lastDrop?.let { event.timestampMs - it.lastUpdateMs }
-            val canMerge =
-                event.category == ErrorCategory.DROPPED_FRAMES &&
-                    last?.category == ErrorCategory.DROPPED_FRAMES &&
-                    lastDrop != null &&
-                    incomingDrop != null &&
-                    timestampDiffMs != null &&
-                    timestampDiffMs in 0..DROPPED_FRAMES_DEDUP_WINDOW_MS
-
-            when {
-                canMerge -> {
-                    // canMerge guarantees last/lastDrop/incomingDrop are non-null
-                    val totalFrames = lastDrop.totalFrames + incomingDrop.totalFrames
-                    val newBurstCount = lastDrop.burstCount + 1
-                    val merged =
-                        last.copy(
-                            // timestampMs deliberately preserved — DiffUtil identity stays stable.
-                            message = "$totalFrames frames dropped ($newBurstCount bursts)",
-                            categoryDetail =
-                                ErrorDetail.DroppedFrames(
-                                    totalFrames = totalFrames,
-                                    burstCount = newBurstCount,
-                                    lastUpdateMs = event.timestampMs,
-                                ),
-                        )
-                    current.dropLast(1) + merged
+            if (event.category == ErrorCategory.DROPPED_FRAMES && last != null) {
+                if (last.category == ErrorCategory.DROPPED_FRAMES && lastDrop != null && incomingDrop != null) {
+                    val diff = event.timestampMs - lastDrop.lastUpdateMs
+                    if (diff in 0..DROPPED_FRAMES_DEDUP_WINDOW_MS) {
+                        val totalFrames = lastDrop.totalFrames + incomingDrop.totalFrames
+                        val newBurstCount = lastDrop.burstCount + 1
+                        val merged =
+                            last.copy(
+                                // timestampMs deliberately preserved — DiffUtil identity stays stable.
+                                message = "$totalFrames frames dropped ($newBurstCount bursts)",
+                                categoryDetail =
+                                    ErrorDetail.DroppedFrames(
+                                        totalFrames = totalFrames,
+                                        burstCount = newBurstCount,
+                                        lastUpdateMs = event.timestampMs,
+                                    ),
+                            )
+                        return@update current.dropLast(1) + merged
+                    }
                 }
-                current.size >= MAX_PLAYBACK_ERRORS -> current.drop(1) + event
-                else -> current + event
             }
+
+            if (current.size >= MAX_PLAYBACK_ERRORS) current.drop(1) + event else current + event
         }
     }
 
@@ -125,7 +118,7 @@ internal class SessionStore {
     }
 
     fun clear() {
-        _manifestInfo.value = null
+        _trackListInfo.value = null
         _activeTrack.value = null
         _activeAudioTrack.value = null
         _activeSubtitleTrack.value = null

@@ -19,33 +19,41 @@ internal fun Format.toActiveTrackInfo() =
     )
 
 @UnstableApi
-internal fun Format.toAudioTrackInfo(isMuxed: Boolean, isSelected: Boolean = false) =
-    AudioTrackInfo(
-        language = language,
-        label = labels.firstOrNull()?.value,
-        codecs = codecs,
-        bitrate = bitrate,
-        channelCount = channelCount,
-        sampleRate = sampleRate,
-        isMuxed = isMuxed,
-        id = id,
-        isSelected = isSelected,
-    )
+internal fun Format.toAudioTrackInfo(
+    isMuxed: Boolean,
+    isSelected: Boolean = false,
+) = AudioTrackInfo(
+    language = language,
+    label = labels.firstOrNull()?.value,
+    codecs = codecs,
+    bitrate = bitrate,
+    channelCount = channelCount,
+    sampleRate = sampleRate,
+    isMuxed = isMuxed,
+    id = id,
+    isSelected = isSelected,
+)
 
 @UnstableApi
-internal fun Format.toSubtitleTrackInfo(kind: SubtitleKind, isSelected: Boolean = false) =
-    SubtitleTrackInfo(
-        language = language,
-        label = labels.firstOrNull()?.value,
-        mimeType = sampleMimeType,
-        kind = kind,
-        id = id,
-        isSelected = isSelected,
-    )
+internal fun Format.toSubtitleTrackInfo(
+    kind: SubtitleKind,
+    isSelected: Boolean = false,
+) = SubtitleTrackInfo(
+    language = language,
+    label = labels.firstOrNull()?.value,
+    mimeType = sampleMimeType,
+    kind = kind,
+    id = id,
+    isSelected = isSelected,
+)
 
 /** Infers [isMuxed] from the container MIME type. */
 @UnstableApi
-internal fun Format.toAudioTrackInfoDetecting(isSelected: Boolean = false) = toAudioTrackInfo(isMuxed = containerMimeType?.startsWith("video/") == true, isSelected = isSelected)
+internal fun Format.toAudioTrackInfoDetecting(isSelected: Boolean = false) =
+    toAudioTrackInfo(
+        isMuxed = containerMimeType?.startsWith("video/") == true,
+        isSelected = isSelected,
+    )
 
 /** Infers [SubtitleKind] from the sample MIME type. */
 @UnstableApi

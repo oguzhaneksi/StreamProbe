@@ -17,12 +17,12 @@ import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.ErrorCategory
 import com.streamprobe.sdk.model.ErrorDetail
-import com.streamprobe.sdk.model.HlsManifestInfo
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SubtitleTrackInfo
 import com.streamprobe.sdk.model.SwitchReason
 import com.streamprobe.sdk.model.TrackSwitchEvent
+import com.streamprobe.sdk.model.TracksSnapshot
 import com.streamprobe.sdk.model.VariantInfo
 import java.io.IOException
 
@@ -39,6 +39,7 @@ internal class PlayerInterceptor(
     private var lastVideoTrack: ActiveTrackInfo? = null
     private var lastAudioTrack: AudioTrackInfo? = null
     private var lastSubtitleTrack: SubtitleTrackInfo? = null
+
     // Caches the selection reason reported by onDownstreamFormatChanged for use in onVideoInputFormatChanged.
     private var pendingVideoSwitchReason: SwitchReason = SwitchReason.INITIAL
 
@@ -267,58 +268,26 @@ internal class PlayerInterceptor(
         val variants = mutableListOf<VariantInfo>()
         val audioTracks = mutableListOf<AudioTrackInfo>()
         val subtitleTracks = mutableListOf<SubtitleTrackInfo>()
-        var foundAudio: AudioTrackInfo? = null
-        var foundSubtitle: SubtitleTrackInfo? = null
 
         player.currentTracks.groups.forEach { group ->
             when (group.type) {
-                C.TRACK_TYPE_VIDEO -> {
-                    for (i in 0 until group.length) {
-                        val fmt = group.getTrackFormat(i)
-                        if (fmt.width <= 0 && fmt.height <= 0) continue
-                        variants.add(
-                            VariantInfo(
-                                bitrate = fmt.bitrate,
-                                width = fmt.width,
-                                height = fmt.height,
-                                codecs = fmt.codecs,
-                                frameRate = fmt.frameRate,
-                                id = fmt.id,
-                                isSelected = group.isTrackSelected(i),
-                            ),
-                        )
-                    }
-                }
-                C.TRACK_TYPE_AUDIO -> {
-                    for (i in 0 until group.length) {
-                        val fmt = group.getTrackFormat(i)
-                        val isSelected = group.isTrackSelected(i)
-                        val info = fmt.toAudioTrackInfoDetecting(isSelected = isSelected)
-                        audioTracks.add(info)
-                        if (isSelected) foundAudio = info
-                    }
-                }
-                C.TRACK_TYPE_TEXT -> {
-                    for (i in 0 until group.length) {
-                        val fmt = group.getTrackFormat(i)
-                        val isSelected = group.isTrackSelected(i)
-                        val info = fmt.toSubtitleTrackInfoDetecting(isSelected = isSelected)
-                        subtitleTracks.add(info)
-                        if (isSelected) foundSubtitle = info
-                    }
-                }
+                C.TRACK_TYPE_VIDEO -> collectVideoTracks(group, variants)
+                C.TRACK_TYPE_AUDIO -> collectAudioTracks(group, audioTracks)
+                C.TRACK_TYPE_TEXT -> collectSubtitleTracks(group, subtitleTracks)
             }
         }
 
         if (variants.isNotEmpty() || audioTracks.isNotEmpty() || subtitleTracks.isNotEmpty()) {
-            sessionStore.updateManifest(HlsManifestInfo(variants, audioTracks, subtitleTracks))
+            sessionStore.updateTrackList(TracksSnapshot(variants, audioTracks, subtitleTracks))
             Log.d(TAG, "Tracks updated: ${variants.size} video, ${audioTracks.size} audio, ${subtitleTracks.size} subtitle")
         }
+
+        val foundAudio = audioTracks.find { it.isSelected }
+        val foundSubtitle = subtitleTracks.find { it.isSelected }
 
         sessionStore.updateActiveAudioTrack(foundAudio)
         sessionStore.updateActiveSubtitleTrack(foundSubtitle)
 
-        // Subtitle disabled: emit a SubtitleSwitch with null newTrack.
         if (lastSubtitleTrack != null && foundSubtitle == null) {
             sessionStore.addTrackSwitchEvent(
                 TrackSwitchEvent.SubtitleSwitch(
@@ -330,6 +299,49 @@ internal class PlayerInterceptor(
                 ),
             )
             lastSubtitleTrack = null
+        }
+    }
+
+    private fun collectVideoTracks(
+        group: Tracks.Group,
+        out: MutableList<VariantInfo>,
+    ) {
+        for (i in 0 until group.length) {
+            val fmt = group.getTrackFormat(i)
+            if (fmt.width <= 0 && fmt.height <= 0) continue
+            out.add(
+                VariantInfo(
+                    bitrate = fmt.bitrate,
+                    width = fmt.width,
+                    height = fmt.height,
+                    codecs = fmt.codecs,
+                    frameRate = fmt.frameRate,
+                    id = fmt.id,
+                    isSelected = group.isTrackSelected(i),
+                ),
+            )
+        }
+    }
+
+    private fun collectAudioTracks(
+        group: Tracks.Group,
+        out: MutableList<AudioTrackInfo>,
+    ) {
+        for (i in 0 until group.length) {
+            val isSelected = group.isTrackSelected(i)
+            val info = group.getTrackFormat(i).toAudioTrackInfoDetecting(isSelected = isSelected)
+            out.add(info)
+        }
+    }
+
+    private fun collectSubtitleTracks(
+        group: Tracks.Group,
+        out: MutableList<SubtitleTrackInfo>,
+    ) {
+        for (i in 0 until group.length) {
+            val isSelected = group.isTrackSelected(i)
+            val info = group.getTrackFormat(i).toSubtitleTrackInfoDetecting(isSelected = isSelected)
+            out.add(info)
         }
     }
 
@@ -346,7 +358,7 @@ internal class PlayerInterceptor(
         }
 
     companion object {
-        private const val TAG = "StreamProbeDebug"
+        private const val TAG = "StreamProbe"
 
         @VisibleForTesting
         internal const val DROPPED_FRAME_THRESHOLD = 3

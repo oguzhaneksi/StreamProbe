@@ -12,6 +12,7 @@ import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
 import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.SubtitleKind
+import java.util.Locale
 
 /**
  * A single row in the rendition list — handles video, audio and subtitle items.
@@ -114,12 +115,7 @@ internal class RenditionItemView(
         val topParts = mutableListOf<String>()
         val displayName =
             info.label
-                ?: info.language?.let {
-                    java.util.Locale
-                        .forLanguageTag(it)
-                        .displayLanguage
-                        .takeIf { l -> l.isNotBlank() }
-                }
+                ?: info.language?.let { resolveDisplayName(it) }
         if (!displayName.isNullOrBlank()) topParts += displayName
         val channels =
             when (info.channelCount) {
@@ -143,12 +139,7 @@ internal class RenditionItemView(
         val topParts = mutableListOf<String>()
         val displayName =
             info.label
-                ?: info.language?.let {
-                    java.util.Locale
-                        .forLanguageTag(it)
-                        .displayLanguage
-                        .takeIf { l -> l.isNotBlank() }
-                }
+                ?: info.language?.let { resolveDisplayName(it) }
         if (!displayName.isNullOrBlank()) topParts += displayName
         if (info.kind == SubtitleKind.CC) topParts += "(CC)"
         topLine.text = topParts.joinToString("  ").ifBlank { "Subtitle" }
@@ -166,4 +157,7 @@ internal class RenditionItemView(
     }
 
     private fun dp(value: Float) = context.dp(value)
+
+    private fun resolveDisplayName(languageTag: String): String? =
+        Locale.forLanguageTag(languageTag).displayLanguage.takeIf { it.isNotBlank() }
 }
