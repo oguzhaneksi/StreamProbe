@@ -203,8 +203,8 @@ Coarse milestones. Each will be broken down into a TODO checklist as work begins
 - **M6 — Background Error Tracking** ✅: Exposing silent, non-fatal background errors — segment load failures (HTTP 404/5xx), video codec errors (`onVideoCodecError`), audio codec errors (`onAudioCodecError`), dropped frame bursts (`onDroppedVideoFrames`), and audio sink errors (`onAudioSinkError`) — as a real-time Errors view in the overlay, reachable via a header `⚠ N` indicator.
 - **M7 — Audio & Subtitle Tracks** ✅: Audio/subtitle rendition enumeration (HLS muxed sources included) + active audio/subtitle overlay; ABR switch events expanded to sealed `TrackSwitchEvent` covering video, audio and subtitle switches.
 - **M8 — DRM Monitoring** *(Planned)*: Capturing DRM session lifecycle events, license loading latency, Widevine/PlayReady statuses, and DRM-specific errors.
-- **M9 — SSAI & Timeline Metadata** *(Planned)*: Listening to `onMetadata` for SCTE-35 and ID3 tags to visually distinguish Server-Side Ad Insertion (SSAI) ad breaks from main content.
-- **M10 — TTFB & Advanced Network Metrics** *(Planned)*: True time-to-first-byte capture via a `MediaSource.Factory` wrapper and a `NetworkInspector` abstraction supporting OkHttp, Cronet, and HttpEngine adapters.
+- **M9 — TTFB & Advanced Network Metrics** *(Planned)*: True time-to-first-byte capture via a `MediaSource.Factory` wrapper and a `NetworkInspector` abstraction supporting OkHttp, Cronet, and HttpEngine adapters.
+- **M10 — SSAI & Timeline Metadata** *(Planned)*: Listening to `onMetadata` for SCTE-35 and ID3 tags to visually distinguish Server-Side Ad Insertion (SSAI) ad breaks from main content.
 
 ---
 
