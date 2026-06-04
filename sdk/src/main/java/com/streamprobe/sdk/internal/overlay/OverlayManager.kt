@@ -37,13 +37,14 @@ import kotlinx.coroutines.launch
 internal class OverlayManager(
     private val sessionStore: SessionStore,
 ) {
-    private enum class ViewMode { TRACKS, SEGMENTS, SWITCHES, ERRORS }
+    private enum class ViewMode { TRACKS, SEGMENTS, SWITCHES, DRM, ERRORS }
 
     private var overlayView: OverlayPanelView? = null
     private var scope: CoroutineScope? = null
     private var renditionAdapter: RenditionListAdapter? = null
     private var segmentAdapter: SegmentTimelineAdapter? = null
     private var switchAdapter: SwitchTimelineAdapter? = null
+    private var drmAdapter: DrmTimelineAdapter? = null
     private var errorAdapter: ErrorTimelineAdapter? = null
     private var isCollapsed = false
     private var viewMode = ViewMode.TRACKS
@@ -72,11 +73,13 @@ internal class OverlayManager(
         renditionAdapter = RenditionListAdapter()
         segmentAdapter = SegmentTimelineAdapter()
         switchAdapter = SwitchTimelineAdapter()
+        drmAdapter = DrmTimelineAdapter()
         errorAdapter = ErrorTimelineAdapter()
         overlay.trackList.layoutManager = LinearLayoutManager(overlay.context)
 
         attachAutoScrollToEnd(overlay.trackList, segmentAdapter!!)
         attachAutoScrollToEnd(overlay.trackList, switchAdapter!!)
+        attachAutoScrollToEnd(overlay.trackList, drmAdapter!!)
         attachAutoScrollToEnd(overlay.trackList, errorAdapter!!)
 
         setupDrag(overlay)
@@ -92,6 +95,7 @@ internal class OverlayManager(
         renditionAdapter = null
         segmentAdapter = null
         switchAdapter = null
+        drmAdapter = null
         errorAdapter = null
 
         overlayView?.let { view ->
@@ -147,7 +151,7 @@ internal class OverlayManager(
         isLandscape: Boolean,
     ): Int {
         val density = activity.resources.displayMetrics.density
-        return ((if (isLandscape) 440 else 310) * density).toInt()
+        return ((if (isLandscape) 540 else 310) * density).toInt()
     }
 
     // ── Drag ────────────────────────────────────────────────────────────────
@@ -236,6 +240,11 @@ internal class OverlayManager(
             applyViewMode(overlay, viewMode)
         }
 
+        overlay.drmChip.setOnClickListener {
+            viewMode = ViewMode.DRM
+            applyViewMode(overlay, viewMode)
+        }
+
         setupErrorIndicator(overlay)
     }
 
@@ -286,6 +295,7 @@ internal class OverlayManager(
         overlay.tracksChip.isChecked = mode == ViewMode.TRACKS
         overlay.segmentsChip.isChecked = mode == ViewMode.SEGMENTS
         overlay.switchesChip.isChecked = mode == ViewMode.SWITCHES
+        overlay.drmChip.isChecked = mode == ViewMode.DRM
 
         // Show chip row or errors header
         val chipRowVisibility = if (isErrors) View.GONE else View.VISIBLE
@@ -296,6 +306,7 @@ internal class OverlayManager(
             overlay.tracksChip.visibility = chipRowVisibility
             overlay.segmentsChip.visibility = chipRowVisibility
             overlay.switchesChip.visibility = chipRowVisibility
+            overlay.drmChip.visibility = chipRowVisibility
         }
         overlay.errorsViewHeader.visibility = if (isErrors) View.VISIBLE else View.GONE
 
@@ -304,6 +315,7 @@ internal class OverlayManager(
                 ViewMode.TRACKS -> renditionAdapter
                 ViewMode.SEGMENTS -> segmentAdapter
                 ViewMode.SWITCHES -> switchAdapter
+                ViewMode.DRM -> drmAdapter
                 ViewMode.ERRORS -> errorAdapter
             }
         if (mode == ViewMode.ERRORS) {
@@ -381,6 +393,7 @@ internal class OverlayManager(
             }
         }
 
+        observeDrm(overlay)
         observePlaybackErrors(overlay)
     }
 
@@ -405,6 +418,32 @@ internal class OverlayManager(
                         }
                     renditionAdapter?.submitList(items)
                 }
+            }
+        }
+    }
+
+    private fun observeDrm(overlay: OverlayPanelView) {
+        scope?.launch {
+            sessionStore.drmSessionEvents.collect { events ->
+                drmAdapter?.submitList(events)
+                val hasDrm = events.isNotEmpty()
+                overlay.drmChip.visibility = if (hasDrm) View.VISIBLE else View.GONE
+                overlay.drmSectionLabel.visibility = if (hasDrm) View.VISIBLE else View.GONE
+                overlay.drmStatusView.visibility = if (hasDrm) View.VISIBLE else View.GONE
+                if (!hasDrm) {
+                    if (viewMode == ViewMode.DRM) {
+                        viewMode = ViewMode.TRACKS
+                        applyViewMode(overlay, viewMode)
+                    }
+                    if (previousViewMode == ViewMode.DRM) {
+                        previousViewMode = ViewMode.TRACKS
+                    }
+                }
+            }
+        }
+        scope?.launch {
+            sessionStore.currentDrmState.collect { drmInfo ->
+                overlay.drmStatusView.text = DrmFormatters.formatDrmStatus(drmInfo)
             }
         }
     }

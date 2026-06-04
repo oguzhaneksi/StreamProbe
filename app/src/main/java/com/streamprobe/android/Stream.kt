@@ -1,6 +1,8 @@
 package com.streamprobe.android
 
+import androidx.media3.common.C
 import androidx.media3.common.MimeTypes
+import java.util.UUID
 
 enum class StreamType {
     MP4,
@@ -8,11 +10,17 @@ enum class StreamType {
     DASH,
 }
 
+data class DrmConfig(
+    val licenseUrl: String,
+    val schemeUuid: UUID = C.WIDEVINE_UUID,
+)
+
 data class Stream(
     val title: String,
     val url: String,
     val type: StreamType,
     val mimeType: String? = null,
+    val drmConfig: DrmConfig? = null,
 )
 
 val defaultStreams =
@@ -64,5 +72,12 @@ val defaultStreams =
             url = "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_adv_example_hevc/master.m3u8",
             type = StreamType.HLS,
             mimeType = MimeTypes.APPLICATION_M3U8,
+        ),
+        Stream(
+            title = "Shaka Angel One — Widevine (DASH)",
+            url = "https://storage.googleapis.com/shaka-demo-assets/angel-one-widevine/dash.mpd",
+            type = StreamType.DASH,
+            mimeType = MimeTypes.APPLICATION_MPD,
+            drmConfig = DrmConfig(licenseUrl = "https://cwip-shaka-proxy.appspot.com/no_auth"),
         ),
     )

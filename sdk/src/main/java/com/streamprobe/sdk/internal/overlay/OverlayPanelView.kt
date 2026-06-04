@@ -54,6 +54,9 @@ internal class OverlayPanelView(
     val tracksChip: OverlayFilterChip
     val segmentsChip: OverlayFilterChip
     val switchesChip: OverlayFilterChip
+    val drmChip: OverlayFilterChip
+    val drmSectionLabel: TextView
+    val drmStatusView: TextView
 
     /** Set by [OverlayManager] to be notified when the device orientation changes. */
     var onOrientationChanged: (() -> Unit)? = null
@@ -188,6 +191,29 @@ internal class OverlayPanelView(
                 text = "Switches"
                 isChecked = false
             }
+        drmChip =
+            OverlayFilterChip(context).apply {
+                text = "DRM"
+                isChecked = false
+                visibility = GONE
+            }
+        drmSectionLabel =
+            TextView(context).apply {
+                text = "DRM"
+                setTextColor("#80FFFFFF".toColorInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+                typeface = Typeface.defaultFromStyle(Typeface.BOLD)
+                letterSpacing = 0.1f
+                visibility = GONE
+            }
+        drmStatusView =
+            TextView(context).apply {
+                text = "—"
+                setTextColor(Color.WHITE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                visibility = GONE
+            }
         val chipRow =
             LinearLayout(context).apply {
                 orientation = HORIZONTAL
@@ -201,6 +227,12 @@ internal class OverlayPanelView(
                 addView(segmentsChip, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
                 addView(
                     switchesChip,
+                    LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
+                        it.marginStart = dp(6f).toInt()
+                    },
+                )
+                addView(
+                    drmChip,
                     LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
                         it.marginStart = dp(6f).toInt()
                     },
@@ -301,6 +333,8 @@ internal class OverlayPanelView(
         body.addView(activeAudioView, marginBottom = dp(8f).toInt())
         body.addView(sectionLabel(context, "SUBTITLE"), marginBottom = dp(4f).toInt())
         body.addView(activeSubtitleView, marginBottom = dp(12f).toInt())
+        body.addView(drmSectionLabel, marginBottom = dp(4f).toInt())
+        body.addView(drmStatusView, marginBottom = dp(12f).toInt())
         body.addView(sectionLabel(context, "LATEST SEGMENT"), marginBottom = dp(4f).toInt())
         body.addView(latestSegmentView, marginBottom = dp(8f).toInt())
         body.addView(sectionLabel(context, "CDN STATUS"), marginBottom = dp(4f).toInt())
@@ -322,6 +356,8 @@ internal class OverlayPanelView(
         leftCol.addView(activeAudioView, marginBottom = dp(8f).toInt())
         leftCol.addView(sectionLabel(context, "SUBTITLE"), marginBottom = dp(4f).toInt())
         leftCol.addView(activeSubtitleView, marginBottom = dp(8f).toInt())
+        leftCol.addView(drmSectionLabel, marginBottom = dp(4f).toInt())
+        leftCol.addView(drmStatusView, marginBottom = dp(8f).toInt())
         leftCol.addView(sectionLabel(context, "LATEST SEGMENT"), marginBottom = dp(4f).toInt())
         leftCol.addView(latestSegmentView, marginBottom = dp(8f).toInt())
         leftCol.addView(sectionLabel(context, "CDN STATUS"), marginBottom = dp(4f).toInt())

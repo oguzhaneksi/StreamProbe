@@ -36,6 +36,7 @@ internal class PlayerInterceptor(
 ) : Player.Listener,
     AnalyticsListener {
     private var player: ExoPlayer? = null
+    private val drmTracker = DrmSessionTracker(sessionStore)
     private var lastVideoTrack: ActiveTrackInfo? = null
     private var lastAudioTrack: AudioTrackInfo? = null
     private var lastSubtitleTrack: SubtitleTrackInfo? = null
@@ -47,12 +48,14 @@ internal class PlayerInterceptor(
         this.player = player
         player.addListener(this)
         player.addAnalyticsListener(this)
+        player.addAnalyticsListener(drmTracker)
 
         // Probe immediately in case the player is already prepared.
         probeTracks(player)
     }
 
     fun detach() {
+        player?.removeAnalyticsListener(drmTracker)
         player?.removeAnalyticsListener(this)
         player?.removeListener(this)
         player = null
@@ -60,6 +63,7 @@ internal class PlayerInterceptor(
         lastAudioTrack = null
         lastSubtitleTrack = null
         pendingVideoSwitchReason = SwitchReason.INITIAL
+        drmTracker.reset()
     }
 
     // ── Player.Listener callbacks ───────────────────────────────────────────
@@ -366,7 +370,7 @@ internal class PlayerInterceptor(
         }
 
     companion object {
-        private const val TAG = "StreamProbe"
+        private const val TAG = "[StreamProbe] PlayerInterceptor"
 
         @VisibleForTesting
         internal const val DROPPED_FRAME_THRESHOLD = 3

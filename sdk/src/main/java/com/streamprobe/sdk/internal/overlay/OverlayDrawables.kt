@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import androidx.core.graphics.toColorInt
 import com.streamprobe.sdk.model.CacheStatus
+import com.streamprobe.sdk.model.DrmSessionEvent
 import com.streamprobe.sdk.model.ErrorCategory
 import kotlin.math.roundToInt
 
@@ -90,6 +91,21 @@ internal object OverlayDrawables {
                     ErrorCategory.DROPPED_FRAMES -> "#FFD60A".toColorInt() // Yellow
                     ErrorCategory.AUDIO_SINK_ERROR -> "#BF5AF2".toColorInt() // Purple
                     ErrorCategory.AUDIO_CODEC_ERROR -> "#30D158".toColorInt() // Green
+                    ErrorCategory.DRM_ERROR -> "#64D2FF".toColorInt() // Cyan
+                },
+            )
+        }
+
+    /** Oval dot color-coded by [DrmSessionEvent] subtype. */
+    fun drmEventDot(event: DrmSessionEvent): GradientDrawable =
+        GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(
+                when (event) {
+                    is DrmSessionEvent.SessionAcquired -> "#0A84FF".toColorInt() // Blue
+                    is DrmSessionEvent.KeysLoaded -> "#30D158".toColorInt() // Green
+                    is DrmSessionEvent.SessionReleased -> "#8E8E93".toColorInt() // Gray
+                    is DrmSessionEvent.SessionError -> "#64D2FF".toColorInt() // Cyan (matches errors-tab)
                 },
             )
         }

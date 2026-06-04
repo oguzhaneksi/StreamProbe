@@ -3,6 +3,8 @@ package com.streamprobe.sdk.internal
 import androidx.annotation.VisibleForTesting
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
+import com.streamprobe.sdk.model.DrmSessionEvent
+import com.streamprobe.sdk.model.DrmStatusInfo
 import com.streamprobe.sdk.model.ErrorCategory
 import com.streamprobe.sdk.model.ErrorDetail
 import com.streamprobe.sdk.model.PlaybackErrorEvent
@@ -44,6 +46,12 @@ internal class SessionStore {
 
     private val _playbackErrors = MutableStateFlow<List<PlaybackErrorEvent>>(emptyList())
     val playbackErrors: StateFlow<List<PlaybackErrorEvent>> = _playbackErrors.asStateFlow()
+
+    private val _drmSessionEvents = MutableStateFlow<List<DrmSessionEvent>>(emptyList())
+    val drmSessionEvents: StateFlow<List<DrmSessionEvent>> = _drmSessionEvents.asStateFlow()
+
+    private val _currentDrmState = MutableStateFlow<DrmStatusInfo?>(null)
+    val currentDrmState: StateFlow<DrmStatusInfo?> = _currentDrmState.asStateFlow()
 
     fun updateTrackList(info: TrackListInfo) {
         _trackListInfo.value = info
@@ -117,6 +125,16 @@ internal class SessionStore {
         _playbackErrors.value = emptyList()
     }
 
+    fun addDrmSessionEvent(event: DrmSessionEvent) {
+        _drmSessionEvents.update { current ->
+            if (current.size >= MAX_DRM_EVENTS) current.drop(1) + event else current + event
+        }
+    }
+
+    fun updateDrmState(info: DrmStatusInfo?) {
+        _currentDrmState.value = info
+    }
+
     fun clear() {
         _trackListInfo.value = null
         _activeTrack.value = null
@@ -126,6 +144,8 @@ internal class SessionStore {
         _latestSegmentMetric.value = null
         _trackSwitchEvents.value = emptyList()
         _playbackErrors.value = emptyList()
+        _drmSessionEvents.value = emptyList()
+        _currentDrmState.value = null
     }
 
     companion object {
@@ -134,6 +154,9 @@ internal class SessionStore {
         @VisibleForTesting
         internal const val MAX_TRACK_SWITCH_EVENTS = 200
         private const val MAX_PLAYBACK_ERRORS = 200
+
+        @VisibleForTesting
+        internal const val MAX_DRM_EVENTS = 200
 
         @VisibleForTesting
         internal const val DROPPED_FRAMES_DEDUP_WINDOW_MS = 5_000L

@@ -186,6 +186,7 @@ internal object OverlayFormatters {
             ErrorCategory.DROPPED_FRAMES -> "FRAMES"
             ErrorCategory.AUDIO_SINK_ERROR -> "AUDIO"
             ErrorCategory.AUDIO_CODEC_ERROR -> "ACODEC"
+            ErrorCategory.DRM_ERROR -> "DRM"
         }
 
     /**
