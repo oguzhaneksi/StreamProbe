@@ -28,4 +28,10 @@ sealed interface ErrorDetail {
         /** Wall-clock time of the most recent burst that was merged into this entry. */
         val lastUpdateMs: Long,
     ) : ErrorDetail
+
+    /** DRM error context — attached to DRM_ERROR events. */
+    data class DrmErrorInfo(
+        val scheme: DrmScheme,
+        val errorClass: String,
+    ) : ErrorDetail
 }

@@ -69,15 +69,20 @@ internal class PlayerManager(
             DefaultMediaSourceFactory(appContext).setDataSourceFactory(dataSourceFactory)
 
         val mediaItem =
-            if (stream.mimeType != null) {
-                MediaItem
-                    .Builder()
-                    .setUri(stream.url)
-                    .setMimeType(stream.mimeType)
-                    .build()
-            } else {
-                MediaItem.fromUri(stream.url)
-            }
+            MediaItem
+                .Builder()
+                .setUri(stream.url)
+                .apply { stream.mimeType?.let { setMimeType(it) } }
+                .apply {
+                    stream.drmConfig?.let { drm ->
+                        setDrmConfiguration(
+                            MediaItem.DrmConfiguration
+                                .Builder(drm.schemeUuid)
+                                .setLicenseUri(drm.licenseUrl)
+                                .build(),
+                        )
+                    }
+                }.build()
 
         val exoPlayer =
             ExoPlayer

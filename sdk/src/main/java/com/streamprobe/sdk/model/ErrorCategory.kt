@@ -1,7 +1,8 @@
 package com.streamprobe.sdk.model
 
 enum class ErrorCategory {
-    /** Segment / manifest load failure (onLoadError). DRM is handled in M8. */
+    /** Segment / manifest load failure (onLoadError). DRM errors are captured via
+     onDrmSessionManagerError, not here. */
     LOAD_ERROR,
 
     /** Hardware/software video codec error (onVideoCodecError). */
@@ -15,4 +16,7 @@ enum class ErrorCategory {
 
     /** Hardware/software audio codec error (onAudioCodecError). */
     AUDIO_CODEC_ERROR,
+
+    /** DRM session manager error (onDrmSessionManagerError). */
+    DRM_ERROR,
 }

@@ -111,8 +111,29 @@ private fun StreamItem(
                 modifier = Modifier.weight(1f),
             )
             Spacer(modifier = Modifier.width(12.dp))
+            if (stream.drmConfig != null) {
+                DrmBadge()
+                Spacer(modifier = Modifier.width(6.dp))
+            }
             StreamTypeBadge(type = stream.type)
         }
+    }
+}
+
+@Composable
+private fun DrmBadge() {
+    val color = Color(0xFF64D2FF)
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = color.copy(alpha = 0.2f),
+    ) {
+        Text(
+            text = "DRM",
+            color = color,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+        )
     }
 }
 
