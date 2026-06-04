@@ -39,7 +39,7 @@ internal class DrmTimelineAdapter : ListAdapter<DrmSessionEvent, DrmTimelineAdap
                 override fun areItemsTheSame(
                     old: DrmSessionEvent,
                     new: DrmSessionEvent,
-                ) = old.timestampMs == new.timestampMs && old::class == new::class
+                ) = old.id == new.id
 
                 override fun areContentsTheSame(
                     old: DrmSessionEvent,

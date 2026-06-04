@@ -49,6 +49,6 @@ internal object DrmSchemeDetector {
             DrmSession.STATE_OPENED_WITH_KEYS -> DrmSessionState.OPENED_WITH_KEYS
             DrmSession.STATE_RELEASED -> DrmSessionState.RELEASED
             DrmSession.STATE_ERROR -> DrmSessionState.ERROR
-            else -> DrmSessionState.OPENING
+            else -> DrmSessionState.UNKNOWN
         }
 }

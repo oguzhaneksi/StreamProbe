@@ -38,6 +38,7 @@ internal object DrmFormatters {
             DrmSessionState.OPENED_WITH_KEYS -> "Keys Loaded"
             DrmSessionState.RELEASED -> "Released"
             DrmSessionState.ERROR -> "Error"
+            DrmSessionState.UNKNOWN -> "Unknown"
         }
 
     fun formatDrmEventLabel(event: DrmSessionEvent): String =

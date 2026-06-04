@@ -6,4 +6,7 @@ enum class DrmSessionState {
     OPENED_WITH_KEYS,
     RELEASED,
     ERROR,
+
+    /** Received an unrecognised DrmSession.State integer — safe fallback. */
+    UNKNOWN,
 }

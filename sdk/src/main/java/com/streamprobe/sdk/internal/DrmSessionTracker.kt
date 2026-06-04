@@ -64,9 +64,12 @@ internal class DrmSessionTracker(
 
     override fun onDrmSessionReleased(eventTime: AnalyticsListener.EventTime) {
         val now = System.currentTimeMillis()
-        sessionStore.addDrmSessionEvent(DrmSessionEvent.SessionReleased(now, currentDrmScheme))
+        val releasedScheme = currentDrmScheme
+        currentDrmScheme = DrmScheme.UNKNOWN
+        lastDrmAcquireTimestampMs = 0L
+        sessionStore.addDrmSessionEvent(DrmSessionEvent.SessionReleased(now, releasedScheme))
         sessionStore.updateDrmState(null)
-        Log.d(TAG, "DRM session released: ${currentDrmScheme.name}")
+        Log.d(TAG, "DRM session released: ${releasedScheme.name}")
     }
 
     override fun onDrmSessionManagerError(
@@ -110,6 +113,6 @@ internal class DrmSessionTracker(
     }
 
     private companion object {
-        const val TAG = "StreamProbe"
+        const val TAG = "[StreamProbe] DrmSessionTracker"
     }
 }

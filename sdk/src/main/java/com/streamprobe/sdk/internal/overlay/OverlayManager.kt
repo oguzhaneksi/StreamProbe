@@ -430,9 +430,14 @@ internal class OverlayManager(
                 overlay.drmChip.visibility = if (hasDrm) View.VISIBLE else View.GONE
                 overlay.drmSectionLabel.visibility = if (hasDrm) View.VISIBLE else View.GONE
                 overlay.drmStatusView.visibility = if (hasDrm) View.VISIBLE else View.GONE
-                if (!hasDrm && viewMode == ViewMode.DRM) {
-                    viewMode = ViewMode.TRACKS
-                    applyViewMode(overlay, viewMode)
+                if (!hasDrm) {
+                    if (viewMode == ViewMode.DRM) {
+                        viewMode = ViewMode.TRACKS
+                        applyViewMode(overlay, viewMode)
+                    }
+                    if (previousViewMode == ViewMode.DRM) {
+                        previousViewMode = ViewMode.TRACKS
+                    }
                 }
             }
         }

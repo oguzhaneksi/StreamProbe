@@ -56,8 +56,8 @@ class DrmSchemeDetectorTest {
     }
 
     @Test
-    fun `mapDrmState defaults to OPENING for unknown state`() {
-        assertEquals(DrmSessionState.OPENING, DrmSchemeDetector.mapDrmState(-1))
+    fun `mapDrmState defaults to UNKNOWN for unrecognised state`() {
+        assertEquals(DrmSessionState.UNKNOWN, DrmSchemeDetector.mapDrmState(-1))
     }
 
     // ── detectScheme ─────────────────────────────────────────────────────────

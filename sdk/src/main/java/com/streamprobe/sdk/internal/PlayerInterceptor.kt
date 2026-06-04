@@ -370,7 +370,7 @@ internal class PlayerInterceptor(
         }
 
     companion object {
-        private const val TAG = "StreamProbe"
+        private const val TAG = "[StreamProbe] PlayerInterceptor"
 
         @VisibleForTesting
         internal const val DROPPED_FRAME_THRESHOLD = 3

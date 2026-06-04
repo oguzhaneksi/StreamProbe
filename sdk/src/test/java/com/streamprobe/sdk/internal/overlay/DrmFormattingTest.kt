@@ -59,6 +59,7 @@ class DrmFormattingTest {
         assertEquals("Keys Loaded", DrmFormatters.formatDrmSessionState(DrmSessionState.OPENED_WITH_KEYS))
         assertEquals("Released", DrmFormatters.formatDrmSessionState(DrmSessionState.RELEASED))
         assertEquals("Error", DrmFormatters.formatDrmSessionState(DrmSessionState.ERROR))
+        assertEquals("Unknown", DrmFormatters.formatDrmSessionState(DrmSessionState.UNKNOWN))
     }
 
     // ── formatDrmEventLabel ──────────────────────────────────────────────────
