@@ -145,9 +145,9 @@ player.release()
 
 ## Debug Overlay Details
 
-Once attached, the StreamProbe overlay appears as a draggable panel. It displays the **currently active video track**, **active audio track**, **active subtitle track**, the **latest segment latency**, and the **CDN Cache state** (Hit/Miss) at the top.
+Once attached, the StreamProbe overlay appears as a draggable panel. It displays the **currently active video track**, **active audio track**, **active subtitle track**, **DRM status** (scheme · state · license latency, hidden for clear streams), the **latest segment latency**, and the **CDN Cache state** (Hit/Miss) at the top.
 
-Three filter-chip views (Tracks / Segments / Switches) plus a dedicated **Errors view** reachable from the header indicator provide a complete picture of what the player is doing at any moment.
+Four filter-chip views (Tracks / Segments / Switches / DRM) plus a dedicated **Errors view** reachable from the header indicator provide a complete picture of what the player is doing at any moment. The DRM chip is hidden automatically when no DRM events have been recorded.
 
 ### 1. Tracks
 This view displays all parsed renditions from the HLS `.m3u8` or DASH `.mpd` manifest, grouped into three sections: **VIDEO**, **AUDIO**, and **SUBTITLES**.
@@ -172,17 +172,29 @@ A chronological timeline of every track switch ExoPlayer makes during the sessio
 
 The Switches log is capped at **200 entries**; older events are dropped as new ones arrive.
 
-### 4. Errors
+### 4. DRM
+
+A chronological timeline of DRM session lifecycle events for protected streams. The tab and its summary row are hidden automatically for clear (non-DRM) streams and appear as soon as the first DRM event is recorded.
+
+- **Event types and colour coding**: `Session Acquired` (blue), `Keys Loaded` (green), `Session Released` (grey), `Error` (cyan).
+- **Scheme badge**: each row shows a compact scheme label — `WV` (Widevine), `PR` (PlayReady), `CK` (ClearKey), or `DRM` (unknown).
+- **License latency**: `Keys Loaded` rows display the measured time from session acquire to key delivery (e.g. `312ms`). Latency may be inflated on key rotation events.
+- **Summary row**: the overlay header shows a live DRM line such as `Widevine  ·  Keys Loaded  ·  312ms`; cleared when the session is released.
+
+The DRM event list is capped at **200 entries**. DRM session manager errors are also forwarded to the **Errors** tab as `DRM` entries so all errors remain visible in one place.
+
+### 5. Errors
 
 A dedicated view for silent, non-fatal errors that ExoPlayer absorbs without triggering a fatal `PlaybackException`. Activated via the **`⚠ N`** pill indicator in the overlay header.
 
 - **`⚠ N` header indicator**: appears as soon as the first error is captured, with a count of total errors. Tap to open the Errors view from any active tab.
-- **Five captured categories**:
+- **Six captured categories**:
   - `LOAD` (red) — segment or manifest HTTP errors (`onLoadError` for `DATA_TYPE_MEDIA` / `DATA_TYPE_MANIFEST`).
   - `CODEC` (orange) — video codec failures (`onVideoCodecError`).
   - `FRAMES` (yellow) — dropped video frame bursts ≥ 3 frames (`onDroppedVideoFrames`).
   - `AUDIO` (purple) — audio sink errors (`onAudioSinkError`).
   - `ACODEC` (green) — audio codec failures (`onAudioCodecError`).
+  - `DRM` (cyan) — DRM session manager errors (`onDrmSessionManagerError`); also surfaced in the DRM tab.
 - **Back / Clear / Share**: the errors view header has a ← Back button to restore the previous tab, a Clear button to empty the list, and a ↗ Share button that fires an `ACTION_SEND` intent with the full error list as plain text.
 - **Inline expand**: each row shows a `▾`/`▴` chevron to signal tap-to-expand; tapping reveals the full URI, exception text, and absolute timestamp.
 - **Dropped-frames dedup**: consecutive `DROPPED_FRAMES` events within a 5-second window are merged into a single entry — the message updates to `"X frames dropped (N bursts)"` so slow devices don't flood the list.
@@ -202,7 +214,7 @@ Coarse milestones. Each will be broken down into a TODO checklist as work begins
 - **M5 — Distribution** ✅: Published to Maven Central (`io.github.oguzhaneksi:streamprobe:0.3.2`).
 - **M6 — Background Error Tracking** ✅: Exposing silent, non-fatal background errors — segment load failures (HTTP 404/5xx), video codec errors (`onVideoCodecError`), audio codec errors (`onAudioCodecError`), dropped frame bursts (`onDroppedVideoFrames`), and audio sink errors (`onAudioSinkError`) — as a real-time Errors view in the overlay, reachable via a header `⚠ N` indicator.
 - **M7 — Audio & Subtitle Tracks** ✅: Audio/subtitle rendition enumeration (HLS muxed sources included) + active audio/subtitle overlay; ABR switch events expanded to sealed `TrackSwitchEvent` covering video, audio and subtitle switches.
-- **M8 — DRM Monitoring** *(Planned)*: Capturing DRM session lifecycle events, license loading latency, Widevine/PlayReady statuses, and DRM-specific errors.
+- **M8 — DRM Monitoring** ✅: DRM session lifecycle tracking (Widevine, PlayReady, ClearKey) via a dedicated `DrmSessionTracker` analytics listener. Captures session acquire/release events, license key load latency, and DRM manager errors. A live **DRM** summary row appears in the overlay header; a **DRM** chip reveals a chronological DRM event timeline. DRM errors are dual-surfaced in both the DRM tab and the Errors tab.
 - **M9 — TTFB & Advanced Network Metrics** *(Planned)*: True time-to-first-byte capture via a `MediaSource.Factory` wrapper and a `NetworkInspector` abstraction supporting OkHttp, Cronet, and HttpEngine adapters.
 - **M10 — SSAI & Timeline Metadata** *(Planned)*: Listening to `onMetadata` for SCTE-35 and ID3 tags to visually distinguish Server-Side Ad Insertion (SSAI) ad breaks from main content.
 

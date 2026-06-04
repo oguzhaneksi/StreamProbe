@@ -104,7 +104,9 @@ ExoPlayer
 
 | File | Role |
 |------|------|
-| `internal/PlayerInterceptor.kt` | Implements both `Player.Listener` and `AnalyticsListener`. Captures track selections, segment load completions, and playback errors; maps Media3 `Format` to SDK models via `FormatExtensions`; writes to `SessionStore`. |
+| `internal/PlayerInterceptor.kt` | Implements both `Player.Listener` and `AnalyticsListener`. Captures track selections, segment load completions, and playback errors; maps Media3 `Format` to SDK models via `FormatExtensions`; writes to `SessionStore`. Also registers/unregisters `DrmSessionTracker` on `attach`/`detach`. |
+| `internal/DrmSessionTracker.kt` | Separate `AnalyticsListener` handling DRM callbacks only (`onDrmSessionAcquired`, `onDrmKeysLoaded`, `onDrmSessionReleased`, `onDrmSessionManagerError`). Keeps `PlayerInterceptor`'s function count within detekt's `TooManyFunctions` limit. Measures license latency as wall-clock delta from acquire to keys-loaded. DRM errors are dual-surfaced to both `drmSessionEvents` and `playbackErrors`. |
+| `internal/DrmSchemeDetector.kt` | Pure `internal object` with no Android framework dependency. Resolves `DrmScheme` from `eventTime.timeline` (not `player.currentMediaItem` — correct during playlist transitions) and maps `DrmSession.State` integers to `DrmSessionState`. |
 | `internal/FormatExtensions.kt` | Extension functions mapping `Media3.Format` to SDK model types. `toAudioTrackInfoDetecting` infers `isMuxed` from container MIME type; `toSubtitleTrackInfoDetecting` infers `SubtitleKind` (CC vs SIDECAR) from sample MIME type. |
 | `internal/CdnHeaderParser.kt` | Parses HTTP response headers (case-insensitively) into `CdnHeaderInfo`. Detects CDN provider (Cloudflare, CloudFront, Fastly, Akamai) and cache status (HIT/MISS/STALE/BYPASS/UNKNOWN). |
 
@@ -112,16 +114,18 @@ ExoPlayer
 
 | File | Role |
 |------|------|
-| `internal/SessionStore.kt` | Thread-safe `StateFlow` store. Capped lists: 500 segment metrics, 200 switch events, 200 errors. Consecutive `DROPPED_FRAMES` events within a 5 s window are merged into one aggregated entry (stable `timestampMs` for DiffUtil). |
+| `internal/SessionStore.kt` | Thread-safe `StateFlow` store. Capped lists: 500 segment metrics, 200 switch events, 200 errors, 200 DRM events. Consecutive `DROPPED_FRAMES` events within a 5 s window are merged into one aggregated entry (stable `timestampMs` for DiffUtil). Exposes `drmSessionEvents: StateFlow<List<DrmSessionEvent>>` and `currentDrmState: StateFlow<DrmStatusInfo?>`. |
 
 #### Internal: overlay
 
 | File | Role |
 |------|------|
-| `internal/overlay/OverlayManager.kt` | Manages overlay lifecycle tied to `ComponentActivity`. Adds/removes `OverlayPanelView` via `addContentView`. Registers a `DefaultLifecycleObserver` that auto-calls `hide()` on `onDestroy`, preventing leaks. Persists `ViewMode` (TRACKS / SEGMENTS / SWITCHES / ERRORS) across orientation rebuilds. Collects `SessionStore` flows in a `CoroutineScope(SupervisorJob() + Dispatchers.Main)` that is cancelled on `hide()`. |
-| `internal/overlay/OverlayPanelView.kt` | Fully programmatic `LinearLayout` — no XML inflation, no `R` resource references. Constructs the entire header + body hierarchy in `init`. Supports portrait (vertical stack) and landscape (left stats column / right list column) layouts. Contains `BoundedRecyclerView`, an inner `RecyclerView` subclass that caps its measured height at a computed `maxHeightPx`. Forwards orientation changes to `OverlayManager` via `onOrientationChanged` callback. |
+| `internal/overlay/OverlayManager.kt` | Manages overlay lifecycle tied to `ComponentActivity`. Adds/removes `OverlayPanelView` via `addContentView`. Registers a `DefaultLifecycleObserver` that auto-calls `hide()` on `onDestroy`, preventing leaks. Persists `ViewMode` (TRACKS / SEGMENTS / SWITCHES / DRM / ERRORS) across orientation rebuilds. Collects `SessionStore` flows in a `CoroutineScope(SupervisorJob() + Dispatchers.Main)` that is cancelled on `hide()`. `observeDrm()` shows/hides the DRM chip, summary row, and DRM tab reactively. Landscape panel width is 540 dp (up from 440 dp). |
+| `internal/overlay/OverlayPanelView.kt` | Fully programmatic `LinearLayout` — no XML inflation, no `R` resource references. Constructs the entire header + body hierarchy in `init`. Supports portrait (vertical stack) and landscape (left stats column / right list column) layouts. Exposes `drmChip`, `drmSectionLabel`, and `drmStatusView` fields. Contains `BoundedRecyclerView`, an inner `RecyclerView` subclass that caps its measured height at a computed `maxHeightPx`. Forwards orientation changes to `OverlayManager` via `onOrientationChanged` callback. |
 | `internal/overlay/RenditionListAdapter.kt` | `ListAdapter` for the Tracks tab. Item type is the `RenditionListItem` sealed interface (`SectionHeader`, `Video`, `Audio`, `Subtitle`). DiffUtil identity uses `Format.id` when available, falls back to dimensions + bitrate for video and `isSameRenditionAs` for audio/subtitle. |
-| `internal/overlay/SegmentTimelineAdapter.kt` / `SwitchTimelineAdapter.kt` / `ErrorTimelineAdapter.kt` | `ListAdapter` implementations for the Segments, Switches, and Errors tabs respectively. All auto-scroll to the newest item unless the user has scrolled up. |
+| `internal/overlay/SegmentTimelineAdapter.kt` / `SwitchTimelineAdapter.kt` / `ErrorTimelineAdapter.kt` / `DrmTimelineAdapter.kt` | `ListAdapter` implementations for the Segments, Switches, Errors, and DRM tabs respectively. All auto-scroll to the newest item unless the user has scrolled up. `DrmTimelineAdapter` uses `DrmSessionEvent.id` as the DiffUtil identity key. |
+| `internal/overlay/DrmTimelineItemView.kt` | Single programmatic row for the DRM tab. Layout: index → colour-coded event dot → scheme badge → event label → latency (visible only for `KeysLoaded`) → relative timestamp. |
+| `internal/overlay/DrmFormatters.kt` | Pure formatting functions for DRM data (no Android framework dependency). `formatDrmStatus` produces the summary-panel string; `formatDrmSchemeBadge` returns the compact chip label (`WV`/`PR`/`CK`/`DRM`). |
 | `internal/overlay/OverlayFormatters.kt` | Pure formatting functions (no Android framework dependency except `Locale`). Extracted from `OverlayManager` so they can be unit-tested without Robolectric. Includes `formatErrorsForExport` for the share-errors intent. Uses a `ThreadLocal<SimpleDateFormat>` for `HH:mm:ss.SSS` formatting (API 23 compatibility; `ThreadLocal.withInitial` requires API 26). |
 
 #### Models (`model/`)
@@ -136,8 +140,12 @@ ExoPlayer
 | `ActiveTrackInfo` | Currently decoded video track (from `onVideoInputFormatChanged`). Distinct from `VariantInfo` — sourced from the decoder, not the track group. |
 | `SegmentMetric` | Per-segment timing, size, throughput, and `CdnHeaderInfo`. |
 | `TrackSwitchEvent` | Sealed interface with `VideoSwitch`, `AudioSwitch`, `SubtitleSwitch`. `SubtitleSwitch.newTrack` is nullable (null = subtitle disabled). |
-| `PlaybackErrorEvent` | Immutable error record. `categoryDetail: ErrorDetail?` carries structured data (e.g. `DroppedFrames` burst aggregation). `timestampMs` is stable across merges for DiffUtil. |
-| `ErrorCategory` | `LOAD_ERROR`, `VIDEO_CODEC_ERROR`, `DROPPED_FRAMES`, `AUDIO_SINK_ERROR`, `AUDIO_CODEC_ERROR`. |
+| `PlaybackErrorEvent` | Immutable error record. `categoryDetail: ErrorDetail?` carries structured data (e.g. `DroppedFrames` burst aggregation, `DrmErrorInfo` for DRM failures). `timestampMs` is stable across merges for DiffUtil. |
+| `ErrorCategory` | `LOAD_ERROR`, `VIDEO_CODEC_ERROR`, `DROPPED_FRAMES`, `AUDIO_SINK_ERROR`, `AUDIO_CODEC_ERROR`, `DRM_ERROR`. |
+| `DrmScheme` | `WIDEVINE`, `PLAYREADY`, `CLEARKEY`, `UNKNOWN`. |
+| `DrmSessionState` | `OPENING`, `OPENED`, `OPENED_WITH_KEYS`, `RELEASED`, `ERROR`, `UNKNOWN`. |
+| `DrmSessionEvent` | Sealed interface with four subtypes: `SessionAcquired` (scheme + initial state), `KeysLoaded` (scheme + `licenseLatencyMs`), `SessionReleased` (scheme), `SessionError` (scheme + message + detail). Each subtype carries a monotonically increasing `id` used as a stable DiffUtil key. |
+| `DrmStatusInfo` | Live DRM summary: `scheme`, `state`, `lastLicenseLatencyMs?`. Written to `SessionStore.currentDrmState` on every DRM event; drives the overlay summary row. |
 
 ### Key design decisions
 
@@ -146,6 +154,9 @@ ExoPlayer
 - **Subtitle-disabled event:** When `probeTracks` finds `foundSubtitle == null` but `lastSubtitleTrack != null`, it emits a `SubtitleSwitch(newTrack = null)` with `SwitchReason.MANUAL` to record the user turning off subtitles.
 - **`isSelected` flag:** Set directly from `Tracks.Group.isTrackSelected(i)` into model objects. Neither `OverlayManager` nor adapters perform secondary active-track comparisons.
 - **No XML in SDK:** `OverlayPanelView` and all item views are built programmatically so the SDK has no dependency on `res/` or `R` classes from the host app.
+- **DRM tracker isolation:** DRM callbacks are handled by a separate `DrmSessionTracker` `AnalyticsListener` rather than inline in `PlayerInterceptor`. This keeps `PlayerInterceptor`'s method count within detekt's `TooManyFunctions` limit (20 per class) while keeping DRM logic cohesive.
+- **DRM scheme from timeline:** `DrmSchemeDetector.detectScheme` reads from `eventTime.timeline` rather than `player.currentMediaItem` to avoid a race during playlist transitions where `currentMediaItem` may already point to the next item.
+- **DRM dual surface:** `onDrmSessionManagerError` writes to both `drmSessionEvents` (DRM tab) and `playbackErrors` (Errors tab). There is a single write path — no duplication in the store or UI.
 
 ### Module: `app/`
 

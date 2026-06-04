@@ -127,13 +127,14 @@ Silent, non-fatal errors that ExoPlayer absorbs are captured and surfaced in a d
 
 | Category | Trigger | Colour |
 |---|---|---|
-| `LOAD_ERROR` | `onLoadError` for `DATA_TYPE_MEDIA` or `DATA_TYPE_MANIFEST`; `wasCanceled=true` is filtered out; `DATA_TYPE_DRM` is deferred to M8 | Red |
+| `LOAD_ERROR` | `onLoadError` for `DATA_TYPE_MEDIA` or `DATA_TYPE_MANIFEST`; `wasCanceled=true` is filtered out | Red |
 | `VIDEO_CODEC_ERROR` | `onVideoCodecError` | Orange |
 | `DROPPED_FRAMES` | `onDroppedVideoFrames` with ≥ 3 frames dropped | Yellow |
 | `AUDIO_SINK_ERROR` | `onAudioSinkError` | Purple |
 | `AUDIO_CODEC_ERROR` | `onAudioCodecError` | Green |
+| `DRM_ERROR` | `onDrmSessionManagerError`; dual-surfaced — also recorded in the DRM event timeline | Cyan |
 
-**Header indicator** — a `⚠ N` pill appears in the overlay header (between the title and the collapse arrow) as soon as the first error is captured. Tapping it switches the body to the Errors view; if the body is collapsed, it auto-expands first.
+**Header indicator** — a `⚠ N` pill appears in the overlay header as soon as the first error is captured. Tapping it switches the body to the Errors view; if the body is collapsed, it auto-expands first.
 
 **Errors view** — replaces the chip row with a back/title/clear/share header and renders a chronological error timeline. Each row shows index, category dot, category label, one-line message, relative timestamp, and a `▾`/`▴` chevron that signals expand/collapse affordance. Tapping a row expands an inline detail container showing the full message, exception text, and absolute wall-clock timestamp.
 
@@ -203,6 +204,38 @@ sealed interface TrackSwitchEvent
 
 ---
 
+### 3.10 DRM Monitoring
+
+Tracks DRM session lifecycle events for Widevine, PlayReady, and ClearKey streams via a dedicated `DrmSessionTracker` `AnalyticsListener` registered alongside the main `PlayerInterceptor`.
+
+**Captured events (`DrmSessionEvent` sealed interface):**
+
+| Subtype | Trigger | Colour |
+|---|---|---|
+| `SessionAcquired` | `onDrmSessionAcquired` | Blue |
+| `KeysLoaded` | `onDrmKeysLoaded` | Green |
+| `SessionReleased` | `onDrmSessionReleased` | Grey |
+| `SessionError` | `onDrmSessionManagerError` | Cyan |
+
+All subtypes carry `id` (monotonic, stable DiffUtil key), `timestampMs`, and `scheme` (`WIDEVINE` / `PLAYREADY` / `CLEARKEY` / `UNKNOWN`). `KeysLoaded` additionally carries `licenseLatencyMs` — the wall-clock delta from `onDrmSessionAcquired` to `onDrmKeysLoaded`. Latency may be inflated on key rotation (informational).
+
+**Scheme detection** — resolved from `eventTime.timeline.getWindow(...).mediaItem.localConfiguration?.drmConfiguration?.scheme` rather than `player.currentMediaItem` to correctly handle playlist transitions.
+
+**`DrmStatusInfo`** — a live summary object (`scheme`, `state`, `lastLicenseLatencyMs`) written to `SessionStore.currentDrmState` on each event. Drives the overlay summary row.
+
+**Overlay representation:**
+
+- **Summary panel** — a `DRM` section label and status row (e.g. `Widevine  ·  Keys Loaded  ·  312ms`) appear between the subtitle row and the latest-segment row. Both are hidden (`GONE`) for clear streams and shown as soon as the first DRM event is recorded.
+- **DRM chip** — a fourth filter chip (`DRM`) appears in the chip row for DRM streams; hidden when no events exist. Selecting it shows the DRM event timeline.
+- **DRM tab** — chronological list of `DrmSessionEvent` entries rendered by `DrmTimelineAdapter`. Each row shows: index, colour-coded event dot, scheme badge (`WV` / `PR` / `CK` / `DRM`), event label, license latency (for `KeysLoaded` only), and relative timestamp.
+- **Dual surface for errors** — `SessionError` is written to both `SessionStore.drmSessionEvents` (DRM tab) and `SessionStore.playbackErrors` (Errors tab as `DRM_ERROR`). There is no duplication; a single write path produces both entries.
+
+**Landscape panel width** — increased from 440 dp to 540 dp to accommodate the additional DRM chip without wrapping.
+
+**Event cap** — 200 entries (`MAX_DRM_EVENTS`), matching the error and switch caps.
+
+---
+
 ## 4. Technical Design
 
 ### 4.1 Interception Points
@@ -213,11 +246,18 @@ StreamProbe instruments a single layer via a standard Media3 `AnalyticsListener`
 - **`onVideoInputFormatChanged`** — the authoritative source for `VideoSwitch` events. Emits a `TrackSwitchEvent.VideoSwitch` using the selection reason cached by `onDownstreamFormatChanged`, then resets the pending reason to `INITIAL`.
 - **`onDownstreamFormatChanged`** — for `TRACK_TYPE_VIDEO` / `TRACK_TYPE_DEFAULT` (with valid dimensions): caches the selection reason in `pendingVideoSwitchReason` for use in `onVideoInputFormatChanged`. For `TRACK_TYPE_AUDIO` / `TRACK_TYPE_TEXT`: emits `AudioSwitch` / `SubtitleSwitch` events directly. `TRACK_TYPE_DEFAULT` events without valid video dimensions are ignored to avoid overwriting the pending reason with non-video (e.g., muxed audio) events.
 - **`onLoadCompleted`** — captures per-segment download duration, byte count, computed throughput, and HTTP response headers (CDN cache hit/miss). Works regardless of the underlying HTTP stack.
-- **`onLoadError`** — captures segment and manifest HTTP errors; cancellations (`wasCanceled=true`) and DRM data types are filtered out.
+- **`onLoadError`** — captures segment and manifest HTTP errors; cancellations (`wasCanceled=true`) are filtered out.
 - **`onVideoCodecError`** — captures hardware/software codec failures.
 - **`onDroppedVideoFrames`** — captures dropped-frame bursts ≥ 3 frames with dedup logic.
 - **`onAudioSinkError`** — captures audio sink failures.
 - **`onAudioCodecError`** — captures audio codec failures.
+
+The following callbacks are handled by `DrmSessionTracker`, registered as a second `AnalyticsListener`:
+
+- **`onDrmSessionAcquired`** — records a `SessionAcquired` event; detects the DRM scheme from `eventTime.timeline`; sets `currentDrmState` to the mapped `DrmSessionState`.
+- **`onDrmKeysLoaded`** — records a `KeysLoaded` event with license latency (wall-clock delta from acquire); updates `currentDrmState` to `OPENED_WITH_KEYS`.
+- **`onDrmSessionReleased`** — records a `SessionReleased` event; resets per-session state (`currentDrmScheme`, `lastDrmAcquireTimestampMs`); clears `currentDrmState`.
+- **`onDrmSessionManagerError`** — records a `SessionError` in the DRM timeline and simultaneously adds a `DRM_ERROR` `PlaybackErrorEvent` to the errors list (dual surface).
 
 All callbacks feed a single thread-safe in-memory `SessionStore`, which the overlay reads from via `StateFlow`.
 
