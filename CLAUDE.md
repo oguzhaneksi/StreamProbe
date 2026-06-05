@@ -98,13 +98,15 @@ ExoPlayer
 
 | File | Role |
 |------|------|
-| `StreamProbe.kt` | Public entry point. Owns `SessionStore`, `PlayerInterceptor`, and `OverlayManager`. Player lifecycle (`attach`/`detach`) is **independent** of Activity lifecycle (`show`/`hide`) — the `StreamProbe` instance typically lives in a `ViewModel`. |
+| `StreamProbe.kt` | Public entry point. Owns `SessionStore`, `NetworkTimingRegistry`, `PlayerInterceptor`, and `OverlayManager`. Player lifecycle (`attach`/`detach`) is **independent** of Activity lifecycle (`show`/`hide`) — the `StreamProbe` instance typically lives in a `ViewModel`. `wrapDataSourceFactory(factory)` is the public entry point for TTFB measurement; it wraps the given factory in a `TimingDataSourceFactory` and must be the **outermost** wrapper. |
 
 #### Internal: interception layer
 
 | File | Role |
 |------|------|
-| `internal/PlayerInterceptor.kt` | Implements both `Player.Listener` and `AnalyticsListener`. Captures track selections, segment load completions, and playback errors; maps Media3 `Format` to SDK models via `FormatExtensions`; writes to `SessionStore`. Also registers/unregisters `DrmSessionTracker` on `attach`/`detach`. |
+| `internal/PlayerInterceptor.kt` | Implements both `Player.Listener` and `AnalyticsListener`. Captures track selections, segment load completions, and playback errors; maps Media3 `Format` to SDK models via `FormatExtensions`; writes to `SessionStore`. Also registers/unregisters `DrmSessionTracker` on `attach`/`detach`. In `onLoadCompleted`, consumes a `NetworkTimingRegistry` entry keyed on **`loadEventInfo.dataSpec.uri`** (not `loadEventInfo.uri` — the redirect-key invariant, see below) to fold TTFB into `SegmentMetric.networkTiming`. |
+| `internal/TimingDataSourceFactory.kt` | `@UnstableApi` `DataSource.Factory` wrapper. Times `open()`-duration as a TTFB proxy for HTTP/HTTPS schemes only; records in `NetworkTimingRegistry` keyed by request URI + byte position. If `open()` throws, no entry is written. Uses `SystemClock.elapsedRealtimeNanos()` to stay in the same clock domain as `loadDurationMs`. |
+| `internal/NetworkTimingRegistry.kt` | Bounded, thread-safe handoff between the I/O-thread writer (`TimingDataSource.open`) and the playback-thread reader (`PlayerInterceptor.onLoadCompleted`). Keys entries as `"uri|position"` (pipe delimiter to prevent collisions with URIs containing `@`). FIFO eviction via `LinkedHashMap.removeEldestEntry` at `MAX_ENTRIES = 128`. |
 | `internal/DrmSessionTracker.kt` | Separate `AnalyticsListener` handling DRM callbacks only (`onDrmSessionAcquired`, `onDrmKeysLoaded`, `onDrmSessionReleased`, `onDrmSessionManagerError`). Keeps `PlayerInterceptor`'s function count within detekt's `TooManyFunctions` limit. Measures license latency as wall-clock delta from acquire to keys-loaded. DRM errors are dual-surfaced to both `drmSessionEvents` and `playbackErrors`. |
 | `internal/DrmSchemeDetector.kt` | Pure `internal object` with no Android framework dependency. Resolves `DrmScheme` from `eventTime.timeline` (not `player.currentMediaItem` — correct during playlist transitions) and maps `DrmSession.State` integers to `DrmSessionState`. |
 | `internal/FormatExtensions.kt` | Extension functions mapping `Media3.Format` to SDK model types. `toAudioTrackInfoDetecting` infers `isMuxed` from container MIME type; `toSubtitleTrackInfoDetecting` infers `SubtitleKind` (CC vs SIDECAR) from sample MIME type. |
@@ -138,7 +140,8 @@ ExoPlayer
 | `AudioTrackInfo` | Audio rendition. `isMuxed = true` when audio is muxed into the video container. |
 | `SubtitleTrackInfo` | Subtitle/CC rendition. `kind` distinguishes `SIDECAR` (WebVTT/TTML) from `CC` (CEA-608/CEA-708). |
 | `ActiveTrackInfo` | Currently decoded video track (from `onVideoInputFormatChanged`). Distinct from `VariantInfo` — sourced from the decoder, not the track group. |
-| `SegmentMetric` | Per-segment timing, size, throughput, and `CdnHeaderInfo`. |
+| `SegmentMetric` | Per-segment timing, size, throughput, `CdnHeaderInfo`, and optional `NetworkTiming`. |
+| `NetworkTiming` | Best-effort TTFB breakdown: `ttfbMs`, `transferDurationMs?`, reserved per-phase fields (`dnsMs?`, `connectMs?`, `tlsMs?`), and `isEstimated` flag. No Media3 types; `@UnstableApi`-free. |
 | `TrackSwitchEvent` | Sealed interface with `VideoSwitch`, `AudioSwitch`, `SubtitleSwitch`. `SubtitleSwitch.newTrack` is nullable (null = subtitle disabled). |
 | `PlaybackErrorEvent` | Immutable error record. `categoryDetail: ErrorDetail?` carries structured data (e.g. `DroppedFrames` burst aggregation, `DrmErrorInfo` for DRM failures). `timestampMs` is stable across merges for DiffUtil. |
 | `ErrorCategory` | `LOAD_ERROR`, `VIDEO_CODEC_ERROR`, `DROPPED_FRAMES`, `AUDIO_SINK_ERROR`, `AUDIO_CODEC_ERROR`, `DRM_ERROR`. |
@@ -157,6 +160,8 @@ ExoPlayer
 - **DRM tracker isolation:** DRM callbacks are handled by a separate `DrmSessionTracker` `AnalyticsListener` rather than inline in `PlayerInterceptor`. This keeps `PlayerInterceptor`'s method count within detekt's `TooManyFunctions` limit (20 per class) while keeping DRM logic cohesive.
 - **DRM scheme from timeline:** `DrmSchemeDetector.detectScheme` reads from `eventTime.timeline` rather than `player.currentMediaItem` to avoid a race during playlist transitions where `currentMediaItem` may already point to the next item.
 - **DRM dual surface:** `onDrmSessionManagerError` writes to both `drmSessionEvents` (DRM tab) and `playbackErrors` (Errors tab). There is a single write path — no duplication in the store or UI.
+- **TTFB redirect-key invariant:** In `PlayerInterceptor.onLoadCompleted`, the `NetworkTimingRegistry` lookup **must** use `loadEventInfo.dataSpec.uri` (the pre-redirect request URI that `TimingDataSource.open` recorded) — **never** `loadEventInfo.uri` (the post-redirect resolved URI). Keying on `loadEventInfo.uri` silently misses TTFB on every CDN-redirected stream. `SegmentMetric.uri` still stores `loadEventInfo.uri` for display purposes; only the registry lookup is affected.
+- **`TimingDataSourceFactory` must be outermost:** When the host wraps the factory with error-injection or other adapters, `wrapDataSourceFactory` must be the outermost wrapper. Inner adapters that throw inside `open()` will propagate through `TimingDataSource.open()` *before* the timing record is written — so no false TTFB is recorded on injected errors.
 
 ### Module: `app/`
 
@@ -170,5 +175,5 @@ Version is set in `gradle.properties` as `VERSION_NAME`. Published to Maven Cent
 
 1. **Never guess.** Ask for clarification if project requirements are ambiguous.
 2. **Only touch files necessary for the requested feature.** Do not refactor unrelated code.
-3. **Fix the root cause of build/lint errors; do not suppress warnings or ignore failing tests.**
+3. **Fix the root cause of build/lint/ktlint/detekt errors; do not suppress warnings or ignore failing tests.**
 4. **Do not commit without user approval.**

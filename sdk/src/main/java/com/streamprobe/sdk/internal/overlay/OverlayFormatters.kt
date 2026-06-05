@@ -6,6 +6,7 @@ import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
 import com.streamprobe.sdk.model.CdnProvider
 import com.streamprobe.sdk.model.ErrorCategory
+import com.streamprobe.sdk.model.NetworkTiming
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SubtitleKind
@@ -22,15 +23,26 @@ import java.util.Locale
 internal object OverlayFormatters {
     fun formatSegmentMetric(metric: SegmentMetric?): String {
         if (metric == null) return "\u2014"
-        val duration = "Total: ${metric.totalDurationMs}ms"
-        val size = formatBytes(metric.sizeBytes)
-        val throughput = formatThroughput(metric.throughputBytesPerSec)
-        return "$duration  \u00b7  Size: $size  \u00b7  TP: $throughput"
+        return "DL: ${metric.totalDurationMs}ms\n${formatSegmentDetails(metric)}"
     }
+
+    fun formatSegmentDetails(metric: SegmentMetric): String =
+        buildList {
+            add("Size: ${formatBytes(metric.sizeBytes)}")
+            add("TP: ${formatThroughput(metric.throughputBytesPerSec)}")
+            metric.networkTiming?.let { add("TTFB: ${formatTtfb(it)}") }
+        }.joinToString("  \u00b7  ")
 
     fun formatCdnStatus(cdnInfo: CdnHeaderInfo?): String {
         if (cdnInfo == null) return "\u2014"
-        val providerPrefix = formatProviderPrefix(cdnInfo.cdnProvider)
+        val providerPrefix =
+            when (cdnInfo.cdnProvider) {
+                CdnProvider.CLOUDFLARE -> "[CLOUDFLARE]"
+                CdnProvider.CLOUDFRONT -> "[CLOUDFRONT]"
+                CdnProvider.FASTLY -> "[FASTLY]"
+                CdnProvider.AKAMAI -> "[AKAMAI]"
+                CdnProvider.UNKNOWN, null -> null
+            }
         val indicator = formatCacheIndicator(cdnInfo.cacheStatus)
         val headerSnippet =
             when {
@@ -46,15 +58,6 @@ internal object OverlayFormatters {
         return if (providerPrefix != null) "$providerPrefix  $statusPart" else statusPart
     }
 
-    private fun formatProviderPrefix(provider: CdnProvider?): String? =
-        when (provider) {
-            CdnProvider.CLOUDFLARE -> "[CLOUDFLARE]"
-            CdnProvider.CLOUDFRONT -> "[CLOUDFRONT]"
-            CdnProvider.FASTLY -> "[FASTLY]"
-            CdnProvider.AKAMAI -> "[AKAMAI]"
-            CdnProvider.UNKNOWN, null -> null
-        }
-
     private fun formatCacheIndicator(status: CacheStatus): String =
         when (status) {
             CacheStatus.HIT -> "\u25cf HIT"
@@ -64,7 +67,7 @@ internal object OverlayFormatters {
             CacheStatus.UNKNOWN -> "\u25cc UNKNOWN"
         }
 
-    private fun formatScaledBytes(
+    fun formatBytes(
         value: Long,
         suffix: String = "",
     ): String =
@@ -74,9 +77,7 @@ internal object OverlayFormatters {
             else -> "$value B$suffix"
         }
 
-    fun formatBytes(bytes: Long): String = formatScaledBytes(bytes)
-
-    fun formatThroughput(bytesPerSec: Long): String = formatScaledBytes(bytesPerSec, "/s")
+    fun formatThroughput(bytesPerSec: Long): String = formatBytes(bytesPerSec, "/s")
 
     fun formatBitrate(bps: Int): String =
         when {
@@ -206,6 +207,11 @@ internal object OverlayFormatters {
     fun formatAbsoluteTimestamp(timestampMs: Long): String {
         val formatter = TIME_FORMATTER.get() ?: SimpleDateFormat("HH:mm:ss.SSS", Locale.ROOT)
         return formatter.format(Date(timestampMs))
+    }
+
+    fun formatTtfb(networkTiming: NetworkTiming?): String {
+        if (networkTiming == null) return "—"
+        return "${if (networkTiming.isEstimated) "~" else ""}${networkTiming.ttfbMs}ms"
     }
 
     fun formatErrorsForExport(

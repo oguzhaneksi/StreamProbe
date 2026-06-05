@@ -33,7 +33,7 @@ class PlayerInterceptorTracksTest {
     @Before
     fun setUp() {
         sessionStore = SessionStore()
-        interceptor = PlayerInterceptor(sessionStore)
+        interceptor = PlayerInterceptor(sessionStore, NetworkTimingRegistry())
         player = mock(ExoPlayer::class.java)
     }
 

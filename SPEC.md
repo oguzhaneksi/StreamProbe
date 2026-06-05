@@ -66,7 +66,7 @@ The currently selected rendition in each section is flagged with an active-dot i
 Each segment request is recorded with:
 
 - Request timestamp
-- ~~TTFB (time to first byte)~~ — Deferred. Requires `MediaSource.Factory` wrapper or `TransferListener` integration. Planned for a future milestone.
+- **TTFB (time to first byte)** — Best-effort estimate via a `DataSource.Factory` wrapper (`StreamProbe.wrapDataSourceFactory`). The `open()`-duration proxy is correlated to each media segment by request URI + byte position and shown as `~NNms` (the `~` marks it as an estimate). True per-phase DNS/connect/TLS breakdown requires per-stack adapters and is planned for a future milestone.
 - Total download duration
 - Segment size in bytes
 - Computed throughput (bytes / total duration)
@@ -261,7 +261,9 @@ The following callbacks are handled by `DrmSessionTracker`, registered as a seco
 
 All callbacks feed a single thread-safe in-memory `SessionStore`, which the overlay reads from via `StateFlow`.
 
-**Planned (future milestone):** A `MediaSource.Factory` wrapper and a `NetworkInspector` abstraction (OkHttp, Cronet, and HttpEngine adapters) to enable true TTFB capture and richer per-request timing beyond what `onLoadCompleted` exposes.
+**Baseline TTFB (M9 — shipped):** A `DataSource.Factory` wrapper (`TimingDataSourceFactory`) times `open()` duration as a best-effort TTFB proxy. Entries are keyed by request URI + byte position in a bounded `NetworkTimingRegistry` and consumed in `onLoadCompleted` (guaranteed happen-before on the success path). The lookup always uses `loadEventInfo.dataSpec.uri` (the pre-redirect request URI), never `loadEventInfo.uri` (post-redirect), to correctly correlate CDN-redirected streams.
+
+**Planned (future milestone):** A `NetworkInspector` abstraction (OkHttp, Cronet, and HttpEngine adapters) to enable true per-phase DNS/connect/TLS breakdown beyond the `open()`-duration proxy.
 
 ### 4.2 Build & Dependency Strategy
 

@@ -17,6 +17,7 @@ import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.ErrorCategory
 import com.streamprobe.sdk.model.ErrorDetail
+import com.streamprobe.sdk.model.NetworkTiming
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SubtitleTrackInfo
@@ -33,6 +34,7 @@ import java.io.IOException
 @UnstableApi
 internal class PlayerInterceptor(
     private val sessionStore: SessionStore,
+    private val networkTimingRegistry: NetworkTimingRegistry,
 ) : Player.Listener,
     AnalyticsListener {
     private var player: ExoPlayer? = null
@@ -250,20 +252,33 @@ internal class PlayerInterceptor(
     ) {
         if (mediaLoadData.dataType != C.DATA_TYPE_MEDIA) return
 
+        val loadDurationMs = loadEventInfo.loadDurationMs
+        val networkTiming =
+            networkTimingRegistry
+                .consume(loadEventInfo.dataSpec.uri.toString(), loadEventInfo.dataSpec.position)
+                ?.let { ttfb ->
+                    NetworkTiming(
+                        ttfbMs = ttfb,
+                        transferDurationMs = (loadDurationMs - ttfb).coerceAtLeast(0L),
+                        isEstimated = true,
+                    )
+                }
+
         val cdnInfo = CdnHeaderParser.parse(headers = loadEventInfo.responseHeaders)
         val metric =
             SegmentMetric(
-                requestTimestampMs = System.currentTimeMillis() - loadEventInfo.loadDurationMs,
-                totalDurationMs = loadEventInfo.loadDurationMs,
+                requestTimestampMs = System.currentTimeMillis() - loadDurationMs,
+                totalDurationMs = loadDurationMs,
                 sizeBytes = loadEventInfo.bytesLoaded,
                 throughputBytesPerSec =
-                    if (loadEventInfo.loadDurationMs > 0) {
-                        loadEventInfo.bytesLoaded * 1000 / loadEventInfo.loadDurationMs
+                    if (loadDurationMs > 0) {
+                        loadEventInfo.bytesLoaded * 1000 / loadDurationMs
                     } else {
                         0
                     },
                 uri = loadEventInfo.uri.toString(),
                 cdnInfo = cdnInfo,
+                networkTiming = networkTiming,
             )
         sessionStore.addSegmentMetric(metric)
     }

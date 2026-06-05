@@ -36,10 +36,13 @@ class PlayerInterceptorTest {
     private lateinit var interceptor: PlayerInterceptor
     private lateinit var player: ExoPlayer
 
+    private lateinit var networkTimingRegistry: NetworkTimingRegistry
+
     @Before
     fun setUp() {
         sessionStore = SessionStore()
-        interceptor = PlayerInterceptor(sessionStore)
+        networkTimingRegistry = NetworkTimingRegistry()
+        interceptor = PlayerInterceptor(sessionStore, networkTimingRegistry)
         player = mock(ExoPlayer::class.java)
     }
 
@@ -251,6 +254,77 @@ class PlayerInterceptorTest {
 
             val metric = sessionStore.segmentMetrics.first().first()
             assertEquals(CacheStatus.UNKNOWN, metric.cdnInfo.cacheStatus)
+        }
+
+    // ── TTFB / NetworkTiming correlation tests ────────────────────────────────
+
+    @Test
+    fun `onLoadCompleted correlates ttfb when registry has matching entry`() =
+        runTest {
+            val uri = Uri.parse("https://example.com/seg.ts")
+            networkTimingRegistry.record(uri.toString(), 0L, 40L)
+            val loadEventInfo = makeLoadEventInfo(uri = uri, loadDurationMs = 200L)
+            val mediaLoadData = MediaLoadData(C.DATA_TYPE_MEDIA)
+
+            interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+            val metric = sessionStore.segmentMetrics.first().first()
+            assertEquals(40L, metric.networkTiming?.ttfbMs)
+            assertEquals(true, metric.networkTiming?.isEstimated)
+        }
+
+    @Test
+    fun `onLoadCompleted with no registry entry leaves networkTiming null`() =
+        runTest {
+            val loadEventInfo = makeLoadEventInfo()
+            val mediaLoadData = MediaLoadData(C.DATA_TYPE_MEDIA)
+
+            interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+            val metric = sessionStore.segmentMetrics.first().first()
+            assertNull(metric.networkTiming)
+        }
+
+    @Test
+    fun `onLoadCompleted redirect case - keyed on dataSpec uri not loadEventInfo uri`() =
+        runTest {
+            // The request URI (dataSpec) is what the wrapper sees; loadEventInfo.uri is post-redirect.
+            val requestUri = Uri.parse("https://origin.example.com/seg.ts")
+            val redirectUri = Uri.parse("https://cdn.example.com/seg.ts")
+            networkTimingRegistry.record(requestUri.toString(), 0L, 55L)
+
+            // Construct LoadEventInfo with request URI as dataSpec and redirect URI as the resolved uri.
+            val loadEventInfo =
+                LoadEventInfo(
+                    1L,
+                    DataSpec(requestUri),
+                    redirectUri,
+                    emptyMap(),
+                    1000L,
+                    300L,
+                    500_000L,
+                )
+            val mediaLoadData = MediaLoadData(C.DATA_TYPE_MEDIA)
+
+            interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+            val metric = sessionStore.segmentMetrics.first().first()
+            // TTFB should correlate on requestUri (dataSpec), not redirectUri
+            assertEquals(55L, metric.networkTiming?.ttfbMs)
+        }
+
+    @Test
+    fun `transferDurationMs is clamped to zero when ttfb exceeds loadDurationMs`() =
+        runTest {
+            val uri = Uri.parse("https://example.com/seg.ts")
+            networkTimingRegistry.record(uri.toString(), 0L, 300L)
+            val loadEventInfo = makeLoadEventInfo(uri = uri, loadDurationMs = 200L)
+            val mediaLoadData = MediaLoadData(C.DATA_TYPE_MEDIA)
+
+            interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+            val metric = sessionStore.segmentMetrics.first().first()
+            assertEquals(0L, metric.networkTiming?.transferDurationMs)
         }
 
     // ── onDownstreamFormatChanged / ABR tests ─────────────────────────────────
