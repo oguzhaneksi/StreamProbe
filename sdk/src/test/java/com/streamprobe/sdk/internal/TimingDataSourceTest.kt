@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -99,5 +100,13 @@ class TimingDataSourceTest {
         factory.createDataSource().open(dataSpec)
 
         verify(delegate, times(1)).open(dataSpec)
+    }
+
+    @Test
+    fun `getResponseHeaders is forwarded to delegate`() {
+        val headers = mapOf("X-Cache" to listOf("HIT"))
+        `when`(delegate.getResponseHeaders()).thenReturn(headers)
+
+        assertEquals(headers, factory.createDataSource().getResponseHeaders())
     }
 }

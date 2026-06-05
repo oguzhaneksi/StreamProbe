@@ -40,6 +40,11 @@ internal class TimingDataSourceFactory(
             return bytesToRead
         }
 
+        // DataSource.getResponseHeaders() is a Java default method. Kotlin's `by delegate`
+        // only generates forwarding stubs for abstract interface methods; default methods
+        // fall through to their JVM default implementation (Collections.emptyMap). This
+        // explicit override is required so callers (e.g. CdnHeaderParser) receive the
+        // actual HTTP response headers from the wrapped source.
         override fun getResponseHeaders(): Map<String, List<String>> = delegate.responseHeaders
     }
 }

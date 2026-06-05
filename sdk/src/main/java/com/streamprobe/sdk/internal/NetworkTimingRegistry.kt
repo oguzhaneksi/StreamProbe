@@ -6,7 +6,7 @@ import androidx.annotation.VisibleForTesting
  * Bounded, thread-safe handoff between the I/O-thread writer (TimingDataSource.open) and the
  * playback-thread reader (PlayerInterceptor.onLoadCompleted).
  *
- * Entries are keyed by "uri@position". FIFO eviction via LinkedHashMap prevents un-consumed
+ * Entries are keyed by "uri|position". FIFO eviction via LinkedHashMap prevents un-consumed
  * entries (manifest/key/cancelled loads) from leaking.
  */
 internal class NetworkTimingRegistry {

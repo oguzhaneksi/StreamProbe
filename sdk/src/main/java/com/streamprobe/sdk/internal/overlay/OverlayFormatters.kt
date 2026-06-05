@@ -23,11 +23,15 @@ import java.util.Locale
 internal object OverlayFormatters {
     fun formatSegmentMetric(metric: SegmentMetric?): String {
         if (metric == null) return "\u2014"
-        val line1 = "DL: ${metric.totalDurationMs}ms  \u00b7  Size: ${formatBytes(metric.sizeBytes)}"
-        val line2Parts = mutableListOf("TP: ${formatThroughput(metric.throughputBytesPerSec)}")
-        metric.networkTiming?.let { line2Parts += "TTFB: ${formatTtfb(it)}" }
-        return "$line1\n${line2Parts.joinToString("  \u00b7  ")}"
+        return "DL: ${metric.totalDurationMs}ms\n${formatSegmentDetails(metric)}"
     }
+
+    fun formatSegmentDetails(metric: SegmentMetric): String =
+        buildList {
+            add("Size: ${formatBytes(metric.sizeBytes)}")
+            add("TP: ${formatThroughput(metric.throughputBytesPerSec)}")
+            metric.networkTiming?.let { add("TTFB: ${formatTtfb(it)}") }
+        }.joinToString("  \u00b7  ")
 
     fun formatCdnStatus(cdnInfo: CdnHeaderInfo?): String {
         if (cdnInfo == null) return "\u2014"

@@ -95,15 +95,7 @@ internal class SegmentTimelineItemView(
         indexView.text = "#${index + 1}"
         durationView.text = "DL: ${metric.totalDurationMs}ms"
         cacheDot.background = OverlayDrawables.cacheDot(metric.cdnInfo.cacheStatus)
-        secondaryView.text = buildSecondaryLine(metric)
-    }
-
-    private fun buildSecondaryLine(metric: SegmentMetric): String {
-        val parts = mutableListOf<String>()
-        parts += "Size: ${OverlayFormatters.formatBytes(metric.sizeBytes)}"
-        parts += "TP: ${OverlayFormatters.formatThroughput(metric.throughputBytesPerSec)}"
-        metric.networkTiming?.let { parts += "TTFB: ${OverlayFormatters.formatTtfb(it)}" }
-        return parts.joinToString("  ·  ")
+        secondaryView.text = OverlayFormatters.formatSegmentDetails(metric)
     }
 
     private fun dp(value: Float) = context.dp(value)

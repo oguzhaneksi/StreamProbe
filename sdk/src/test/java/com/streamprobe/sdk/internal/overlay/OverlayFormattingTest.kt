@@ -62,12 +62,29 @@ class OverlayFormattingTest {
     }
 
     @Test
-    fun `formatSegmentMetric first line contains DL duration and size`() {
-        val result = OverlayFormatters.formatSegmentMetric(makeMetric(totalDurationMs = 200L, sizeBytes = 1_200_000L))
+    fun `formatSegmentMetric first line contains DL duration`() {
+        val result = OverlayFormatters.formatSegmentMetric(makeMetric(totalDurationMs = 200L))
         val line1 = result.lines().first()
         assertTrue("Expected 'DL: 200ms' in line1: $line1", line1.contains("DL: 200ms"))
-        assertTrue("Expected 'Size:' in line1: $line1", line1.contains("Size:"))
-        assertTrue("Expected '1.2 MB' in line1: $line1", line1.contains("1.2 MB"))
+    }
+
+    @Test
+    fun `formatSegmentDetails contains size throughput and optional ttfb`() {
+        val timing = NetworkTiming(ttfbMs = 40L, transferDurationMs = 160L, isEstimated = true)
+        val result = OverlayFormatters.formatSegmentDetails(
+            makeMetric(sizeBytes = 1_200_000L, throughputBytesPerSec = 3_800_000L, networkTiming = timing),
+        )
+        assertTrue("Expected 'Size:' in: $result", result.contains("Size:"))
+        assertTrue("Expected '1.2 MB' in: $result", result.contains("1.2 MB"))
+        assertTrue("Expected 'TP:' in: $result", result.contains("TP:"))
+        assertTrue("Expected '3.8 MB/s' in: $result", result.contains("3.8 MB/s"))
+        assertTrue("Expected 'TTFB: ~40ms' in: $result", result.contains("TTFB: ~40ms"))
+    }
+
+    @Test
+    fun `formatSegmentDetails omits TTFB when networkTiming is null`() {
+        val result = OverlayFormatters.formatSegmentDetails(makeMetric(networkTiming = null))
+        assertTrue("Expected no 'TTFB' in: $result", !result.contains("TTFB"))
     }
 
     @Test
