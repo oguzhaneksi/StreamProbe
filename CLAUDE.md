@@ -175,5 +175,5 @@ Version is set in `gradle.properties` as `VERSION_NAME`. Published to Maven Cent
 
 1. **Never guess.** Ask for clarification if project requirements are ambiguous.
 2. **Only touch files necessary for the requested feature.** Do not refactor unrelated code.
-3. **Fix the root cause of build/lint errors; do not suppress warnings or ignore failing tests.**
+3. **Fix the root cause of build/lint/ktlint/detekt errors; do not suppress warnings or ignore failing tests.**
 4. **Do not commit without user approval.**
