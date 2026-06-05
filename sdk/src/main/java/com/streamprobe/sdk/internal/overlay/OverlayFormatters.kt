@@ -67,7 +67,7 @@ internal object OverlayFormatters {
             CacheStatus.UNKNOWN -> "\u25cc UNKNOWN"
         }
 
-    private fun formatScaledBytes(
+    fun formatBytes(
         value: Long,
         suffix: String = "",
     ): String =
@@ -77,9 +77,7 @@ internal object OverlayFormatters {
             else -> "$value B$suffix"
         }
 
-    fun formatBytes(bytes: Long): String = formatScaledBytes(bytes)
-
-    fun formatThroughput(bytesPerSec: Long): String = formatScaledBytes(bytesPerSec, "/s")
+    fun formatThroughput(bytesPerSec: Long): String = formatBytes(bytesPerSec, "/s")
 
     fun formatBitrate(bps: Int): String =
         when {

@@ -71,9 +71,10 @@ class OverlayFormattingTest {
     @Test
     fun `formatSegmentDetails contains size throughput and optional ttfb`() {
         val timing = NetworkTiming(ttfbMs = 40L, transferDurationMs = 160L, isEstimated = true)
-        val result = OverlayFormatters.formatSegmentDetails(
-            makeMetric(sizeBytes = 1_200_000L, throughputBytesPerSec = 3_800_000L, networkTiming = timing),
-        )
+        val result =
+            OverlayFormatters.formatSegmentDetails(
+                makeMetric(sizeBytes = 1_200_000L, throughputBytesPerSec = 3_800_000L, networkTiming = timing),
+            )
         assertTrue("Expected 'Size:' in: $result", result.contains("Size:"))
         assertTrue("Expected '1.2 MB' in: $result", result.contains("1.2 MB"))
         assertTrue("Expected 'TP:' in: $result", result.contains("TP:"))
