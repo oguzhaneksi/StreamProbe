@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 internal class PlayerManager(
     private val appContext: Context,
@@ -59,14 +60,14 @@ internal class PlayerManager(
         stream: Stream,
         injectErrors: Boolean,
     ) {
-        val dataSourceFactory: DataSource.Factory =
+        val baseFactory: DataSource.Factory =
             if (injectErrors) {
                 DebugDataSourceFactory(DefaultHttpDataSource.Factory(), errorRate = 0.2f)
             } else {
                 DefaultHttpDataSource.Factory()
             }
         val mediaSourceFactory =
-            DefaultMediaSourceFactory(appContext).setDataSourceFactory(dataSourceFactory)
+            DefaultMediaSourceFactory(appContext).setDataSourceFactory(streamProbe.wrapDataSourceFactory(baseFactory))
 
         val mediaItem =
             MediaItem
@@ -112,7 +113,7 @@ internal class PlayerManager(
                             )
                         }
                     }
-                    delay(500)
+                    delay(500.milliseconds)
                 }
             }
     }

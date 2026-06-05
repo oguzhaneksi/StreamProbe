@@ -16,4 +16,6 @@ data class SegmentMetric(
     val uri: String,
     /** CDN response header information captured from the same response. */
     val cdnInfo: CdnHeaderInfo,
+    /** Network timing (TTFB / transfer split), best-effort. Null when not correlated. */
+    val networkTiming: NetworkTiming? = null,
 )

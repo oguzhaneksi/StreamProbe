@@ -110,6 +110,21 @@ if (BuildConfig.DEBUG) {
 }
 ```
 
+### 1b. Enable TTFB Measurement (Optional)
+
+To capture per-segment TTFB estimates in the Segments tab, wrap your `DataSource.Factory` before passing it to `DefaultMediaSourceFactory`. This must be the outermost wrapper:
+
+```kotlin
+if (BuildConfig.DEBUG) {
+    val baseFactory: DataSource.Factory = DefaultHttpDataSource.Factory()
+    val mediaSourceFactory = DefaultMediaSourceFactory(context)
+        .setDataSourceFactory(streamProbe.wrapDataSourceFactory(baseFactory))
+    // Use mediaSourceFactory when building ExoPlayer
+}
+```
+
+Gate this behind `BuildConfig.DEBUG` in release-bound hosts.
+
 ### 2. Show the Overlay in your Activity
 
 In your Activity's `onCreate()`, call `show(activity)` to attach the draggable debug overlay to the view hierarchy. `show()` requires a `ComponentActivity` (which covers `AppCompatActivity` and Jetpack Compose's `ComponentActivity`):
@@ -160,6 +175,7 @@ This view displays all parsed renditions from the HLS `.m3u8` or DASH `.mpd` man
 Tracks the actual segment downloads as they happen. Each list item represents a segment chunk:
 - **Download Duration & Size**: See exactly how long a chunk took to fetch and its payload size.
 - **Throughput**: Calculated bandwidth (Bytes / Duration) for that specific segment.
+- **TTFB**: Best-effort time-to-first-byte estimate (shown as `~NNms`). Requires wrapping the `DataSource.Factory` via `StreamProbe.wrapDataSourceFactory` — rows without a correlated timing entry show nothing.
 - **CDN Status**: A color-coded indicator (Green for Cache Hit, Red/Yellow for Cache Miss) based on captured CDN headers like `X-Cache`, `CF-Cache-Status`, or `X-Amz-Cf-Pop`.
 
 The segment list is capped at **500 entries**; older entries are dropped automatically as new ones arrive.
@@ -215,8 +231,9 @@ Coarse milestones. Each will be broken down into a TODO checklist as work begins
 - **M6 — Background Error Tracking** ✅: Exposing silent, non-fatal background errors — segment load failures (HTTP 404/5xx), video codec errors (`onVideoCodecError`), audio codec errors (`onAudioCodecError`), dropped frame bursts (`onDroppedVideoFrames`), and audio sink errors (`onAudioSinkError`) — as a real-time Errors view in the overlay, reachable via a header `⚠ N` indicator.
 - **M7 — Audio & Subtitle Tracks** ✅: Audio/subtitle rendition enumeration (HLS muxed sources included) + active audio/subtitle overlay; ABR switch events expanded to sealed `TrackSwitchEvent` covering video, audio and subtitle switches.
 - **M8 — DRM Monitoring** ✅: DRM session lifecycle tracking (Widevine, PlayReady, ClearKey) via a dedicated `DrmSessionTracker` analytics listener. Captures session acquire/release events, license key load latency, and DRM manager errors. A live **DRM** summary row appears in the overlay header; a **DRM** chip reveals a chronological DRM event timeline. DRM errors are dual-surfaced in both the DRM tab and the Errors tab.
-- **M9 — TTFB & Advanced Network Metrics** *(Planned)*: True time-to-first-byte capture via a `MediaSource.Factory` wrapper and a `NetworkInspector` abstraction supporting OkHttp, Cronet, and HttpEngine adapters.
+- **M9 — TTFB & Advanced Network Metrics (baseline)** ✅: Best-effort TTFB capture via a `DataSource.Factory` wrapper (`StreamProbe.wrapDataSourceFactory`). The `open()`-duration proxy approximates TTFB and is correlated to each media segment by request URI + byte position; shown in the Segments tab as `~NNms`. Per-phase DNS/connect/TLS breakdown and `NetworkInspector`/OkHttp/Cronet/HttpEngine adapters are deferred.
 - **M10 — SSAI & Timeline Metadata** *(Planned)*: Listening to `onMetadata` for SCTE-35 and ID3 tags to visually distinguish Server-Side Ad Insertion (SSAI) ad breaks from main content.
+- **M11 — Advanced Network Metrics (per-phase)** *(Planned)*: True per-phase DNS/connect/TLS breakdown via a `NetworkInspector` abstraction supporting OkHttp, Cronet, and HttpEngine adapters.
 
 ---
 

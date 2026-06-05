@@ -31,7 +31,7 @@ class PlaybackErrorTrackingTest {
     @Before
     fun setUp() {
         sessionStore = SessionStore()
-        interceptor = PlayerInterceptor(sessionStore)
+        interceptor = PlayerInterceptor(sessionStore, NetworkTimingRegistry())
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────

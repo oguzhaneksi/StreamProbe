@@ -6,6 +6,7 @@ import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
 import com.streamprobe.sdk.model.CdnProvider
 import com.streamprobe.sdk.model.ErrorCategory
+import com.streamprobe.sdk.model.NetworkTiming
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SubtitleKind
@@ -36,6 +37,7 @@ class OverlayFormattingTest {
         sizeBytes: Long = 500_000L,
         throughputBytesPerSec: Long = 2_500_000L,
         cdnInfo: CdnHeaderInfo = makeCdnInfo(),
+        networkTiming: NetworkTiming? = null,
     ) = SegmentMetric(
         requestTimestampMs = 1_000L,
         totalDurationMs = totalDurationMs,
@@ -43,12 +45,51 @@ class OverlayFormattingTest {
         throughputBytesPerSec = throughputBytesPerSec,
         uri = "https://example.com/seg.ts",
         cdnInfo = cdnInfo,
+        networkTiming = networkTiming,
     )
 
     @Test
     fun `formatSegmentMetric with null returns placeholder`() {
         val result = OverlayFormatters.formatSegmentMetric(null)
         assertEquals("\u2014", result)
+    }
+
+    @Test
+    fun `formatSegmentMetric returns two lines separated by newline`() {
+        val result = OverlayFormatters.formatSegmentMetric(makeMetric())
+        assertTrue("Expected newline separator in: $result", result.contains("\n"))
+        assertEquals(2, result.lines().size)
+    }
+
+    @Test
+    fun `formatSegmentMetric first line contains DL duration and size`() {
+        val result = OverlayFormatters.formatSegmentMetric(makeMetric(totalDurationMs = 200L, sizeBytes = 1_200_000L))
+        val line1 = result.lines().first()
+        assertTrue("Expected 'DL: 200ms' in line1: $line1", line1.contains("DL: 200ms"))
+        assertTrue("Expected 'Size:' in line1: $line1", line1.contains("Size:"))
+        assertTrue("Expected '1.2 MB' in line1: $line1", line1.contains("1.2 MB"))
+    }
+
+    @Test
+    fun `formatSegmentMetric second line contains throughput`() {
+        val result = OverlayFormatters.formatSegmentMetric(makeMetric(throughputBytesPerSec = 3_800_000L))
+        val line2 = result.lines()[1]
+        assertTrue("Expected 'TP:' in line2: $line2", line2.contains("TP:"))
+        assertTrue("Expected '3.8 MB/s' in line2: $line2", line2.contains("3.8 MB/s"))
+    }
+
+    @Test
+    fun `formatSegmentMetric includes TTFB on second line when networkTiming present`() {
+        val timing = NetworkTiming(ttfbMs = 40L, transferDurationMs = 160L, isEstimated = true)
+        val result = OverlayFormatters.formatSegmentMetric(makeMetric(networkTiming = timing))
+        val line2 = result.lines()[1]
+        assertTrue("Expected 'TTFB: ~40ms' in line2: $line2", line2.contains("TTFB: ~40ms"))
+    }
+
+    @Test
+    fun `formatSegmentMetric omits TTFB when networkTiming is null`() {
+        val result = OverlayFormatters.formatSegmentMetric(makeMetric(networkTiming = null))
+        assertTrue("Expected no 'TTFB' in: $result", !result.contains("TTFB"))
     }
 
     @Test
@@ -124,6 +165,25 @@ class OverlayFormattingTest {
             assertTrue("Expected '$expectedTag' in: $result", result.startsWith(expectedTag))
         }
     }
+    // ── TTFB formatter tests ──────────────────────────────────────────────────
+
+    @Test
+    fun `formatTtfb with null returns dash`() {
+        assertEquals("—", OverlayFormatters.formatTtfb(null))
+    }
+
+    @Test
+    fun `formatTtfb with estimated timing prefixes tilde`() {
+        val result = OverlayFormatters.formatTtfb(NetworkTiming(ttfbMs = 40L, transferDurationMs = 160L, isEstimated = true))
+        assertEquals("~40ms", result)
+    }
+
+    @Test
+    fun `formatTtfb with measured timing has no tilde prefix`() {
+        val result = OverlayFormatters.formatTtfb(NetworkTiming(ttfbMs = 40L, transferDurationMs = 160L, isEstimated = false))
+        assertEquals("40ms", result)
+    }
+
     // ── ABR formatting tests ──────────────────────────────────────────────────
 
     private fun makeTrack(

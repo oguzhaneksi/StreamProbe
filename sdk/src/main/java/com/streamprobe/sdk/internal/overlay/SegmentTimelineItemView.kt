@@ -14,25 +14,32 @@ import com.streamprobe.sdk.model.SegmentMetric
 /**
  * Programmatic view for a single row in the segment timeline list.
  *
- * Displays: segment index, download duration, size, throughput, and a cache status dot.
+ * Two-row layout:
+ * - Row 1: segment index, download duration, cache status dot
+ * - Row 2 (dimmed): size, throughput, TTFB (when available)
  */
 internal class SegmentTimelineItemView(
     context: Context,
 ) : LinearLayout(context) {
     private val indexView: TextView
     private val durationView: TextView
-    private val sizeView: TextView
-    private val throughputView: TextView
     private val cacheDot: View
+    private val secondaryView: TextView
 
     init {
-        orientation = HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
+        orientation = VERTICAL
         val hPad = dp(10f).toInt()
         val vPad = dp(5f).toInt()
         setPadding(hPad, vPad, hPad, vPad)
 
-        // Segment index ("#1", "#2", …)
+        // ── Row 1: index · duration · cache dot ──────────────────────────────
+
+        val row1 =
+            LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
         indexView =
             TextView(context).apply {
                 setTextColor("#99FFFFFF".toColorInt())
@@ -40,53 +47,43 @@ internal class SegmentTimelineItemView(
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 minWidth = dp(28f).toInt()
             }
-        addView(indexView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        row1.addView(indexView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
 
-        // Duration ("200ms")
         durationView =
             TextView(context).apply {
                 setTextColor(Color.WHITE)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             }
-        addView(
+        row1.addView(
             durationView,
             LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).also {
                 it.marginStart = dp(4f).toInt()
             },
         )
 
-        // Size ("1.2 MB")
-        sizeView =
-            TextView(context).apply {
-                setTextColor("#99FFFFFF".toColorInt())
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
-            }
-        addView(
-            sizeView,
-            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
-                it.marginStart = dp(4f).toInt()
-            },
-        )
-
-        // Throughput ("5.0 MB/s")
-        throughputView =
-            TextView(context).apply {
-                setTextColor("#99FFFFFF".toColorInt())
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
-            }
-        addView(
-            throughputView,
-            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
-                it.marginStart = dp(4f).toInt()
-            },
-        )
-
-        // Cache status dot (8×8 dp oval)
         cacheDot = View(context)
-        addView(
+        row1.addView(
             cacheDot,
             LayoutParams(dp(8f).toInt(), dp(8f).toInt()).also {
                 it.marginStart = dp(6f).toInt()
+            },
+        )
+
+        addView(row1, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+
+        // ── Row 2: size · throughput · TTFB ──────────────────────────────────
+
+        secondaryView =
+            TextView(context).apply {
+                setTextColor("#99FFFFFF".toColorInt())
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            }
+        addView(
+            secondaryView,
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).also {
+                it.marginStart = dp(32f).toInt()
+                it.topMargin = dp(2f).toInt()
             },
         )
     }
@@ -96,10 +93,17 @@ internal class SegmentTimelineItemView(
         metric: SegmentMetric,
     ) {
         indexView.text = "#${index + 1}"
-        durationView.text = "${metric.totalDurationMs}ms"
-        sizeView.text = OverlayFormatters.formatBytes(metric.sizeBytes)
-        throughputView.text = OverlayFormatters.formatThroughput(metric.throughputBytesPerSec)
+        durationView.text = "DL: ${metric.totalDurationMs}ms"
         cacheDot.background = OverlayDrawables.cacheDot(metric.cdnInfo.cacheStatus)
+        secondaryView.text = buildSecondaryLine(metric)
+    }
+
+    private fun buildSecondaryLine(metric: SegmentMetric): String {
+        val parts = mutableListOf<String>()
+        parts += "Size: ${OverlayFormatters.formatBytes(metric.sizeBytes)}"
+        parts += "TP: ${OverlayFormatters.formatThroughput(metric.throughputBytesPerSec)}"
+        metric.networkTiming?.let { parts += "TTFB: ${OverlayFormatters.formatTtfb(it)}" }
+        return parts.joinToString("  ·  ")
     }
 
     private fun dp(value: Float) = context.dp(value)
