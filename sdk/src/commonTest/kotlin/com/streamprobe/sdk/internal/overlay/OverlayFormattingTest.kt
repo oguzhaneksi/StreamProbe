@@ -14,6 +14,7 @@ import com.streamprobe.sdk.model.SubtitleTrackInfo
 import com.streamprobe.sdk.model.SwitchReason
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class OverlayFormattingTest {
@@ -364,8 +365,12 @@ class OverlayFormattingTest {
 
     @Test
     fun `formatActiveAudio with only language contains display language`() {
+        // Platform-neutral: the formatter must surface whatever the platform `displayLanguage`
+        // actual resolves for the tag (Android: "English"; iOS raw-tag fallback: "en").
         val result = OverlayFormatters.formatActiveAudio(makeAudio(language = "en"))
-        assertTrue(result.contains("English"), "Expected 'English' in: $result")
+        val expected = displayLanguage("en")
+        assertNotNull(expected, "displayLanguage should resolve a non-null name for 'en'")
+        assertTrue(result.contains(expected), "Expected '$expected' in: $result")
     }
 
     @Test
@@ -418,18 +423,21 @@ class OverlayFormattingTest {
 
     @Test
     fun `formatActiveSubtitle with language shows display language`() {
+        // Platform-neutral: see formatActiveAudio counterpart. Android resolves "Turkish"; iOS "tr".
         val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(language = "tr"))
-        assertTrue(result.contains("Turkish"), "Expected 'Turkish' in: $result")
+        val expected = displayLanguage("tr")
+        assertNotNull(expected, "displayLanguage should resolve a non-null name for 'tr'")
+        assertTrue(result.contains(expected), "Expected '$expected' in: $result")
     }
 
     @Test
-    fun `formatActiveSubtitle CC adds (CC) suffix`() {
+    fun `formatActiveSubtitle CC adds the CC suffix`() {
         val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(kind = SubtitleKind.CC))
         assertTrue(result.contains("(CC)"), "Expected '(CC)' in: $result")
     }
 
     @Test
-    fun `formatActiveSubtitle SIDECAR does not add (CC) suffix`() {
+    fun `formatActiveSubtitle SIDECAR does not add the CC suffix`() {
         val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(kind = SubtitleKind.SIDECAR))
         assertTrue(!result.contains("(CC)"), "Expected no '(CC)' in: $result")
     }

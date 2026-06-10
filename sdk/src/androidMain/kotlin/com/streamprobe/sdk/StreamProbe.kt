@@ -28,7 +28,7 @@ import com.streamprobe.sdk.internal.overlay.OverlayManager
  * ```
  */
 @androidx.annotation.OptIn(UnstableApi::class)
-class StreamProbe {
+actual class StreamProbe {
     private val sessionStore = SessionStore()
     private val networkTimingRegistry = NetworkTimingRegistry()
     private val playerInterceptor = PlayerInterceptor(sessionStore, networkTimingRegistry)
@@ -80,7 +80,7 @@ class StreamProbe {
     /**
      * Detaches StreamProbe from the player and removes the debug overlay.
      */
-    fun detach() {
+    actual fun detach() {
         playerInterceptor.detach()
         hide()
         sessionStore.clear()
