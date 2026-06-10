@@ -76,7 +76,7 @@ Notable active rules and their thresholds:
 
 | Source set | Path | Contents |
 |---|---|---|
-| `commonMain` | `sdk/src/commonMain/kotlin/` | Portable core (Phase 1): all models + enums, `SessionStore`, `NetworkTimingRegistry`, `CdnHeaderParser`, `DrmSchemeDetectorCommon`, `OverlayFormatters`/`DrmFormatters`, `displayLanguage` expect. **No `java.`/`javax.`/`android.`/`androidx.` imports allowed.** |
+| `commonMain` | `sdk/src/commonMain/kotlin/` | Portable core. **No `java.`/`javax.`/`android.`/`androidx.` imports allowed.** |
 | `commonTest` | `sdk/src/commonTest/kotlin/` | Pure unit tests (`kotlin.test` + `kotlinx-coroutines-test`); run under `testAndroidHostTest`. No Robolectric/Mockito/Media3. |
 | `androidMain` | `sdk/src/androidMain/kotlin/` | Android/Media3 adapters, overlay Views, `DrmSchemeDetector.detectScheme`, `displayLanguage` actual |
 | `androidMain` | `sdk/src/androidMain/AndroidManifest.xml` | Library manifest |
@@ -129,10 +129,10 @@ ExoPlayer
 | `internal/PlayerInterceptor.kt` | Implements both `Player.Listener` and `AnalyticsListener`. Captures track selections, segment load completions, and playback errors; maps Media3 `Format` to SDK models via `FormatExtensions`; writes to `SessionStore`. Also registers/unregisters `DrmSessionTracker` on `attach`/`detach`. In `onLoadCompleted`, consumes a `NetworkTimingRegistry` entry keyed on **`loadEventInfo.dataSpec.uri`** (not `loadEventInfo.uri` — the redirect-key invariant, see below) to fold TTFB into `SegmentMetric.networkTiming`. |
 | `internal/TimingDataSourceFactory.kt` | `@UnstableApi` `DataSource.Factory` wrapper. Times `open()`-duration as a TTFB proxy for HTTP/HTTPS schemes only; records in `NetworkTimingRegistry` keyed by request URI + byte position. If `open()` throws, no entry is written. Uses `SystemClock.elapsedRealtimeNanos()` to stay in the same clock domain as `loadDurationMs`. |
 | `internal/NetworkTimingRegistry.kt` | Bounded, thread-safe handoff between the I/O-thread writer (`TimingDataSource.open`) and the playback-thread reader (`PlayerInterceptor.onLoadCompleted`). Keys entries as `"uri|position"` (pipe delimiter to prevent collisions with URIs containing `@`). FIFO eviction via `LinkedHashMap.removeEldestEntry` at `MAX_ENTRIES = 128`. |
-| `internal/DrmSessionTracker.kt` | Separate `AnalyticsListener` handling DRM callbacks only (`onDrmSessionAcquired`, `onDrmKeysLoaded`, `onDrmSessionReleased`, `onDrmSessionManagerError`). Keeps `PlayerInterceptor`'s function count within detekt's `TooManyFunctions` limit. Measures license latency as wall-clock delta from acquire to keys-loaded. DRM errors are dual-surfaced to both `drmSessionEvents` and `playbackErrors`. |
-| `internal/DrmSchemeDetector.kt` | Pure `internal object` with no Android framework dependency. Resolves `DrmScheme` from `eventTime.timeline` (not `player.currentMediaItem` — correct during playlist transitions) and maps `DrmSession.State` integers to `DrmSessionState`. |
-| `internal/FormatExtensions.kt` | Extension functions mapping `Media3.Format` to SDK model types. `toAudioTrackInfoDetecting` infers `isMuxed` from container MIME type; `toSubtitleTrackInfoDetecting` infers `SubtitleKind` (CC vs SIDECAR) from sample MIME type. |
-| `internal/CdnHeaderParser.kt` | Parses HTTP response headers (case-insensitively) into `CdnHeaderInfo`. Detects CDN provider (Cloudflare, CloudFront, Fastly, Akamai) and cache status (HIT/MISS/STALE/BYPASS/UNKNOWN). |
+| `internal/DrmSessionTracker.kt` | Separate `AnalyticsListener` for DRM callbacks; measures license latency and dual-surfaces DRM errors to both `drmSessionEvents` and `playbackErrors`. |
+| `internal/DrmSchemeDetector.kt` | Resolves `DrmScheme` from `eventTime.timeline` and maps `DrmSession.State` integers to `DrmSessionState`. |
+| `internal/FormatExtensions.kt` | Extension functions mapping `Media3.Format` to SDK model types. |
+| `internal/CdnHeaderParser.kt` | Parses HTTP response headers into `CdnHeaderInfo` (CDN provider + cache status). |
 
 #### Internal: state store
 
@@ -144,33 +144,27 @@ ExoPlayer
 
 | File | Role |
 |------|------|
-| `internal/overlay/OverlayManager.kt` | Manages overlay lifecycle tied to `ComponentActivity`. Adds/removes `OverlayPanelView` via `addContentView`. Registers a `DefaultLifecycleObserver` that auto-calls `hide()` on `onDestroy`, preventing leaks. Persists `ViewMode` (TRACKS / SEGMENTS / SWITCHES / DRM / ERRORS) across orientation rebuilds. Collects `SessionStore` flows in a `CoroutineScope(SupervisorJob() + Dispatchers.Main)` that is cancelled on `hide()`. `observeDrm()` shows/hides the DRM chip, summary row, and DRM tab reactively. Landscape panel width is 540 dp (up from 440 dp). |
-| `internal/overlay/OverlayPanelView.kt` | Fully programmatic `LinearLayout` — no XML inflation, no `R` resource references. Constructs the entire header + body hierarchy in `init`. Supports portrait (vertical stack) and landscape (left stats column / right list column) layouts. Exposes `drmChip`, `drmSectionLabel`, and `drmStatusView` fields. Contains `BoundedRecyclerView`, an inner `RecyclerView` subclass that caps its measured height at a computed `maxHeightPx`. Forwards orientation changes to `OverlayManager` via `onOrientationChanged` callback. |
-| `internal/overlay/RenditionListAdapter.kt` | `ListAdapter` for the Tracks tab. Item type is the `RenditionListItem` sealed interface (`SectionHeader`, `Video`, `Audio`, `Subtitle`). DiffUtil identity uses `Format.id` when available, falls back to dimensions + bitrate for video and `isSameRenditionAs` for audio/subtitle. |
-| `internal/overlay/SegmentTimelineAdapter.kt` / `SwitchTimelineAdapter.kt` / `ErrorTimelineAdapter.kt` / `DrmTimelineAdapter.kt` | `ListAdapter` implementations for the Segments, Switches, Errors, and DRM tabs respectively. All auto-scroll to the newest item unless the user has scrolled up. `DrmTimelineAdapter` uses `DrmSessionEvent.id` as the DiffUtil identity key. |
-| `internal/overlay/DrmTimelineItemView.kt` | Single programmatic row for the DRM tab. Layout: index → colour-coded event dot → scheme badge → event label → latency (visible only for `KeysLoaded`) → relative timestamp. |
-| `internal/overlay/DrmFormatters.kt` | Pure formatting functions for DRM data (no Android framework dependency). `formatDrmStatus` produces the summary-panel string; `formatDrmSchemeBadge` returns the compact chip label (`WV`/`PR`/`CK`/`DRM`). |
-| `internal/overlay/OverlayFormatters.kt` | Pure formatting functions (no Android framework dependency except `Locale`). Extracted from `OverlayManager` so they can be unit-tested without Robolectric. Includes `formatErrorsForExport` for the share-errors intent. Uses a `ThreadLocal<SimpleDateFormat>` for `HH:mm:ss.SSS` formatting (API 23 compatibility; `ThreadLocal.withInitial` requires API 26). |
+| `internal/overlay/OverlayManager.kt` | Manages overlay lifecycle tied to `ComponentActivity` via `addContentView`/`DefaultLifecycleObserver`. Persists `ViewMode` across orientation rebuilds; collects `SessionStore` flows in a `CoroutineScope` cancelled on `hide()`. |
+| `internal/overlay/OverlayPanelView.kt` | Fully programmatic `LinearLayout` (no XML, no `R` references). Supports portrait and landscape layouts; contains `BoundedRecyclerView` that caps measured height. |
+| `internal/overlay/RenditionListAdapter.kt` | `ListAdapter` for the Tracks tab; item type is `RenditionListItem` (`SectionHeader`, `Video`, `Audio`, `Subtitle`). |
+| `internal/overlay/SegmentTimelineAdapter.kt` / `SwitchTimelineAdapter.kt` / `ErrorTimelineAdapter.kt` / `DrmTimelineAdapter.kt` | `ListAdapter` implementations for the four timeline tabs; auto-scroll to newest item unless user scrolled up. |
+| `internal/overlay/DrmTimelineItemView.kt` | Programmatic row for the DRM tab: index, event dot, scheme badge, label, latency, timestamp. |
+| `internal/overlay/DrmFormatters.kt` | Pure formatting functions for DRM summary panel and scheme badge labels. |
+| `internal/overlay/OverlayFormatters.kt` | Pure formatting functions; uses `ThreadLocal<SimpleDateFormat>` for API 23 compatibility. |
 
 #### Models (`model/`)
 
 | Type | Description |
 |------|-------------|
-| `TrackListInfo` | Sealed interface — protocol-agnostic track snapshot. Implemented only by `TracksSnapshot`. |
-| `TracksSnapshot` | Concrete `data class` populated from `player.currentTracks`. |
-| `VariantInfo` | Single video rendition. `isSelected` set from `Tracks.Group.isTrackSelected(i)`. Nullable `id` from `Format.id` is preferred over dimension matching in DiffUtil. |
-| `AudioTrackInfo` | Audio rendition. `isMuxed = true` when audio is muxed into the video container. |
-| `SubtitleTrackInfo` | Subtitle/CC rendition. `kind` distinguishes `SIDECAR` (WebVTT/TTML) from `CC` (CEA-608/CEA-708). |
-| `ActiveTrackInfo` | Currently decoded video track (from `onVideoInputFormatChanged`). Distinct from `VariantInfo` — sourced from the decoder, not the track group. |
-| `SegmentMetric` | Per-segment timing, size, throughput, `CdnHeaderInfo`, and optional `NetworkTiming`. |
-| `NetworkTiming` | Best-effort TTFB breakdown: `ttfbMs`, `transferDurationMs?`, reserved per-phase fields (`dnsMs?`, `connectMs?`, `tlsMs?`), and `isEstimated` flag. No Media3 types; `@UnstableApi`-free. |
+| `TrackListInfo` | Sealed interface; implemented only by `TracksSnapshot`. |
+| `VariantInfo` | `isSelected` from `Tracks.Group.isTrackSelected(i)`; nullable `Format.id` preferred over dimension matching in DiffUtil. |
+| `AudioTrackInfo` | `isMuxed = true` when audio is muxed into the video container. |
+| `SubtitleTrackInfo` | `kind` distinguishes `SIDECAR` (WebVTT/TTML) from `CC` (CEA-608/CEA-708). |
+| `ActiveTrackInfo` | Currently decoded video track. Distinct from `VariantInfo` — sourced from the decoder, not the track group. |
+| `NetworkTiming` | Best-effort TTFB breakdown. Per-phase fields (`dnsMs?`, `connectMs?`, `tlsMs?`) reserved; `isEstimated` flag when TTFB is inferred. |
 | `TrackSwitchEvent` | Sealed interface with `VideoSwitch`, `AudioSwitch`, `SubtitleSwitch`. `SubtitleSwitch.newTrack` is nullable (null = subtitle disabled). |
-| `PlaybackErrorEvent` | Immutable error record. `categoryDetail: ErrorDetail?` carries structured data (e.g. `DroppedFrames` burst aggregation, `DrmErrorInfo` for DRM failures). `timestampMs` is stable across merges for DiffUtil. |
-| `ErrorCategory` | `LOAD_ERROR`, `VIDEO_CODEC_ERROR`, `DROPPED_FRAMES`, `AUDIO_SINK_ERROR`, `AUDIO_CODEC_ERROR`, `DRM_ERROR`. |
-| `DrmScheme` | `WIDEVINE`, `PLAYREADY`, `CLEARKEY`, `UNKNOWN`. |
-| `DrmSessionState` | `OPENING`, `OPENED`, `OPENED_WITH_KEYS`, `RELEASED`, `ERROR`, `UNKNOWN`. |
-| `DrmSessionEvent` | Sealed interface with four subtypes: `SessionAcquired` (scheme + initial state), `KeysLoaded` (scheme + `licenseLatencyMs`), `SessionReleased` (scheme), `SessionError` (scheme + message + detail). Each subtype carries a monotonically increasing `id` used as a stable DiffUtil key. |
-| `DrmStatusInfo` | Live DRM summary: `scheme`, `state`, `lastLicenseLatencyMs?`. Written to `SessionStore.currentDrmState` on every DRM event; drives the overlay summary row. |
+| `PlaybackErrorEvent` | `categoryDetail: ErrorDetail?` carries structured data (e.g. `DroppedFrames` burst, `DrmErrorInfo`). `timestampMs` is stable across merges for DiffUtil. |
+| `DrmSessionEvent` | Sealed interface with `SessionAcquired`, `KeysLoaded` (+ `licenseLatencyMs`), `SessionReleased`, `SessionError`. Each subtype has a monotonically increasing `id` for stable DiffUtil identity. |
 
 ### Key design decisions
 
