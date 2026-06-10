@@ -17,6 +17,9 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.streamprobe.sdk.internal.SessionStore
+import com.streamprobe.sdk.internal.presenter.OverlayPresenter
+import com.streamprobe.sdk.internal.presenter.OverlayViewState
+import com.streamprobe.sdk.internal.presenter.ViewMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,31 +27,34 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
- * Manages the debug overlay lifecycle:
+ * Renders the debug overlay. All platform-independent logic (the [ViewMode] state machine,
+ * collapse, DRM auto-fallback, error counter, header formatting, rendition assembly) lives in the
+ * common [OverlayPresenter]; this class is a thin Android renderer of its
+ * [OverlayPresenter.viewState].
+ *
  * - [show] creates an [OverlayPanelView] sized and oriented for the current screen configuration,
- *   adds it via [ComponentActivity.addContentView], sets up drag, collapse/expand, chip
- *   switcher, and starts observing [SessionStore]. A [DefaultLifecycleObserver] auto-hides
- *   the overlay when the Activity is destroyed, preventing leaks.
+ *   adds it via [ComponentActivity.addContentView], sets up drag and the click handlers (which
+ *   forward to the presenter), and starts a single `viewState.collect { render(it) }`. A
+ *   [DefaultLifecycleObserver] auto-hides the overlay when the Activity is destroyed.
  * - [hide] removes the overlay, cancels observation, and removes the lifecycle observer.
  *
- * [viewMode] is preserved across orientation rebuilds so that if the user switched to Segments,
- * the rebuilt overlay shows Segments too.
+ * View-mode and collapse state live in the [OverlayPresenter], which is created once and reused
+ * across orientation rebuilds (and across [hide]/[show] cycles). This preserves the selected
+ * [ViewMode] across rebuilds — e.g. if the user switched to Segments, the rebuilt overlay shows
+ * Segments too. The presenter holds no View references, so reusing it is leak-free.
  */
 internal class OverlayManager(
     private val sessionStore: SessionStore,
 ) {
-    private enum class ViewMode { TRACKS, SEGMENTS, SWITCHES, DRM, ERRORS }
-
     private var overlayView: OverlayPanelView? = null
     private var scope: CoroutineScope? = null
+    private var presenter: OverlayPresenter? = null
     private var renditionAdapter: RenditionListAdapter? = null
     private var segmentAdapter: SegmentTimelineAdapter? = null
     private var switchAdapter: SwitchTimelineAdapter? = null
     private var drmAdapter: DrmTimelineAdapter? = null
     private var errorAdapter: ErrorTimelineAdapter? = null
-    private var isCollapsed = false
-    private var viewMode = ViewMode.TRACKS
-    private var previousViewMode = ViewMode.TRACKS
+    private var lastRenderedMode: ViewMode? = null
 
     private var currentActivity: ComponentActivity? = null
     private var lifecycleObserver: DefaultLifecycleObserver? = null
@@ -82,16 +88,31 @@ internal class OverlayManager(
         attachAutoScrollToEnd(overlay.trackList, drm)
         attachAutoScrollToEnd(overlay.trackList, err)
 
+        // Reused across rebuilds so the selected ViewMode survives orientation changes.
+        val overlayPresenter = presenter ?: OverlayPresenter(sessionStore).also { presenter = it }
+
         setupDrag(overlay)
-        setupCollapseToggle(overlay)
-        setupChips(overlay)
-        startObserving(overlay)
+        setupInteractions(overlay, overlayPresenter)
+        overlay.body.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            clampToParent(overlay)
+        }
+
+        val newScope = CoroutineScope(SupervisorJob() + Dispatchers.Main).also { scope = it }
+        overlayPresenter.start(newScope)
+        // Initial synchronous render so the adapter, chip state and texts are set during show().
+        render(overlay, overlayPresenter.viewState.value)
+        newScope.launch {
+            overlayPresenter.viewState.collect { render(overlay, it) }
+        }
+
         attachLifecycle(activity)
     }
 
     fun hide() {
         scope?.cancel()
         scope = null
+        // presenter is intentionally retained across hide()/show() to preserve ViewMode + collapse.
+        lastRenderedMode = null
         renditionAdapter = null
         segmentAdapter = null
         switchAdapter = null
@@ -108,7 +129,6 @@ internal class OverlayManager(
         }
         lifecycleObserver = null
         currentActivity = null
-        isCollapsed = false
     }
 
     @VisibleForTesting
@@ -201,128 +221,63 @@ internal class OverlayManager(
         }
     }
 
-    // ── Collapse / Expand ───────────────────────────────────────────────────
+    // ── Interactions (forward to presenter, then render synchronously) ────────
 
-    private fun updateCollapseUi(overlay: OverlayPanelView) {
-        overlay.body.visibility = if (isCollapsed) View.GONE else View.VISIBLE
-        overlay.collapseBtn.rotation = if (isCollapsed) 0f else 180f
-        overlay.collapseBtn.contentDescription = if (isCollapsed) "Expand" else "Collapse"
-    }
-
-    private fun setupCollapseToggle(overlay: OverlayPanelView) {
-        updateCollapseUi(overlay)
+    private fun setupInteractions(
+        overlay: OverlayPanelView,
+        presenter: OverlayPresenter,
+    ) {
+        fun renderNow() = render(overlay, presenter.viewState.value)
 
         overlay.collapseBtn.setOnClickListener {
-            isCollapsed = !isCollapsed
-            updateCollapseUi(overlay)
+            presenter.onCollapseToggled()
+            renderNow()
         }
-
-        overlay.body.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            clampToParent(overlay)
-        }
-    }
-
-    // ── Chip switcher ────────────────────────────────────────────────────────
-
-    private fun setupChips(overlay: OverlayPanelView) {
-        applyViewMode(overlay, viewMode)
-
         overlay.tracksChip.setOnClickListener {
-            viewMode = ViewMode.TRACKS
-            applyViewMode(overlay, viewMode)
+            presenter.onChipSelected(ViewMode.TRACKS)
+            renderNow()
         }
         overlay.segmentsChip.setOnClickListener {
-            viewMode = ViewMode.SEGMENTS
-            applyViewMode(overlay, viewMode)
+            presenter.onChipSelected(ViewMode.SEGMENTS)
+            renderNow()
         }
         overlay.switchesChip.setOnClickListener {
-            viewMode = ViewMode.SWITCHES
-            applyViewMode(overlay, viewMode)
+            presenter.onChipSelected(ViewMode.SWITCHES)
+            renderNow()
         }
-
         overlay.drmChip.setOnClickListener {
-            viewMode = ViewMode.DRM
-            applyViewMode(overlay, viewMode)
+            presenter.onChipSelected(ViewMode.DRM)
+            renderNow()
         }
-
-        setupErrorIndicator(overlay)
-    }
-
-    private fun setupErrorIndicator(overlay: OverlayPanelView) {
         overlay.errorIndicator.setOnClickListener {
-            if (isCollapsed) {
-                isCollapsed = false
-                updateCollapseUi(overlay)
-            }
-            if (viewMode != ViewMode.ERRORS) {
-                previousViewMode = viewMode
-                viewMode = ViewMode.ERRORS
-                applyViewMode(overlay, viewMode)
-            }
+            presenter.onErrorIndicatorTapped()
+            renderNow()
         }
-
         overlay.backButton.setOnClickListener {
-            viewMode = previousViewMode
-            applyViewMode(overlay, viewMode)
+            presenter.onBackPressed()
+            renderNow()
         }
-
-        overlay.clearButton.setOnClickListener {
-            sessionStore.clearPlaybackErrors()
-        }
-
-        overlay.shareButton.setOnClickListener {
-            val activity = currentActivity ?: return@setOnClickListener
-            val errors = sessionStore.playbackErrors.value
-            val text =
-                OverlayFormatters.formatErrorsForExport(
-                    errors = errors,
-                    baseTimestampMs = errors.firstOrNull()?.timestampMs ?: 0L,
-                )
-            val intent =
-                Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, text)
-                }
-            activity.startActivity(Intent.createChooser(intent, "Share errors"))
-        }
+        overlay.clearButton.setOnClickListener { presenter.onClearErrorsClicked() }
+        overlay.shareButton.setOnClickListener { shareErrors() }
     }
 
-    private fun applyViewMode(
-        overlay: OverlayPanelView,
-        mode: ViewMode,
-    ) {
-        val isErrors = mode == ViewMode.ERRORS
-        overlay.tracksChip.isChecked = mode == ViewMode.TRACKS
-        overlay.segmentsChip.isChecked = mode == ViewMode.SEGMENTS
-        overlay.switchesChip.isChecked = mode == ViewMode.SWITCHES
-        overlay.drmChip.isChecked = mode == ViewMode.DRM
-
-        // Show chip row or errors header
-        val chipRowVisibility = if (isErrors) View.GONE else View.VISIBLE
-        val chipRow = overlay.tracksChip.parent as? View
-        if (chipRow != null) {
-            chipRow.visibility = chipRowVisibility
-        } else {
-            overlay.tracksChip.visibility = chipRowVisibility
-            overlay.segmentsChip.visibility = chipRowVisibility
-            overlay.switchesChip.visibility = chipRowVisibility
-            overlay.drmChip.visibility = chipRowVisibility
-        }
-        overlay.errorsViewHeader.visibility = if (isErrors) View.VISIBLE else View.GONE
-
-        overlay.trackList.adapter =
-            when (mode) {
-                ViewMode.TRACKS -> renditionAdapter
-                ViewMode.SEGMENTS -> segmentAdapter
-                ViewMode.SWITCHES -> switchAdapter
-                ViewMode.DRM -> drmAdapter
-                ViewMode.ERRORS -> errorAdapter
+    private fun shareErrors() {
+        val activity = currentActivity ?: return
+        val errors = sessionStore.playbackErrors.value
+        val text =
+            OverlayFormatters.formatErrorsForExport(
+                errors = errors,
+                baseTimestampMs = errors.firstOrNull()?.timestampMs ?: 0L,
+            )
+        val intent =
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
             }
-        if (mode == ViewMode.ERRORS) {
-            val errorCount = sessionStore.playbackErrors.value.size
-            overlay.errorsTitle.text = "Errors ($errorCount)"
-        }
+        activity.startActivity(Intent.createChooser(intent, "Share errors"))
     }
+
+    // ── Auto-scroll ───────────────────────────────────────────────────────────
 
     private fun attachAutoScrollToEnd(
         list: RecyclerView,
@@ -349,125 +304,101 @@ internal class OverlayManager(
         )
     }
 
-    // ── Observation ─────────────────────────────────────────────────────────
+    // ── Rendering ─────────────────────────────────────────────────────────────
 
-    private fun startObserving(overlay: OverlayPanelView) {
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
-        observeTrackListInfo()
-
-        scope?.launch {
-            sessionStore.activeTrack.collect { track ->
-                overlay.activeTrackView.text = OverlayFormatters.formatActiveTrack(track)
-            }
-        }
-
-        scope?.launch {
-            sessionStore.activeAudioTrack.collect { audio ->
-                overlay.activeAudioView.text = OverlayFormatters.formatActiveAudio(audio)
-            }
-        }
-
-        scope?.launch {
-            sessionStore.activeSubtitleTrack.collect { subtitle ->
-                overlay.activeSubtitleView.text = OverlayFormatters.formatActiveSubtitle(subtitle)
-            }
-        }
-
-        scope?.launch {
-            sessionStore.latestSegmentMetric.collect { metric ->
-                overlay.latestSegmentView.text = OverlayFormatters.formatSegmentMetric(metric)
-                overlay.cdnStatusView.text = OverlayFormatters.formatCdnStatus(metric?.cdnInfo)
-            }
-        }
-
-        scope?.launch {
-            sessionStore.segmentMetrics.collect { metrics ->
-                segmentAdapter?.submitList(metrics)
-            }
-        }
-
-        scope?.launch {
-            sessionStore.trackSwitchEvents.collect { events ->
-                switchAdapter?.submitList(events)
-            }
-        }
-
-        observeDrm(overlay)
-        observePlaybackErrors(overlay)
+    private fun render(
+        overlay: OverlayPanelView,
+        state: OverlayViewState,
+    ) {
+        renderCollapse(overlay, state)
+        renderStats(overlay, state)
+        renderChrome(overlay, state)
+        renderLists(overlay, state)
     }
 
-    private fun observeTrackListInfo() {
-        scope?.launch {
-            sessionStore.trackListInfo.collect { info ->
-                if (info != null) {
-                    val items =
-                        buildList {
-                            if (info.variants.isNotEmpty()) {
-                                add(RenditionListItem.SectionHeader("VIDEO"))
-                                info.variants.forEach { add(RenditionListItem.Video(it)) }
-                            }
-                            if (info.audioTracks.isNotEmpty()) {
-                                add(RenditionListItem.SectionHeader("AUDIO"))
-                                info.audioTracks.forEach { add(RenditionListItem.Audio(it)) }
-                            }
-                            if (info.subtitleTracks.isNotEmpty()) {
-                                add(RenditionListItem.SectionHeader("SUBTITLES"))
-                                info.subtitleTracks.forEach { add(RenditionListItem.Subtitle(it)) }
-                            }
-                        }
-                    renditionAdapter?.submitList(items)
-                }
-            }
-        }
+    private fun renderCollapse(
+        overlay: OverlayPanelView,
+        state: OverlayViewState,
+    ) {
+        overlay.body.visibility = if (state.isCollapsed) View.GONE else View.VISIBLE
+        overlay.collapseBtn.rotation = if (state.isCollapsed) 0f else 180f
+        overlay.collapseBtn.contentDescription = if (state.isCollapsed) "Expand" else "Collapse"
     }
 
-    private fun observeDrm(overlay: OverlayPanelView) {
-        scope?.launch {
-            sessionStore.drmSessionEvents.collect { events ->
-                drmAdapter?.submitList(events)
-                val hasDrm = events.isNotEmpty()
-                overlay.drmChip.visibility = if (hasDrm) View.VISIBLE else View.GONE
-                overlay.drmSectionLabel.visibility = if (hasDrm) View.VISIBLE else View.GONE
-                overlay.drmStatusView.visibility = if (hasDrm) View.VISIBLE else View.GONE
-                if (!hasDrm) {
-                    if (viewMode == ViewMode.DRM) {
-                        viewMode = ViewMode.TRACKS
-                        applyViewMode(overlay, viewMode)
-                    }
-                    if (previousViewMode == ViewMode.DRM) {
-                        previousViewMode = ViewMode.TRACKS
-                    }
-                }
-            }
+    private fun renderStats(
+        overlay: OverlayPanelView,
+        state: OverlayViewState,
+    ) {
+        val stats = state.stats
+        overlay.activeTrackView.text = stats.activeTrackText
+        overlay.activeAudioView.text = stats.activeAudioText
+        overlay.activeSubtitleView.text = stats.activeSubtitleText
+        overlay.latestSegmentView.text = stats.latestSegmentText
+        overlay.cdnStatusView.text = stats.cdnStatusText
+        overlay.drmStatusView.text = stats.drmStatusText
+
+        val drmVisibility = if (stats.drmVisible) View.VISIBLE else View.GONE
+        overlay.drmChip.visibility = drmVisibility
+        overlay.drmSectionLabel.visibility = drmVisibility
+        overlay.drmStatusView.visibility = drmVisibility
+    }
+
+    private fun renderChrome(
+        overlay: OverlayPanelView,
+        state: OverlayViewState,
+    ) {
+        overlay.tracksChip.isChecked = state.mode == ViewMode.TRACKS
+        overlay.segmentsChip.isChecked = state.mode == ViewMode.SEGMENTS
+        overlay.switchesChip.isChecked = state.mode == ViewMode.SWITCHES
+        overlay.drmChip.isChecked = state.mode == ViewMode.DRM
+
+        val chipRowVisibility = if (state.chipRowVisible) View.VISIBLE else View.GONE
+        val chipRow = overlay.tracksChip.parent as? View
+        if (chipRow != null) {
+            chipRow.visibility = chipRowVisibility
+        } else {
+            overlay.tracksChip.visibility = chipRowVisibility
+            overlay.segmentsChip.visibility = chipRowVisibility
+            overlay.switchesChip.visibility = chipRowVisibility
+            overlay.drmChip.visibility = chipRowVisibility
         }
-        scope?.launch {
-            sessionStore.currentDrmState.collect { drmInfo ->
-                overlay.drmStatusView.text = DrmFormatters.formatDrmStatus(drmInfo)
-            }
+        overlay.errorsViewHeader.visibility = if (state.errorsHeaderVisible) View.VISIBLE else View.GONE
+        overlay.errorsTitle.text = state.errorsTitle
+
+        val indicator = state.errorIndicator
+        if (indicator == null) {
+            overlay.errorIndicator.visibility = View.GONE
+        } else {
+            overlay.errorIndicator.text = indicator.text
+            overlay.errorIndicator.contentDescription = indicator.contentDescription
+            overlay.errorIndicator.visibility = View.VISIBLE
         }
     }
 
-    private fun observePlaybackErrors(overlay: OverlayPanelView) {
-        scope?.launch {
-            sessionStore.playbackErrors.collect { errors ->
-                errorAdapter?.submitList(errors)
+    private fun renderLists(
+        overlay: OverlayPanelView,
+        state: OverlayViewState,
+    ) {
+        val lists = state.lists
+        renditionAdapter?.submitList(lists.renditionRows)
+        segmentAdapter?.submitList(lists.segments)
+        switchAdapter?.submitList(lists.switches)
+        drmAdapter?.submitList(lists.drmEvents)
+        errorAdapter?.submitList(lists.errors)
 
-                // Update the header indicator
-                if (errors.isEmpty()) {
-                    overlay.errorIndicator.visibility = View.GONE
-                } else {
-                    overlay.errorIndicator.text = "⚠ ${errors.size}"
-                    overlay.errorIndicator.contentDescription =
-                        "${errors.size} background errors. Tap to view."
-                    overlay.errorIndicator.visibility = View.VISIBLE
-                }
-
-                // Keep errors title in sync when in errors mode
-                if (viewMode == ViewMode.ERRORS) {
-                    overlay.errorsTitle.text = "Errors (${errors.size})"
-                }
-            }
+        // Swap the attached adapter only on mode change to avoid resetting scroll position.
+        if (state.mode != lastRenderedMode) {
+            overlay.trackList.adapter = adapterForMode(state.mode)
+            lastRenderedMode = state.mode
         }
     }
+
+    private fun adapterForMode(mode: ViewMode): RecyclerView.Adapter<*>? =
+        when (mode) {
+            ViewMode.TRACKS -> renditionAdapter
+            ViewMode.SEGMENTS -> segmentAdapter
+            ViewMode.SWITCHES -> switchAdapter
+            ViewMode.DRM -> drmAdapter
+            ViewMode.ERRORS -> errorAdapter
+        }
 }

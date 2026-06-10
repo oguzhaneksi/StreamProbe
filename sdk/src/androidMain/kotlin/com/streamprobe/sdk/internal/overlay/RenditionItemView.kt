@@ -10,6 +10,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
+import com.streamprobe.sdk.internal.presenter.OverlayRow
 import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.SubtitleKind
 import java.util.Locale
@@ -17,7 +18,7 @@ import java.util.Locale
 /**
  * A single row in the rendition list — handles video, audio and subtitle items.
  * The architecture mirrors [VariantItemView] (dot + top row + bottom row) but binds
- * polymorphically via the [RenditionListItem] sealed type.
+ * polymorphically via the common [OverlayRow] sealed type.
  */
 internal class RenditionItemView(
     context: Context,
@@ -73,16 +74,16 @@ internal class RenditionItemView(
         )
     }
 
-    fun bind(item: RenditionListItem) {
+    fun bind(item: OverlayRow) {
         when (item) {
-            is RenditionListItem.Video -> bindVideo(item)
-            is RenditionListItem.Audio -> bindAudio(item)
-            is RenditionListItem.Subtitle -> bindSubtitle(item)
-            is RenditionListItem.SectionHeader -> { /* handled by separate view holder */ }
+            is OverlayRow.Video -> bindVideo(item)
+            is OverlayRow.Audio -> bindAudio(item)
+            is OverlayRow.Subtitle -> bindSubtitle(item)
+            is OverlayRow.SectionHeader -> { /* handled by separate view holder */ }
         }
     }
 
-    private fun bindVideo(item: RenditionListItem.Video) {
+    private fun bindVideo(item: OverlayRow.Video) {
         val info = item.info
         val isActive = info.isSelected
 
@@ -97,7 +98,7 @@ internal class RenditionItemView(
         bottomLine.isVisible = !info.codecs.isNullOrEmpty()
     }
 
-    private fun bindAudio(item: RenditionListItem.Audio) {
+    private fun bindAudio(item: OverlayRow.Audio) {
         val info = item.info
         val isActive = info.isSelected
 
@@ -130,7 +131,7 @@ internal class RenditionItemView(
         return topParts.joinToString("  \u00b7  ").ifBlank { "Audio" }
     }
 
-    private fun bindSubtitle(item: RenditionListItem.Subtitle) {
+    private fun bindSubtitle(item: OverlayRow.Subtitle) {
         val info = item.info
         val isActive = info.isSelected
 

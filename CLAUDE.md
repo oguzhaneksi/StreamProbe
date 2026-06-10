@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 StreamProbe is a **Kotlin Multiplatform** debug SDK (currently Android-only; iOS planned) that hooks into Media3/ExoPlayer to surface HLS/DASH streaming diagnostics (track variants, segment metrics, CDN headers, ABR decisions, playback errors) through an in-app draggable overlay. It is **debug-only** — never enabled in release builds.
 
-**KMP migration status:** Phase 1 complete — the `sdk/` module uses `kotlin("multiplatform")` + `com.android.kotlin.multiplatform.library` with a single `androidTarget`. The **pure core now lives in `commonMain`**: all 17 models + enums, `SessionStore`, `NetworkTimingRegistry`, `CdnHeaderParser`, `DrmSchemeDetectorCommon` (pure UUID/state mapping), and the `OverlayFormatters`/`DrmFormatters` (package kept as `internal.overlay`). Their pure tests moved to `commonTest` (`kotlin.test`). The Media3/ExoPlayer adapters, the overlay Views, and `DrmSchemeDetector.detectScheme` stay in `androidMain`. One `expect/actual` exists: `displayLanguage(tag)` (Android `actual` only). New common deps: `kotlinx-datetime`, `kotlinx.atomicfu`, `kotlinx-coroutines-core`. (Phase 2 — extract `OverlayPresenter` into `presenter/` — not started.)
+**KMP migration status:** Phase 2 complete — the `sdk/` module uses `kotlin("multiplatform")` + `com.android.kotlin.multiplatform.library` with a single `androidTarget`. The **pure core now lives in `commonMain`**: all 17 models + enums, `SessionStore`, `NetworkTimingRegistry`, `CdnHeaderParser`, `DrmSchemeDetectorCommon` (pure UUID/state mapping), the `OverlayFormatters`/`DrmFormatters` (package kept as `internal.overlay`), and the **new `internal/presenter/` package** (`OverlayViewState`/`OverlayRow`/`OverlayStatsState`/`OverlayListsState`/`ErrorIndicatorState`/`ViewMode` + `OverlayPresenter`). The Media3/ExoPlayer adapters, the overlay Views, and `DrmSchemeDetector.detectScheme` stay in `androidMain`. One `expect/actual` exists: `displayLanguage(tag)` (Android `actual` only). New common deps: `kotlinx-datetime`, `kotlinx.atomicfu`, `kotlinx-coroutines-core`. **Phase 2** moved all platform-independent overlay logic (the `ViewMode` state machine, collapse, DRM auto-fallback, error counter, header-string formatting, rendition assembly) into the common `OverlayPresenter`, which emits a single `StateFlow<OverlayViewState>`; Android `OverlayManager` is now a thin renderer (`viewState.collect { render(it) }` + click intents forwarded to the presenter). Locked by the cross-platform `OverlayPresenterTest` (commonTest). (Phase 3 — iOS targets + headless `AVPlayerProbe` — not started.)
 
 Two Gradle modules:
 - **`sdk/`** — the published library (`io.github.oguzhaneksi:streamprobe`)
@@ -91,7 +91,7 @@ All classes and functions that reference Media3 `@UnstableApi` types must be ann
 
 ### General conventions
 - `internal` visibility for everything not part of the public SDK surface.
-- `data class` for all model types; `sealed interface` for type hierarchies (`TrackSwitchEvent`, `TrackListInfo`, `RenditionListItem`, `ErrorDetail`).
+- `data class` for all model types; `sealed interface` for type hierarchies (`TrackSwitchEvent`, `TrackListInfo`, `OverlayRow`, `ErrorDetail`).
 - No XML layouts in the SDK — all views in `overlay/` are constructed programmatically to avoid requiring R resources in a library module.
 - `String.format(Locale.ROOT, ...)` must be used for all locale-sensitive formatting (enforced by lint).
 
@@ -109,7 +109,9 @@ ExoPlayer
           │
     SessionStore              (StateFlow-backed in-memory store)
           │
-   OverlayManager             (collects flows on Main dispatcher)
+   OverlayPresenter           (common: SessionStore flows + UI intents → StateFlow<OverlayViewState>)
+          │
+   OverlayManager             (Android: collects viewState on Main dispatcher, renders)
           │
    OverlayPanelView           (programmatic View hierarchy, added via addContentView)
 ```
@@ -140,13 +142,20 @@ ExoPlayer
 |------|------|
 | `internal/SessionStore.kt` | Thread-safe `StateFlow` store. Capped lists: 500 segment metrics, 200 switch events, 200 errors, 200 DRM events. Consecutive `DROPPED_FRAMES` events within a 5 s window are merged into one aggregated entry (stable `timestampMs` for DiffUtil). Exposes `drmSessionEvents: StateFlow<List<DrmSessionEvent>>` and `currentDrmState: StateFlow<DrmStatusInfo?>`. |
 
+#### Internal: presenter (commonMain)
+
+| File | Role |
+|------|------|
+| `internal/presenter/OverlayViewState.kt` | Render-ready `OverlayViewState` (grouped into `OverlayStatsState` + `OverlayListsState` to stay under detekt's `LongParameterList` of 8) plus the `ViewMode` enum, the `OverlayRow` sealed interface (`SectionHeader`/`Video`/`Audio`/`Subtitle`, carrying raw track models), and `ErrorIndicatorState`. Carries pre-formatted strings for all header fields; the four timeline lists + Tracks rows stay as raw models (rendered per-platform). |
+| `internal/presenter/OverlayPresenter.kt` | Platform-independent overlay logic. Owns `viewMode`/`previousViewMode`/`isCollapsed`; `start(scope)` folds the `SessionStore` flows into a single `StateFlow<OverlayViewState>`; exposes intents (`onChipSelected`, `onCollapseToggled`, `onErrorIndicatorTapped`, `onBackPressed`, `onClearErrorsClicked`). Implements the DRM auto-fallback (DRM list empties → back to `TRACKS`) and the error counter. Mutable UI-state vars are single-dispatcher-confined (Main on Android, the test dispatcher in commonTest). |
+
 #### Internal: overlay
 
 | File | Role |
 |------|------|
-| `internal/overlay/OverlayManager.kt` | Manages overlay lifecycle tied to `ComponentActivity` via `addContentView`/`DefaultLifecycleObserver`. Persists `ViewMode` across orientation rebuilds; collects `SessionStore` flows in a `CoroutineScope` cancelled on `hide()`. |
+| `internal/overlay/OverlayManager.kt` | Thin Android renderer of `OverlayPresenter.viewState`. Owns the genuinely-Android pieces — `addContentView`/`DefaultLifecycleObserver` lifecycle, `MotionEvent` drag, sizing, orientation rebuild, auto-scroll — and a single `viewState.collect { render(it) }` (plus a synchronous `render` after each click intent so taps respond immediately). Click handlers forward to the presenter; the share button builds an Android `Intent` from the pure `formatErrorsForExport`. Reuses one `OverlayPresenter` across rebuilds so `ViewMode` survives orientation changes. |
 | `internal/overlay/OverlayPanelView.kt` | Fully programmatic `LinearLayout` (no XML, no `R` references). Supports portrait and landscape layouts; contains `BoundedRecyclerView` that caps measured height. |
-| `internal/overlay/RenditionListAdapter.kt` | `ListAdapter` for the Tracks tab; item type is `RenditionListItem` (`SectionHeader`, `Video`, `Audio`, `Subtitle`). |
+| `internal/overlay/RenditionListAdapter.kt` | `ListAdapter` for the Tracks tab; item type is the common `OverlayRow` (`SectionHeader`, `Video`, `Audio`, `Subtitle`), assembled by `OverlayPresenter`. DiffUtil identity unchanged (video by id/dimensions; audio/subtitle via `isSameRenditionAs`). |
 | `internal/overlay/SegmentTimelineAdapter.kt` / `SwitchTimelineAdapter.kt` / `ErrorTimelineAdapter.kt` / `DrmTimelineAdapter.kt` | `ListAdapter` implementations for the four timeline tabs; auto-scroll to newest item unless user scrolled up. |
 | `internal/overlay/DrmTimelineItemView.kt` | Programmatic row for the DRM tab: index, event dot, scheme badge, label, latency, timestamp. |
 | `internal/overlay/DrmFormatters.kt` | Pure formatting functions for DRM summary panel and scheme badge labels. |
