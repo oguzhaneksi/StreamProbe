@@ -1,6 +1,5 @@
 package com.streamprobe.sdk.internal
 
-import androidx.annotation.VisibleForTesting
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.DrmSessionEvent
@@ -52,6 +51,10 @@ internal class SessionStore {
 
     private val _currentDrmState = MutableStateFlow<DrmStatusInfo?>(null)
     val currentDrmState: StateFlow<DrmStatusInfo?> = _currentDrmState.asStateFlow()
+
+    // Monotonic id generator for DRM events. Single serialized writer (analytics thread); the id is
+    // computed before update {} so a CAS retry of the loop never double-increments it.
+    private var drmEventIdCounter = DrmSessionEvent.UNASSIGNED_ID
 
     fun updateTrackList(info: TrackListInfo) {
         _trackListInfo.value = info
@@ -126,8 +129,9 @@ internal class SessionStore {
     }
 
     fun addDrmSessionEvent(event: DrmSessionEvent) {
+        val stamped = event.withId(++drmEventIdCounter)
         _drmSessionEvents.update { current ->
-            if (current.size >= MAX_DRM_EVENTS) current.drop(1) + event else current + event
+            if (current.size >= MAX_DRM_EVENTS) current.drop(1) + stamped else current + stamped
         }
     }
 
@@ -146,19 +150,14 @@ internal class SessionStore {
         _playbackErrors.value = emptyList()
         _drmSessionEvents.value = emptyList()
         _currentDrmState.value = null
+        drmEventIdCounter = DrmSessionEvent.UNASSIGNED_ID
     }
 
     companion object {
         private const val MAX_SEGMENT_METRICS = 500
-
-        @VisibleForTesting
         internal const val MAX_TRACK_SWITCH_EVENTS = 200
         private const val MAX_PLAYBACK_ERRORS = 200
-
-        @VisibleForTesting
         internal const val MAX_DRM_EVENTS = 200
-
-        @VisibleForTesting
         internal const val DROPPED_FRAMES_DEDUP_WINDOW_MS = 5_000L
     }
 }

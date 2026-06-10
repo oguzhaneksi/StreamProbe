@@ -2,11 +2,11 @@ package com.streamprobe.sdk.internal
 
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnProvider
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class CdnHeaderParserTest {
     private fun headers(vararg pairs: Pair<String, String>): Map<String, List<String>> = pairs.associate { (k, v) -> k to listOf(v) }

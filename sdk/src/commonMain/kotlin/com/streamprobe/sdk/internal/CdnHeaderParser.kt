@@ -3,7 +3,6 @@ package com.streamprobe.sdk.internal
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.CdnHeaderInfo
 import com.streamprobe.sdk.model.CdnProvider
-import java.util.Locale
 
 /**
  * Parses CDN-related HTTP response headers from a Media3 header map
@@ -29,7 +28,7 @@ internal object CdnHeaderParser {
 
     fun parse(headers: Map<String, List<String>>): CdnHeaderInfo {
         // Build a lowercase-keyed map for case-insensitive lookup.
-        val lower = headers.entries.associate { (k, v) -> k.lowercase(Locale.ROOT) to v }
+        val lower = headers.entries.associate { (k, v) -> k.lowercase() to v }
 
         val cacheControl = lower["cache-control"]?.firstOrNull()
         val xCache = (lower["x-cache"] ?: lower["x-cached"] ?: lower["x-cache-status"])?.firstOrNull()
@@ -77,7 +76,7 @@ internal object CdnHeaderParser {
     // Akamai tokens like TCP_HIT, TCP_MEM_HIT, TCP_REFRESH_HIT → HIT and
     // TCP_MISS, TCP_REFRESH_MISS → MISS are correctly classified.
     private fun xCacheToStatus(xCache: String): CacheStatus =
-        xCache.uppercase(Locale.ROOT).let { v ->
+        xCache.uppercase().let { v ->
             when {
                 v == "STALE" || v == "REVALIDATED" -> CacheStatus.STALE
                 v == "BYPASS" -> CacheStatus.BYPASS
@@ -89,7 +88,7 @@ internal object CdnHeaderParser {
 
     // Fall back to CDN-specific cache headers (e.g. CF-Cache-Status).
     private fun cfCacheStatusToStatus(cfCacheStatus: String): CacheStatus =
-        cfCacheStatus.uppercase(Locale.ROOT).let { cf ->
+        cfCacheStatus.uppercase().let { cf ->
             when {
                 cf.startsWith("HIT") -> CacheStatus.HIT
                 cf.startsWith("MISS") || cf == "EXPIRED" -> CacheStatus.MISS
@@ -119,7 +118,7 @@ internal object CdnHeaderParser {
                 val viaTokens =
                     viaValues
                         .flatMap { it.split(",") }
-                        .map { it.trim().uppercase(Locale.ROOT) }
+                        .map { it.trim().uppercase() }
                 if (viaTokens.any { it.contains("CLOUDFRONT") }) CdnProvider.CLOUDFRONT else CdnProvider.UNKNOWN
             }
         }

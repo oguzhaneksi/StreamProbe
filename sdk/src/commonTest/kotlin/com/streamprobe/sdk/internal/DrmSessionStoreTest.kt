@@ -6,15 +6,15 @@ import com.streamprobe.sdk.model.DrmSessionState
 import com.streamprobe.sdk.model.DrmStatusInfo
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Before
-import org.junit.Test
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class DrmSessionStoreTest {
     private lateinit var store: SessionStore
 
-    @Before
+    @BeforeTest
     fun setUp() {
         store = SessionStore()
     }
@@ -33,8 +33,11 @@ class DrmSessionStoreTest {
 
             val result = store.drmSessionEvents.first()
             assertEquals(2, result.size)
-            assertEquals(e1, result[0])
-            assertEquals(e2, result[1])
+            // The store stamps a monotonic id on each event; everything else is preserved.
+            assertEquals(e1.copy(id = 1L), result[0])
+            assertEquals(e2.copy(id = 2L), result[1])
+            assertEquals(1L, result[0].id)
+            assertEquals(2L, result[1].id)
         }
 
     @Test
@@ -79,5 +82,19 @@ class DrmSessionStoreTest {
 
             assertEquals(emptyList<DrmSessionEvent>(), store.drmSessionEvents.first())
             assertNull(store.currentDrmState.first())
+        }
+
+    @Test
+    fun `addDrmSessionEvent after clear restarts ids from 1`() =
+        runTest {
+            store.addDrmSessionEvent(makeSessionAcquired(1_000L))
+            store.addDrmSessionEvent(makeSessionAcquired(2_000L))
+            store.clear()
+
+            store.addDrmSessionEvent(makeSessionAcquired(3_000L))
+
+            val result = store.drmSessionEvents.first()
+            assertEquals(1, result.size)
+            assertEquals(1L, result[0].id)
         }
 }

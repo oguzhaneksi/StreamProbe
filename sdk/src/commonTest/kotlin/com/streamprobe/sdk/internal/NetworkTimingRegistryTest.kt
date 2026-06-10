@@ -1,14 +1,14 @@
 package com.streamprobe.sdk.internal
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Before
-import org.junit.Test
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class NetworkTimingRegistryTest {
     private lateinit var registry: NetworkTimingRegistry
 
-    @Before
+    @BeforeTest
     fun setUp() {
         registry = NetworkTimingRegistry()
     }
@@ -65,5 +65,22 @@ class NetworkTimingRegistryTest {
         registry.record("https://example.com/seg.ts", 0L, 50L)
         registry.clear()
         assertNull(registry.consume("https://example.com/seg.ts", 0L))
+    }
+
+    @Test
+    fun `re-recording an existing key refreshes insertion order so it survives subsequent evictions`() {
+        val max = NetworkTimingRegistry.MAX_ENTRIES
+        // Fill to capacity.
+        for (i in 1..max) {
+            registry.record("https://example.com/seg$i.ts", 0L, i.toLong())
+        }
+        // Re-record seg1 (currently eldest) with a new timing — this should move it to the tail.
+        registry.record("https://example.com/seg1.ts", 0L, 999L)
+        // Insert one more new entry, which triggers eviction of the new eldest (seg2).
+        registry.record("https://example.com/seg${max + 1}.ts", 0L, 0L)
+        // seg1 was re-recorded and moved to tail, so it must still be present.
+        assertEquals(999L, registry.consume("https://example.com/seg1.ts", 0L))
+        // seg2 should have been evicted as the new eldest.
+        assertNull(registry.consume("https://example.com/seg2.ts", 0L))
     }
 }

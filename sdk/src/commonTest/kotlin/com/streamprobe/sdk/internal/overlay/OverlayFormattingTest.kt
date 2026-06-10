@@ -12,9 +12,9 @@ import com.streamprobe.sdk.model.SegmentMetric
 import com.streamprobe.sdk.model.SubtitleKind
 import com.streamprobe.sdk.model.SubtitleTrackInfo
 import com.streamprobe.sdk.model.SwitchReason
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class OverlayFormattingTest {
     private fun makeCdnInfo(
@@ -57,7 +57,7 @@ class OverlayFormattingTest {
     @Test
     fun `formatSegmentMetric returns two lines separated by newline`() {
         val result = OverlayFormatters.formatSegmentMetric(makeMetric())
-        assertTrue("Expected newline separator in: $result", result.contains("\n"))
+        assertTrue(result.contains("\n"), "Expected newline separator in: $result")
         assertEquals(2, result.lines().size)
     }
 
@@ -65,7 +65,7 @@ class OverlayFormattingTest {
     fun `formatSegmentMetric first line contains DL duration`() {
         val result = OverlayFormatters.formatSegmentMetric(makeMetric(totalDurationMs = 200L))
         val line1 = result.lines().first()
-        assertTrue("Expected 'DL: 200ms' in line1: $line1", line1.contains("DL: 200ms"))
+        assertTrue(line1.contains("DL: 200ms"), "Expected 'DL: 200ms' in line1: $line1")
     }
 
     @Test
@@ -75,25 +75,25 @@ class OverlayFormattingTest {
             OverlayFormatters.formatSegmentDetails(
                 makeMetric(sizeBytes = 1_200_000L, throughputBytesPerSec = 3_800_000L, networkTiming = timing),
             )
-        assertTrue("Expected 'Size:' in: $result", result.contains("Size:"))
-        assertTrue("Expected '1.2 MB' in: $result", result.contains("1.2 MB"))
-        assertTrue("Expected 'TP:' in: $result", result.contains("TP:"))
-        assertTrue("Expected '3.8 MB/s' in: $result", result.contains("3.8 MB/s"))
-        assertTrue("Expected 'TTFB: ~40ms' in: $result", result.contains("TTFB: ~40ms"))
+        assertTrue(result.contains("Size:"), "Expected 'Size:' in: $result")
+        assertTrue(result.contains("1.2 MB"), "Expected '1.2 MB' in: $result")
+        assertTrue(result.contains("TP:"), "Expected 'TP:' in: $result")
+        assertTrue(result.contains("3.8 MB/s"), "Expected '3.8 MB/s' in: $result")
+        assertTrue(result.contains("TTFB: ~40ms"), "Expected 'TTFB: ~40ms' in: $result")
     }
 
     @Test
     fun `formatSegmentDetails omits TTFB when networkTiming is null`() {
         val result = OverlayFormatters.formatSegmentDetails(makeMetric(networkTiming = null))
-        assertTrue("Expected no 'TTFB' in: $result", !result.contains("TTFB"))
+        assertTrue(!result.contains("TTFB"), "Expected no 'TTFB' in: $result")
     }
 
     @Test
     fun `formatSegmentMetric second line contains throughput`() {
         val result = OverlayFormatters.formatSegmentMetric(makeMetric(throughputBytesPerSec = 3_800_000L))
         val line2 = result.lines()[1]
-        assertTrue("Expected 'TP:' in line2: $line2", line2.contains("TP:"))
-        assertTrue("Expected '3.8 MB/s' in line2: $line2", line2.contains("3.8 MB/s"))
+        assertTrue(line2.contains("TP:"), "Expected 'TP:' in line2: $line2")
+        assertTrue(line2.contains("3.8 MB/s"), "Expected '3.8 MB/s' in line2: $line2")
     }
 
     @Test
@@ -101,37 +101,37 @@ class OverlayFormattingTest {
         val timing = NetworkTiming(ttfbMs = 40L, transferDurationMs = 160L, isEstimated = true)
         val result = OverlayFormatters.formatSegmentMetric(makeMetric(networkTiming = timing))
         val line2 = result.lines()[1]
-        assertTrue("Expected 'TTFB: ~40ms' in line2: $line2", line2.contains("TTFB: ~40ms"))
+        assertTrue(line2.contains("TTFB: ~40ms"), "Expected 'TTFB: ~40ms' in line2: $line2")
     }
 
     @Test
     fun `formatSegmentMetric omits TTFB when networkTiming is null`() {
         val result = OverlayFormatters.formatSegmentMetric(makeMetric(networkTiming = null))
-        assertTrue("Expected no 'TTFB' in: $result", !result.contains("TTFB"))
+        assertTrue(!result.contains("TTFB"), "Expected no 'TTFB' in: $result")
     }
 
     @Test
     fun `formatSegmentMetric formats large size in MB`() {
         val result = OverlayFormatters.formatSegmentMetric(makeMetric(sizeBytes = 1_200_000L))
-        assertTrue("Expected '1.2 MB' in: $result", result.contains("1.2 MB"))
+        assertTrue(result.contains("1.2 MB"), "Expected '1.2 MB' in: $result")
     }
 
     @Test
     fun `formatSegmentMetric formats throughput in MB slash s`() {
         val result = OverlayFormatters.formatSegmentMetric(makeMetric(throughputBytesPerSec = 3_800_000L))
-        assertTrue("Expected '3.8 MB/s' in: $result", result.contains("3.8 MB/s"))
+        assertTrue(result.contains("3.8 MB/s"), "Expected '3.8 MB/s' in: $result")
     }
 
     @Test
     fun `formatCdnStatus with HIT shows indicator`() {
         val result = OverlayFormatters.formatCdnStatus(makeCdnInfo(status = CacheStatus.HIT))
-        assertTrue("Expected 'HIT' in: $result", result.contains("HIT"))
+        assertTrue(result.contains("HIT"), "Expected 'HIT' in: $result")
     }
 
     @Test
     fun `formatCdnStatus with MISS shows indicator`() {
         val result = OverlayFormatters.formatCdnStatus(makeCdnInfo(status = CacheStatus.MISS))
-        assertTrue("Expected 'MISS' in: $result", result.contains("MISS"))
+        assertTrue(result.contains("MISS"), "Expected 'MISS' in: $result")
     }
 
     @Test
@@ -146,8 +146,8 @@ class OverlayFormattingTest {
             OverlayFormatters.formatCdnStatus(
                 makeCdnInfo(status = CacheStatus.HIT, cdnProvider = CdnProvider.CLOUDFLARE),
             )
-        assertTrue("Expected '[CLOUDFLARE]' prefix in: $result", result.startsWith("[CLOUDFLARE]"))
-        assertTrue("Expected 'HIT' in: $result", result.contains("HIT"))
+        assertTrue(result.startsWith("[CLOUDFLARE]"), "Expected '[CLOUDFLARE]' prefix in: $result")
+        assertTrue(result.contains("HIT"), "Expected 'HIT' in: $result")
     }
 
     @Test
@@ -156,7 +156,7 @@ class OverlayFormattingTest {
             OverlayFormatters.formatCdnStatus(
                 makeCdnInfo(status = CacheStatus.HIT, cdnProvider = CdnProvider.UNKNOWN),
             )
-        assertTrue("Expected no brackets in: $result", !result.startsWith("["))
+        assertTrue(!result.startsWith("["), "Expected no brackets in: $result")
     }
 
     @Test
@@ -165,7 +165,7 @@ class OverlayFormattingTest {
             OverlayFormatters.formatCdnStatus(
                 makeCdnInfo(status = CacheStatus.MISS, cdnProvider = null),
             )
-        assertTrue("Expected no brackets in: $result", !result.startsWith("["))
+        assertTrue(!result.startsWith("["), "Expected no brackets in: $result")
     }
 
     @Test
@@ -180,7 +180,7 @@ class OverlayFormattingTest {
                 OverlayFormatters.formatCdnStatus(
                     makeCdnInfo(status = CacheStatus.HIT, cdnProvider = provider),
                 )
-            assertTrue("Expected '$expectedTag' in: $result", result.startsWith(expectedTag))
+            assertTrue(result.startsWith(expectedTag), "Expected '$expectedTag' in: $result")
         }
     }
     // ── TTFB formatter tests ──────────────────────────────────────────────────
@@ -227,14 +227,14 @@ class OverlayFormattingTest {
         val from = makeTrack(720, bitrate = 1_500_000)
         val to = makeTrack(720, bitrate = 5_000_000)
         val result = OverlayFormatters.formatAbrSwitch(from, to)
-        assertTrue("Expected bitrate labels in: $result", result.contains("Mbps") || result.contains("kbps"))
+        assertTrue(result.contains("Mbps") || result.contains("kbps"), "Expected bitrate labels in: $result")
     }
 
     @Test
     fun `formatAbrSwitch with null from shows dash arrow label`() {
         val to = makeTrack(720)
         val result = OverlayFormatters.formatAbrSwitch(null, to)
-        assertTrue("Expected '→ 720p' in: $result", result.contains("720p"))
+        assertTrue(result.contains("720p"), "Expected '→ 720p' in: $result")
     }
 
     @Test
@@ -282,7 +282,7 @@ class OverlayFormattingTest {
         // Just verify the format shape: HH:mm:ss.SSS (length 12 with separators)
         val result = OverlayFormatters.formatAbsoluteTimestamp(0L)
         // Should match HH:mm:ss.SSS
-        assertTrue("Expected HH:mm:ss.SSS format in: $result", result.matches(Regex("\\d{2}:\\d{2}:\\d{2}\\.\\d{3}")))
+        assertTrue(result.matches(Regex("\\d{2}:\\d{2}:\\d{2}\\.\\d{3}")), "Expected HH:mm:ss.SSS format in: $result")
     }
 
     @Test
@@ -304,16 +304,13 @@ class OverlayFormattingTest {
 
         val result = OverlayFormatters.formatErrorsForExport(errors, base)
 
-        assertTrue("Expected header", result.startsWith("[StreamProbe] 2 errors"))
-        assertTrue("Expected first row", result.contains("#1"))
-        assertTrue("Expected LOAD category", result.contains("LOAD"))
-        assertTrue("Expected HTTP 404 message", result.contains("HTTP 404: seg_42.ts"))
-        assertTrue("Expected second row", result.contains("#2"))
-        assertTrue("Expected FRAMES category", result.contains("FRAMES"))
-        assertTrue(
-            "Expected absolute timestamp in [HH:mm:ss.SSS] format",
-            result.contains(Regex("\\[\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\]")),
-        )
+        assertTrue(result.startsWith("[StreamProbe] 2 errors"), "Expected header")
+        assertTrue(result.contains("#1"), "Expected first row")
+        assertTrue(result.contains("LOAD"), "Expected LOAD category")
+        assertTrue(result.contains("HTTP 404: seg_42.ts"), "Expected HTTP 404 message")
+        assertTrue(result.contains("#2"), "Expected second row")
+        assertTrue(result.contains("FRAMES"), "Expected FRAMES category")
+        assertTrue(result.contains(Regex("\\[\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\]")), "Expected absolute timestamp in [HH:mm:ss.SSS] format")
     }
 
     @Test
@@ -331,7 +328,7 @@ class OverlayFormattingTest {
 
         val result = OverlayFormatters.formatErrorsForExport(errors, base)
 
-        assertTrue("Expected detail indented on next line", result.contains("    java.io.IOException: connection reset"))
+        assertTrue(result.contains("    java.io.IOException: connection reset"), "Expected detail indented on next line")
     }
 
     @Test
@@ -368,32 +365,32 @@ class OverlayFormattingTest {
     @Test
     fun `formatActiveAudio with only language contains display language`() {
         val result = OverlayFormatters.formatActiveAudio(makeAudio(language = "en"))
-        assertTrue("Expected 'English' in: $result", result.contains("English"))
+        assertTrue(result.contains("English"), "Expected 'English' in: $result")
     }
 
     @Test
     fun `formatActiveAudio prefers label over language`() {
         val result = OverlayFormatters.formatActiveAudio(makeAudio(language = "en", label = "English (Descriptive)"))
-        assertTrue("Expected label in: $result", result.contains("English (Descriptive)"))
+        assertTrue(result.contains("English (Descriptive)"), "Expected label in: $result")
     }
 
     @Test
     fun `formatActiveAudio with stereo shows stereo`() {
         val result = OverlayFormatters.formatActiveAudio(makeAudio(channelCount = 2))
-        assertTrue("Expected 'stereo' in: $result", result.contains("stereo"))
+        assertTrue(result.contains("stereo"), "Expected 'stereo' in: $result")
     }
 
     @Test
     fun `formatActiveAudio with 5_1 shows 5_1`() {
         val result = OverlayFormatters.formatActiveAudio(makeAudio(channelCount = 6))
-        assertTrue("Expected '5.1' in: $result", result.contains("5.1"))
+        assertTrue(result.contains("5.1"), "Expected '5.1' in: $result")
     }
 
     @Test
     fun `formatActiveAudio includes bitrate and sampleRate`() {
         val result = OverlayFormatters.formatActiveAudio(makeAudio(bitrate = 128_000, sampleRate = 48_000))
-        assertTrue("Expected bitrate in: $result", result.contains("128"))
-        assertTrue("Expected kHz in: $result", result.contains("48 kHz"))
+        assertTrue(result.contains("128"), "Expected bitrate in: $result")
+        assertTrue(result.contains("48.0 kHz"), "Expected kHz in: $result")
     }
 
     @Test
@@ -422,31 +419,31 @@ class OverlayFormattingTest {
     @Test
     fun `formatActiveSubtitle with language shows display language`() {
         val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(language = "tr"))
-        assertTrue("Expected 'Turkish' in: $result", result.contains("Turkish"))
+        assertTrue(result.contains("Turkish"), "Expected 'Turkish' in: $result")
     }
 
     @Test
     fun `formatActiveSubtitle CC adds (CC) suffix`() {
         val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(kind = SubtitleKind.CC))
-        assertTrue("Expected '(CC)' in: $result", result.contains("(CC)"))
+        assertTrue(result.contains("(CC)"), "Expected '(CC)' in: $result")
     }
 
     @Test
     fun `formatActiveSubtitle SIDECAR does not add (CC) suffix`() {
         val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(kind = SubtitleKind.SIDECAR))
-        assertTrue("Expected no '(CC)' in: $result", !result.contains("(CC)"))
+        assertTrue(!result.contains("(CC)"), "Expected no '(CC)' in: $result")
     }
 
     @Test
     fun `formatActiveSubtitle shows WebVTT for vtt mime type`() {
         val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(mimeType = "text/vtt"))
-        assertTrue("Expected 'WebVTT' in: $result", result.contains("WebVTT"))
+        assertTrue(result.contains("WebVTT"), "Expected 'WebVTT' in: $result")
     }
 
     @Test
     fun `formatActiveSubtitle shows TTML for ttml mime type`() {
         val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(mimeType = "application/ttml+xml"))
-        assertTrue("Expected 'TTML' in: $result", result.contains("TTML"))
+        assertTrue(result.contains("TTML"), "Expected 'TTML' in: $result")
     }
 
     @Test

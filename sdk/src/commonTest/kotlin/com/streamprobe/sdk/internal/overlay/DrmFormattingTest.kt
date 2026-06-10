@@ -5,8 +5,8 @@ import com.streamprobe.sdk.model.DrmSessionEvent
 import com.streamprobe.sdk.model.DrmSessionState
 import com.streamprobe.sdk.model.DrmStatusInfo
 import com.streamprobe.sdk.model.ErrorCategory
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 class DrmFormattingTest {
     // ── formatDrmStatus ──────────────────────────────────────────────────────

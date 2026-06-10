@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 StreamProbe is a **Kotlin Multiplatform** debug SDK (currently Android-only; iOS planned) that hooks into Media3/ExoPlayer to surface HLS/DASH streaming diagnostics (track variants, segment metrics, CDN headers, ABR decisions, playback errors) through an in-app draggable overlay. It is **debug-only** — never enabled in release builds.
 
-**KMP migration status:** Phase 0 complete — the `sdk/` module uses `kotlin("multiplatform")` + `com.android.kotlin.multiplatform.library` with a single `androidTarget`. All production code lives in `androidMain`; all unit tests in `androidHostTest`. No `commonMain` source set exists yet (Phase 1 not started).
+**KMP migration status:** Phase 1 complete — the `sdk/` module uses `kotlin("multiplatform")` + `com.android.kotlin.multiplatform.library` with a single `androidTarget`. The **pure core now lives in `commonMain`**: all 17 models + enums, `SessionStore`, `NetworkTimingRegistry`, `CdnHeaderParser`, `DrmSchemeDetectorCommon` (pure UUID/state mapping), and the `OverlayFormatters`/`DrmFormatters` (package kept as `internal.overlay`). Their pure tests moved to `commonTest` (`kotlin.test`). The Media3/ExoPlayer adapters, the overlay Views, and `DrmSchemeDetector.detectScheme` stay in `androidMain`. One `expect/actual` exists: `displayLanguage(tag)` (Android `actual` only). New common deps: `kotlinx-datetime`, `kotlinx.atomicfu`, `kotlinx-coroutines-core`. (Phase 2 — extract `OverlayPresenter` into `presenter/` — not started.)
 
 Two Gradle modules:
 - **`sdk/`** — the published library (`io.github.oguzhaneksi:streamprobe`)
@@ -38,14 +38,14 @@ Two Gradle modules:
 # Ktlint auto-fix
 ./gradlew :sdk:ktlintFormat
 
-# Detekt static analysis
-./gradlew :sdk:detektAndroidMain :sdk:detektAndroidHostTest
+# Detekt static analysis (detektMetadataMain analyzes commonMain)
+./gradlew :sdk:detektAndroidMain :sdk:detektAndroidHostTest :sdk:detektMetadataMain
 ```
 
 Full CI gate (all checks green):
 
 ```bash
-./gradlew :sdk:assembleAndroidMain :sdk:testAndroidHostTest :sdk:lint :sdk:ktlintCheck :sdk:detektAndroidMain :sdk:detektAndroidHostTest :app:assembleDebug
+./gradlew :sdk:assembleAndroidMain :sdk:testAndroidHostTest :sdk:lint :sdk:ktlintCheck :sdk:detektAndroidMain :sdk:detektAndroidHostTest :sdk:detektMetadataMain :app:assembleDebug
 ```
 
 ## Code & Formatting Standards
@@ -76,13 +76,15 @@ Notable active rules and their thresholds:
 
 | Source set | Path | Contents |
 |---|---|---|
-| `androidMain` | `sdk/src/androidMain/kotlin/` | All production SDK code |
+| `commonMain` | `sdk/src/commonMain/kotlin/` | Portable core (Phase 1): all models + enums, `SessionStore`, `NetworkTimingRegistry`, `CdnHeaderParser`, `DrmSchemeDetectorCommon`, `OverlayFormatters`/`DrmFormatters`, `displayLanguage` expect. **No `java.`/`javax.`/`android.`/`androidx.` imports allowed.** |
+| `commonTest` | `sdk/src/commonTest/kotlin/` | Pure unit tests (`kotlin.test` + `kotlinx-coroutines-test`); run under `testAndroidHostTest`. No Robolectric/Mockito/Media3. |
+| `androidMain` | `sdk/src/androidMain/kotlin/` | Android/Media3 adapters, overlay Views, `DrmSchemeDetector.detectScheme`, `displayLanguage` actual |
 | `androidMain` | `sdk/src/androidMain/AndroidManifest.xml` | Library manifest |
-| `androidHostTest` | `sdk/src/androidHostTest/kotlin/` | Unit tests (Robolectric + Mockito) |
+| `androidHostTest` | `sdk/src/androidHostTest/kotlin/` | Media3/Robolectric/Mockito-dependent unit tests |
 | `androidHostTest` | `sdk/src/androidHostTest/resources/robolectric.properties` | Pins Robolectric to `sdk=36` (Robolectric 4.16.1 maxSdkVersion=36; compile SDK=37) |
 | `androidInstrumentedTest` | `sdk/src/androidInstrumentedTest/kotlin/` | Instrumented tests |
 
-All file paths in the Architecture section below are relative to `sdk/src/androidMain/kotlin/com/streamprobe/sdk/`.
+In the Architecture section below, file paths are relative to `sdk/src/<sourceSet>/kotlin/com/streamprobe/sdk/` — the pure core (`model/`, `SessionStore`, `NetworkTimingRegistry`, `CdnHeaderParser`, `DrmSchemeDetectorCommon`, `overlay/OverlayFormatters`, `overlay/DrmFormatters`) lives in `commonMain`; everything else in `androidMain`.
 
 ### Media3 `@UnstableApi`
 All classes and functions that reference Media3 `@UnstableApi` types must be annotated with `@androidx.annotation.OptIn(UnstableApi::class)` (public API) or `@UnstableApi` (internal). The public `StreamProbe` class uses `@androidx.annotation.OptIn`; internal classes use `@UnstableApi` directly.

@@ -20,6 +20,7 @@ internal object DrmFormatters {
             DrmScheme.WIDEVINE -> "Widevine"
             DrmScheme.PLAYREADY -> "PlayReady"
             DrmScheme.CLEARKEY -> "ClearKey"
+            DrmScheme.FAIRPLAY -> "FairPlay"
             DrmScheme.UNKNOWN -> "Unknown DRM"
         }
 
@@ -28,6 +29,7 @@ internal object DrmFormatters {
             DrmScheme.WIDEVINE -> "WV"
             DrmScheme.PLAYREADY -> "PR"
             DrmScheme.CLEARKEY -> "CK"
+            DrmScheme.FAIRPLAY -> "FP"
             DrmScheme.UNKNOWN -> "DRM"
         }
 

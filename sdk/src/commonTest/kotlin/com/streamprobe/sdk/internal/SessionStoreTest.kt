@@ -13,15 +13,15 @@ import com.streamprobe.sdk.model.TracksSnapshot
 import com.streamprobe.sdk.model.VariantInfo
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Before
-import org.junit.Test
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class SessionStoreTest {
     private lateinit var store: SessionStore
 
-    @Before
+    @BeforeTest
     fun setUp() {
         store = SessionStore()
     }
