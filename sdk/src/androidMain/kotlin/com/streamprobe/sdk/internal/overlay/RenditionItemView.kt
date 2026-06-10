@@ -93,7 +93,7 @@ internal class RenditionItemView(
                 append("  \u00b7  ")
                 append(OverlayFormatters.formatBitrate(info.bitrate))
             }
-        bottomLine.text = info.codecs ?: ""
+        bottomLine.text = info.codecs.orEmpty()
         bottomLine.isVisible = !info.codecs.isNullOrEmpty()
     }
 
@@ -152,7 +152,7 @@ internal class RenditionItemView(
                 "text/x-ssa" -> "SSA"
                 else -> info.mimeType?.substringAfterLast("/")
             }
-        bottomLine.text = mimeShort ?: ""
+        bottomLine.text = mimeShort.orEmpty()
         bottomLine.isVisible = !mimeShort.isNullOrBlank()
     }
 

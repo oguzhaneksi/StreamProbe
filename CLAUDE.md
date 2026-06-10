@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-StreamProbe is an Android debug SDK that hooks into Media3/ExoPlayer to surface HLS/DASH streaming diagnostics (track variants, segment metrics, CDN headers, ABR decisions, playback errors) through an in-app draggable overlay. It is **debug-only** — never enabled in release builds.
+StreamProbe is a **Kotlin Multiplatform** debug SDK (currently Android-only; iOS planned) that hooks into Media3/ExoPlayer to surface HLS/DASH streaming diagnostics (track variants, segment metrics, CDN headers, ABR decisions, playback errors) through an in-app draggable overlay. It is **debug-only** — never enabled in release builds.
+
+**KMP migration status:** Phase 0 complete — the `sdk/` module uses `kotlin("multiplatform")` + `com.android.kotlin.multiplatform.library` with a single `androidTarget`. All production code lives in `androidMain`; all unit tests in `androidHostTest`. No `commonMain` source set exists yet (Phase 1 not started).
 
 Two Gradle modules:
 - **`sdk/`** — the published library (`io.github.oguzhaneksi:streamprobe`)
@@ -12,33 +14,39 @@ Two Gradle modules:
 
 ## Build & Development Commands
 
+> **KMP task-name changes (Phase 0):** `assembleRelease` → `assembleAndroidMain`; `test` → `testAndroidHostTest`; `detekt` → `detektAndroidMain` + `detektAndroidHostTest`.
+
 ```bash
-# Build debug APK
-./gradlew assembleDebug
+# Build demo APK
+./gradlew :app:assembleDebug
 
-# Run all unit tests
-./gradlew test
+# Build SDK AAR
+./gradlew :sdk:assembleAndroidMain
 
-# Run SDK unit tests only
-./gradlew :sdk:test
+# Run SDK unit tests (Robolectric; pinned to SDK 36 via robolectric.properties)
+./gradlew :sdk:testAndroidHostTest
 
 # Run a single test class
-./gradlew :sdk:test --tests "com.streamprobe.sdk.internal.PlayerInterceptorTest"
+./gradlew :sdk:testAndroidHostTest --tests "com.streamprobe.sdk.internal.PlayerInterceptorTest"
 
-# Android Lint
-./gradlew lint
+# Android Lint (SDK)
+./gradlew :sdk:lint
 
 # Ktlint check
-./gradlew ktlintCheck
+./gradlew :sdk:ktlintCheck
 
 # Ktlint auto-fix
-./gradlew ktlintFormat
+./gradlew :sdk:ktlintFormat
 
 # Detekt static analysis
-./gradlew detekt
+./gradlew :sdk:detektAndroidMain :sdk:detektAndroidHostTest
 ```
 
-CI runs all four checks (`test`, `lint`, `ktlintCheck`, `detekt`) on every PR.
+Full CI gate (all checks green):
+
+```bash
+./gradlew :sdk:assembleAndroidMain :sdk:testAndroidHostTest :sdk:lint :sdk:ktlintCheck :sdk:detektAndroidMain :sdk:detektAndroidHostTest :app:assembleDebug
+```
 
 ## Code & Formatting Standards
 
@@ -63,6 +71,18 @@ Notable active rules and their thresholds:
 
 - Composable and test functions are exempt from `FunctionNaming` (uppercase names allowed).
 - Do not suppress detekt warnings with `@Suppress` or `// detekt:disable` — fix the root cause.
+
+### Source set layout (`sdk/src/`)
+
+| Source set | Path | Contents |
+|---|---|---|
+| `androidMain` | `sdk/src/androidMain/kotlin/` | All production SDK code |
+| `androidMain` | `sdk/src/androidMain/AndroidManifest.xml` | Library manifest |
+| `androidHostTest` | `sdk/src/androidHostTest/kotlin/` | Unit tests (Robolectric + Mockito) |
+| `androidHostTest` | `sdk/src/androidHostTest/resources/robolectric.properties` | Pins Robolectric to `sdk=36` (Robolectric 4.16.1 maxSdkVersion=36; compile SDK=37) |
+| `androidInstrumentedTest` | `sdk/src/androidInstrumentedTest/kotlin/` | Instrumented tests |
+
+All file paths in the Architecture section below are relative to `sdk/src/androidMain/kotlin/com/streamprobe/sdk/`.
 
 ### Media3 `@UnstableApi`
 All classes and functions that reference Media3 `@UnstableApi` types must be annotated with `@androidx.annotation.OptIn(UnstableApi::class)` (public API) or `@UnstableApi` (internal). The public `StreamProbe` class uses `@androidx.annotation.OptIn`; internal classes use `@UnstableApi` directly.
@@ -169,7 +189,7 @@ Standard MVVM with Jetpack Compose. `PlayerViewModel` owns the `ExoPlayer` insta
 
 ## Publishing
 
-Version is set in `gradle.properties` as `VERSION_NAME`. Published to Maven Central via `vanniktech/maven-publish` plugin. The publish workflow (`.github/workflows/publish-sdk.yml`) triggers on release tags.
+Version is set in `gradle.properties` as `VERSION_NAME`. Published to Maven Central via `vanniktech/maven-publish` plugin (v0.36.0 — auto-detects KMP; wires up the `release` AAR + the root `streamprobe` metadata module so consumers using `io.github.oguzhaneksi:streamprobe:x.y.z` resolve correctly). The publish workflow (`.github/workflows/publish-sdk.yml`) triggers on release tags.
 
 ## AI Behavioral Rules
 

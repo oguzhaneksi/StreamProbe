@@ -71,16 +71,16 @@ internal class OverlayManager(
         overlay.onOrientationChanged = { currentActivity?.let { show(it) } }
 
         renditionAdapter = RenditionListAdapter()
-        segmentAdapter = SegmentTimelineAdapter()
-        switchAdapter = SwitchTimelineAdapter()
-        drmAdapter = DrmTimelineAdapter()
-        errorAdapter = ErrorTimelineAdapter()
+        val seg = SegmentTimelineAdapter().also { segmentAdapter = it }
+        val sw = SwitchTimelineAdapter().also { switchAdapter = it }
+        val drm = DrmTimelineAdapter().also { drmAdapter = it }
+        val err = ErrorTimelineAdapter().also { errorAdapter = it }
         overlay.trackList.layoutManager = LinearLayoutManager(overlay.context)
 
-        attachAutoScrollToEnd(overlay.trackList, segmentAdapter!!)
-        attachAutoScrollToEnd(overlay.trackList, switchAdapter!!)
-        attachAutoScrollToEnd(overlay.trackList, drmAdapter!!)
-        attachAutoScrollToEnd(overlay.trackList, errorAdapter!!)
+        attachAutoScrollToEnd(overlay.trackList, seg)
+        attachAutoScrollToEnd(overlay.trackList, sw)
+        attachAutoScrollToEnd(overlay.trackList, drm)
+        attachAutoScrollToEnd(overlay.trackList, err)
 
         setupDrag(overlay)
         setupCollapseToggle(overlay)

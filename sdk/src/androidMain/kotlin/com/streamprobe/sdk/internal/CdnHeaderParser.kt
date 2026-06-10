@@ -57,18 +57,20 @@ internal object CdnHeaderParser {
     fun determineCacheStatus(
         xCache: String?,
         cdnHeaders: Map<String, String>,
-    ): CacheStatus =
-        when {
+    ): CacheStatus {
+        val cfCacheStatus = cdnHeaders["cf-cache-status"]
+        val xCacheHits = cdnHeaders["x-cache-hits"]
+        return when {
             xCache != null -> xCacheToStatus(xCache)
-            cdnHeaders["cf-cache-status"] != null -> cfCacheStatusToStatus(cdnHeaders["cf-cache-status"]!!)
-            cdnHeaders["x-cache-hits"] != null -> {
+            cfCacheStatus != null -> cfCacheStatusToStatus(cfCacheStatus)
+            xCacheHits != null -> {
                 // x-cache-hits: "0" means MISS, >0 means HIT.
                 // Use toLongOrNull to avoid Int overflow on very large hit counts.
-                val hits = cdnHeaders["x-cache-hits"]!!
-                if ((hits.toLongOrNull() ?: 0L) > 0L) CacheStatus.HIT else CacheStatus.MISS
+                if ((xCacheHits.toLongOrNull() ?: 0L) > 0L) CacheStatus.HIT else CacheStatus.MISS
             }
             else -> CacheStatus.UNKNOWN
         }
+    }
 
     // Check x-cache / x-cache-status first.
     // STALE/REVALIDATED/BYPASS are checked before contains("HIT"/"MISS") so that
