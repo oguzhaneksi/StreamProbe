@@ -144,8 +144,7 @@ internal class OverlayPresenter(
                         contentDescription = "${errors.size} background errors. Tap to view.",
                     )
                 },
-            chipRowVisible = viewMode != ViewMode.ERRORS,
-            errorsHeaderVisible = viewMode == ViewMode.ERRORS,
+            isErrorsMode = viewMode == ViewMode.ERRORS,
             errorsTitle = "Errors (${errors.size})",
         )
     }

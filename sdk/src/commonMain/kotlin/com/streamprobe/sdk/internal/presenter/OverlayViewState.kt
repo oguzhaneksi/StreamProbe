@@ -71,7 +71,6 @@ internal data class OverlayViewState(
     val stats: OverlayStatsState,
     val lists: OverlayListsState,
     val errorIndicator: ErrorIndicatorState?,
-    val chipRowVisible: Boolean,
-    val errorsHeaderVisible: Boolean,
+    val isErrorsMode: Boolean,
     val errorsTitle: String,
 )

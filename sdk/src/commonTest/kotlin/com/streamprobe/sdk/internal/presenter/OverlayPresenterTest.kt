@@ -69,8 +69,7 @@ class OverlayPresenterTest {
         assertEquals("Loading…", state.stats.activeTrackText)
         assertFalse(state.stats.drmVisible)
         assertNull(state.errorIndicator)
-        assertTrue(state.chipRowVisible)
-        assertFalse(state.errorsHeaderVisible)
+        assertFalse(state.isErrorsMode)
         assertEquals("Errors (0)", state.errorsTitle)
         assertTrue(state.lists.renditionRows.isEmpty())
     }
@@ -130,14 +129,12 @@ class OverlayPresenterTest {
         presenter.onChipSelected(ViewMode.SEGMENTS)
         var state = presenter.viewState.value
         assertEquals(ViewMode.SEGMENTS, state.mode)
-        assertTrue(state.chipRowVisible)
-        assertFalse(state.errorsHeaderVisible)
+        assertFalse(state.isErrorsMode)
 
         presenter.onChipSelected(ViewMode.ERRORS)
         state = presenter.viewState.value
         assertEquals(ViewMode.ERRORS, state.mode)
-        assertFalse(state.chipRowVisible)
-        assertTrue(state.errorsHeaderVisible)
+        assertTrue(state.isErrorsMode)
     }
 
     @Test

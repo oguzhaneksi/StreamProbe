@@ -10,6 +10,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -81,6 +82,7 @@ class OverlayManagerErrorBehaviorTest {
             advanceUntilIdle()
 
             overlay().errorIndicator.performClick()
+            runCurrent()
 
             assertEquals(View.VISIBLE, overlay().errorsViewHeader.visibility)
             assertEquals(View.GONE, (overlay().tracksChip.parent as View).visibility) // Check chipRow's visibility status
@@ -90,12 +92,14 @@ class OverlayManagerErrorBehaviorTest {
     fun `tapping indicator while collapsed expands body`() =
         runTest(testDispatcher) {
             overlay().collapseBtn.performClick()
+            runCurrent()
             assertEquals(View.GONE, overlay().body.visibility)
 
             sessionStore.addPlaybackError(makeError())
             advanceUntilIdle()
 
             overlay().errorIndicator.performClick()
+            runCurrent()
 
             assertEquals(View.VISIBLE, overlay().body.visibility)
             assertEquals(View.VISIBLE, overlay().errorsViewHeader.visibility)
@@ -105,15 +109,18 @@ class OverlayManagerErrorBehaviorTest {
     fun `back button restores previousViewMode`() =
         runTest(testDispatcher) {
             overlay().segmentsChip.performClick()
+            runCurrent()
             assertEquals(true, overlay().segmentsChip.isChecked)
 
             sessionStore.addPlaybackError(makeError())
             advanceUntilIdle()
 
             overlay().errorIndicator.performClick()
+            runCurrent()
             assertEquals(View.VISIBLE, overlay().errorsViewHeader.visibility)
 
             overlay().backButton.performClick()
+            runCurrent()
 
             assertEquals(View.GONE, overlay().errorsViewHeader.visibility)
             assertEquals(true, overlay().segmentsChip.isChecked)
@@ -128,6 +135,7 @@ class OverlayManagerErrorBehaviorTest {
             assertEquals(View.VISIBLE, overlay().errorIndicator.visibility)
 
             overlay().errorIndicator.performClick()
+            runCurrent()
             overlay().clearButton.performClick()
             advanceUntilIdle()
 

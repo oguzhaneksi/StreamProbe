@@ -54,8 +54,6 @@ internal class OverlayManager(
     private var switchAdapter: SwitchTimelineAdapter? = null
     private var drmAdapter: DrmTimelineAdapter? = null
     private var errorAdapter: ErrorTimelineAdapter? = null
-    private var lastRenderedMode: ViewMode? = null
-
     private var currentActivity: ComponentActivity? = null
     private var lifecycleObserver: DefaultLifecycleObserver? = null
 
@@ -97,10 +95,10 @@ internal class OverlayManager(
             clampToParent(overlay)
         }
 
-        val newScope = CoroutineScope(SupervisorJob() + Dispatchers.Main).also { scope = it }
+        // Main.immediate fires the collect synchronously when already on the Main thread,
+        // so no manual renderNow() is needed after intent calls.
+        val newScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).also { scope = it }
         overlayPresenter.start(newScope)
-        // Initial synchronous render so the adapter, chip state and texts are set during show().
-        render(overlay, overlayPresenter.viewState.value)
         newScope.launch {
             overlayPresenter.viewState.collect { render(overlay, it) }
         }
@@ -112,7 +110,6 @@ internal class OverlayManager(
         scope?.cancel()
         scope = null
         // presenter is intentionally retained across hide()/show() to preserve ViewMode + collapse.
-        lastRenderedMode = null
         renditionAdapter = null
         segmentAdapter = null
         switchAdapter = null
@@ -227,36 +224,13 @@ internal class OverlayManager(
         overlay: OverlayPanelView,
         presenter: OverlayPresenter,
     ) {
-        fun renderNow() = render(overlay, presenter.viewState.value)
-
-        overlay.collapseBtn.setOnClickListener {
-            presenter.onCollapseToggled()
-            renderNow()
-        }
-        overlay.tracksChip.setOnClickListener {
-            presenter.onChipSelected(ViewMode.TRACKS)
-            renderNow()
-        }
-        overlay.segmentsChip.setOnClickListener {
-            presenter.onChipSelected(ViewMode.SEGMENTS)
-            renderNow()
-        }
-        overlay.switchesChip.setOnClickListener {
-            presenter.onChipSelected(ViewMode.SWITCHES)
-            renderNow()
-        }
-        overlay.drmChip.setOnClickListener {
-            presenter.onChipSelected(ViewMode.DRM)
-            renderNow()
-        }
-        overlay.errorIndicator.setOnClickListener {
-            presenter.onErrorIndicatorTapped()
-            renderNow()
-        }
-        overlay.backButton.setOnClickListener {
-            presenter.onBackPressed()
-            renderNow()
-        }
+        overlay.collapseBtn.setOnClickListener { presenter.onCollapseToggled() }
+        overlay.tracksChip.setOnClickListener { presenter.onChipSelected(ViewMode.TRACKS) }
+        overlay.segmentsChip.setOnClickListener { presenter.onChipSelected(ViewMode.SEGMENTS) }
+        overlay.switchesChip.setOnClickListener { presenter.onChipSelected(ViewMode.SWITCHES) }
+        overlay.drmChip.setOnClickListener { presenter.onChipSelected(ViewMode.DRM) }
+        overlay.errorIndicator.setOnClickListener { presenter.onErrorIndicatorTapped() }
+        overlay.backButton.setOnClickListener { presenter.onBackPressed() }
         overlay.clearButton.setOnClickListener { presenter.onClearErrorsClicked() }
         overlay.shareButton.setOnClickListener { shareErrors() }
     }
@@ -352,7 +326,7 @@ internal class OverlayManager(
         overlay.switchesChip.isChecked = state.mode == ViewMode.SWITCHES
         overlay.drmChip.isChecked = state.mode == ViewMode.DRM
 
-        val chipRowVisibility = if (state.chipRowVisible) View.VISIBLE else View.GONE
+        val chipRowVisibility = if (!state.isErrorsMode) View.VISIBLE else View.GONE
         val chipRow = overlay.tracksChip.parent as? View
         if (chipRow != null) {
             chipRow.visibility = chipRowVisibility
@@ -362,7 +336,7 @@ internal class OverlayManager(
             overlay.switchesChip.visibility = chipRowVisibility
             overlay.drmChip.visibility = chipRowVisibility
         }
-        overlay.errorsViewHeader.visibility = if (state.errorsHeaderVisible) View.VISIBLE else View.GONE
+        overlay.errorsViewHeader.visibility = if (state.isErrorsMode) View.VISIBLE else View.GONE
         overlay.errorsTitle.text = state.errorsTitle
 
         val indicator = state.errorIndicator
@@ -379,18 +353,19 @@ internal class OverlayManager(
         overlay: OverlayPanelView,
         state: OverlayViewState,
     ) {
+        // Attach the target adapter FIRST so the auto-scroll observer's `list.adapter === adapter`
+        // guard is satisfied before submitList fires onItemRangeInserted on the initial load.
+        val targetAdapter = adapterForMode(state.mode)
+        if (overlay.trackList.adapter !== targetAdapter) {
+            overlay.trackList.adapter = targetAdapter
+        }
+
         val lists = state.lists
         renditionAdapter?.submitList(lists.renditionRows)
         segmentAdapter?.submitList(lists.segments)
         switchAdapter?.submitList(lists.switches)
         drmAdapter?.submitList(lists.drmEvents)
         errorAdapter?.submitList(lists.errors)
-
-        // Swap the attached adapter only on mode change to avoid resetting scroll position.
-        if (state.mode != lastRenderedMode) {
-            overlay.trackList.adapter = adapterForMode(state.mode)
-            lastRenderedMode = state.mode
-        }
     }
 
     private fun adapterForMode(mode: ViewMode): RecyclerView.Adapter<*>? =
