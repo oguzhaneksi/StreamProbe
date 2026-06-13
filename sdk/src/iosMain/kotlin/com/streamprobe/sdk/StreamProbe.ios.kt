@@ -24,6 +24,7 @@ actual class StreamProbe {
      * Attaches StreamProbe to [player]. Scoped to the player lifecycle; no UIKit involvement.
      */
     fun attach(player: AVPlayer) {
+        store.clear()
         probe.attach(player)
     }
 

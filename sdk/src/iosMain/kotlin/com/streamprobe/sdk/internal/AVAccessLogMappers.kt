@@ -16,8 +16,8 @@ import com.streamprobe.sdk.model.SegmentMetric
  */
 
 private const val BITS_PER_BYTE = 8
-private const val MILLIS_PER_SECOND = 1000L
 private const val UNKNOWN_URI = "(unknown)"
+private val UNKNOWN_CDN_INFO = CdnHeaderParser.parse(emptyMap())
 
 /** Converts a duration in seconds to whole milliseconds; 0 for the AVFoundation -1 "unknown" sentinel. */
 internal fun secondsToMillis(seconds: Double): Long = if (seconds > 0) (seconds * MILLIS_PER_SECOND).toLong() else 0
@@ -50,7 +50,7 @@ internal fun accessLogSegmentMetric(
         sizeBytes = size,
         throughputBytesPerSec = segmentThroughput(observedBitrate, size, durationMs),
         uri = uri?.takeIf { it.isNotBlank() } ?: UNKNOWN_URI,
-        cdnInfo = CdnHeaderParser.parse(emptyMap()),
+        cdnInfo = UNKNOWN_CDN_INFO,
         networkTiming = null,
     )
 }

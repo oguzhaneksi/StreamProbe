@@ -70,4 +70,14 @@ class AVMetricMappersTest {
     fun defaultSubtitleKind_isSidecar() {
         assertEquals(SubtitleKind.SIDECAR, defaultSubtitleKind())
     }
+
+    @Test
+    fun fourCCToString_convertsKnownVideoCodecTypes() {
+        // Values are the CMVideoCodecType FourCharCode constants from CoreMedia/CMFormatDescription.h.
+        assertEquals("avc1", fourCCToString(1635148593)) // kCMVideoCodecType_H264 = 'avc1'
+        assertEquals("hvc1", fourCCToString(1752589105)) // kCMVideoCodecType_HEVC = 'hvc1'
+        assertEquals("av01", fourCCToString(1635135537)) // kCMVideoCodecType_AV1  = 'av01'
+        assertEquals("vp09", fourCCToString(1987063865)) // kCMVideoCodecType_VP9  = 'vp09'
+        assertEquals("mp4v", fourCCToString(1836070006)) // kCMVideoCodecType_MPEG4Video = 'mp4v'
+    }
 }

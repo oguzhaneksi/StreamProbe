@@ -14,6 +14,7 @@ import platform.AVFoundation.extendedLanguageTag
 import platform.AVFoundation.nominalFrameRate
 import platform.AVFoundation.presentationSize
 import platform.CoreGraphics.CGSize
+import platform.Foundation.NSNumber
 import platform.Foundation.languageCode
 
 /*
@@ -45,8 +46,27 @@ internal fun dimensionOrUnknown(value: Double): Int = if (value > 0) value.toInt
 /** Nominal frame rate as a Float, or -1f when unavailable (matches Android's unknown sentinel). */
 internal fun frameRateOrUnknown(nominalFrameRate: Double): Float = if (nominalFrameRate > 0) nominalFrameRate.toFloat() else -1f
 
-/** Joins FourCC codec types into a single comma-separated string, or null when empty. */
+/** Joins codec type strings into a single comma-separated string, or null when empty. */
 internal fun joinCodecs(codecTypes: List<String>): String? = codecTypes.filter { it.isNotBlank() }.ifEmpty { null }?.joinToString(",")
+
+/**
+ * Converts a [CMVideoCodecType] integer (a FourCharCode) to its 4-character ASCII name.
+ *
+ * AVFoundation's [AVAssetVariantVideoAttributes.codecTypes] returns NSArray<NSNumber> where each
+ * value is a [CMVideoCodecType] constant — a FourCharCode (`UInt32`). The constants are defined
+ * as 4-character literals in CoreMedia (e.g. `kCMVideoCodecType_H264 = 'avc1'`), so the integer
+ * `1635148593` round-trips back to `"avc1"` via big-endian byte extraction.
+ *
+ * Note: iOS does not expose the codec profile/level, so the result is the bare FourCC tag
+ * (e.g. `"avc1"`, `"hvc1"`, `"av01"`) rather than the full MIME codec string Android produces
+ * from the HLS `CODECS` attribute (e.g. `"avc1.42e00a"`).
+ */
+internal fun fourCCToString(value: Int): String =
+    buildString(4) {
+        for (shift in 24 downTo 0 step 8) {
+            append(((value ushr shift) and 0xFF).toChar())
+        }
+    }
 
 /**
  * Resolves a BCP-47 language tag from a media-selection option, preferring the explicit
@@ -73,7 +93,7 @@ private fun readPresentationSize(size: CValue<CGSize>): Pair<Int, Int> =
 
 @OptIn(ExperimentalForeignApi::class)
 private fun videoCodecs(attributes: AVAssetVariantVideoAttributes): String? =
-    joinCodecs(attributes.codecTypes.mapNotNull { it?.toString() })
+    joinCodecs(attributes.codecTypes.mapNotNull { (it as? NSNumber)?.let { n -> fourCCToString(n.intValue) } })
 
 /** Maps an `AVAssetVariant` (iOS 15+) to a [VariantInfo]. `isSelected`/`id` are unknown up front. */
 @OptIn(ExperimentalForeignApi::class)
