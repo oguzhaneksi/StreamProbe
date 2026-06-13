@@ -18,6 +18,11 @@ detekt {
 }
 
 kotlin {
+    compilerOptions {
+        // The StreamProbe facade is an expect/actual class (still Beta in Kotlin 2.3); opt in explicitly.
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
+
     android {
         namespace = "com.streamprobe.sdk"
         compileSdk = 37
@@ -29,6 +34,17 @@ kotlin {
 
         withHostTest {
             isIncludeAndroidResources = true
+        }
+    }
+
+    listOf(
+        iosArm64(),
+        iosSimulatorArm64(),
+        iosX64(),
+    ).forEach { target ->
+        target.binaries.framework {
+            baseName = "StreamProbe"
+            isStatic = true
         }
     }
 
