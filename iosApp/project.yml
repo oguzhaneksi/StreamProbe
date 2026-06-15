@@ -1,0 +1,25 @@
+name: iosApp
+options:
+  bundleIdPrefix: com.streamprobe
+  deploymentTarget:
+    iOS: "15.0"
+  xcodeVersion: "16"
+  createIntermediateGroups: true
+
+targets:
+  iosApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - iosApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.streamprobe.iosApp
+        SWIFT_VERSION: 5.0
+        IPHONEOS_DEPLOYMENT_TARGET: 15.0
+        INFOPLIST_FILE: iosApp/Resources/Info.plist
+    dependencies:
+      - framework: ../sdk/build/XCFrameworks/debug/StreamProbe.xcframework
+        embed: true
+        codeSign: false
