@@ -9,39 +9,39 @@ import com.streamprobe.sdk.model.TrackSwitchEvent
 import com.streamprobe.sdk.model.VariantInfo
 
 /** The currently-selected overlay tab. Owned by [OverlayPresenter], preserved across rebuilds. */
-internal enum class ViewMode { TRACKS, SEGMENTS, SWITCHES, DRM, ERRORS }
+public enum class ViewMode { TRACKS, SEGMENTS, SWITCHES, DRM, ERRORS }
 
 /**
  * A single row in the unified Tracks list (video variants, audio tracks, subtitles).
  * Carries the raw model so the platform renderer can apply selection styling and exact
  * row formatting; the presenter owns only the section *assembly* and ordering.
  */
-internal sealed interface OverlayRow {
-    data class SectionHeader(
+public sealed interface OverlayRow {
+    public data class SectionHeader(
         val title: String,
     ) : OverlayRow
 
-    data class Video(
+    public data class Video(
         val info: VariantInfo,
     ) : OverlayRow
 
-    data class Audio(
+    public data class Audio(
         val info: AudioTrackInfo,
     ) : OverlayRow
 
-    data class Subtitle(
+    public data class Subtitle(
         val info: SubtitleTrackInfo,
     ) : OverlayRow
 }
 
 /** Pre-formatted state for the header error-indicator pill. Null when there are no errors. */
-internal data class ErrorIndicatorState(
+public data class ErrorIndicatorState(
     val text: String,
     val contentDescription: String,
 )
 
 /** Pre-formatted strings for the always-visible stat sections + DRM summary visibility. */
-internal data class OverlayStatsState(
+public data class OverlayStatsState(
     val activeTrackText: String,
     val activeAudioText: String,
     val activeSubtitleText: String,
@@ -52,7 +52,7 @@ internal data class OverlayStatsState(
 )
 
 /** Raw model lists backing the five list tabs; the renderer binds them to per-tab adapters. */
-internal data class OverlayListsState(
+public data class OverlayListsState(
     val renditionRows: List<OverlayRow>,
     val segments: List<SegmentMetric>,
     val switches: List<TrackSwitchEvent>,
@@ -65,7 +65,7 @@ internal data class OverlayListsState(
  * [com.streamprobe.sdk.internal.SessionStore] change or UI intent; the platform renderer maps it
  * to views with a single `collect`.
  */
-internal data class OverlayViewState(
+public data class OverlayViewState(
     val mode: ViewMode,
     val isCollapsed: Boolean,
     val stats: OverlayStatsState,

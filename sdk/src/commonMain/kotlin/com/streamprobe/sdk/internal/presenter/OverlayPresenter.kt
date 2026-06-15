@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
  * the renderer's Main thread (Android) or the single test dispatcher (commonTest), so no
  * synchronization is required — mirroring the original `OverlayManager`.
  */
-internal class OverlayPresenter(
+public class OverlayPresenter internal constructor(
     private val sessionStore: SessionStore,
 ) {
     private var viewMode = ViewMode.TRACKS
@@ -33,10 +33,10 @@ internal class OverlayPresenter(
     private var renditionRows: List<OverlayRow> = emptyList()
 
     private val _viewState = MutableStateFlow(computeState())
-    val viewState: StateFlow<OverlayViewState> = _viewState.asStateFlow()
+    public val viewState: StateFlow<OverlayViewState> = _viewState.asStateFlow()
 
     /** Launches collectors that fold [SessionStore] changes into [viewState] on [scope]. */
-    fun start(scope: CoroutineScope) {
+    internal fun start(scope: CoroutineScope) {
         scope.launch { sessionStore.activeTrack.collect { emit() } }
         scope.launch { sessionStore.activeAudioTrack.collect { emit() } }
         scope.launch { sessionStore.activeSubtitleTrack.collect { emit() } }
@@ -62,17 +62,17 @@ internal class OverlayPresenter(
         }
     }
 
-    fun onChipSelected(mode: ViewMode) {
+    public fun onChipSelected(mode: ViewMode) {
         viewMode = mode
         emit()
     }
 
-    fun onCollapseToggled() {
+    public fun onCollapseToggled() {
         isCollapsed = !isCollapsed
         emit()
     }
 
-    fun onErrorIndicatorTapped() {
+    public fun onErrorIndicatorTapped() {
         if (isCollapsed) isCollapsed = false
         if (viewMode != ViewMode.ERRORS) {
             previousViewMode = viewMode
@@ -81,12 +81,12 @@ internal class OverlayPresenter(
         emit()
     }
 
-    fun onBackPressed() {
+    public fun onBackPressed() {
         viewMode = previousViewMode
         emit()
     }
 
-    fun onClearErrorsClicked() {
+    public fun onClearErrorsClicked() {
         sessionStore.clearPlaybackErrors()
     }
 

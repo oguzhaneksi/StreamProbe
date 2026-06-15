@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 version = project.property("VERSION_NAME") as String
 group = "io.github.oguzhaneksi"
@@ -10,6 +11,7 @@ plugins {
     alias(libs.plugins.jetbrains.dokka)
     alias(libs.plugins.ktlint)
     alias(libs.plugins.detekt)
+    alias(libs.plugins.touchlab.skie)
 }
 
 detekt {
@@ -37,6 +39,7 @@ kotlin {
         }
     }
 
+    val xcf = XCFramework("StreamProbe")
     listOf(
         iosArm64(),
         iosSimulatorArm64(),
@@ -45,6 +48,7 @@ kotlin {
         target.binaries.framework {
             baseName = "StreamProbe"
             isStatic = true
+            xcf.add(this)
         }
     }
 
