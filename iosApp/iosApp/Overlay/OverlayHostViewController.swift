@@ -69,10 +69,11 @@ final class OverlayHostViewController: UIViewController {
         panel.statsView.render(state.stats)
         tableDataSource.update(state, tableView: panel.tableView)
 
-        // Resize panel height based on content visibility
+        // Drive height via the constraint, not the frame, to avoid fighting AutoLayout
         let tableHeight: CGFloat = state.isCollapsed ? 0 : 200
+        panel.tableHeightConstraint?.constant = tableHeight
         UIView.animate(withDuration: 0.2) {
-            self.panel.frame.size.height = state.isCollapsed ? 36 : (36 + 44 + 70 + tableHeight)
+            self.panel.layoutIfNeeded()
         }
     }
 }

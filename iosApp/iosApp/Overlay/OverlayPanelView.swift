@@ -40,7 +40,7 @@ final class OverlayPanelView: UIView {
     }()
 
     // Initialized in setup() after super.init so tableView lazy var is safe to access
-    private var tableHeightConstraint: NSLayoutConstraint!
+    var tableHeightConstraint: NSLayoutConstraint!
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -78,6 +78,7 @@ final class OverlayPanelView: UIView {
         ])
 
         tableHeightConstraint = tableView.heightAnchor.constraint(equalToConstant: 200)
+        tableHeightConstraint.priority = .defaultHigh
 
         let stack = UIStackView(arrangedSubviews: [headerRow, chipWrapper, statsWrapper, tableView])
         stack.axis = .vertical
@@ -89,8 +90,8 @@ final class OverlayPanelView: UIView {
             stack.bottomAnchor.constraint(equalTo: bottomAnchor),
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            chipWrapper.heightAnchor.constraint(equalToConstant: 44),
-            statsWrapper.heightAnchor.constraint(greaterThanOrEqualToConstant: 0),
+            chipWrapper.heightAnchor.constraint(equalToConstant: 44).with(priority: .defaultHigh),
+            statsWrapper.heightAnchor.constraint(greaterThanOrEqualToConstant: 0).with(priority: .defaultHigh),
             tableHeightConstraint,
         ])
 
@@ -118,5 +119,12 @@ final class OverlayPanelView: UIView {
         } else {
             errorIndicatorButton.isHidden = true
         }
+    }
+}
+
+private extension NSLayoutConstraint {
+    func with(priority: UILayoutPriority) -> NSLayoutConstraint {
+        self.priority = priority
+        return self
     }
 }
