@@ -148,25 +148,33 @@ This is the **feasibility proof**. It depends only on Phase 1 (see dependency gr
 
 **Exit gate (actual):** Full gate green — iOS 174 tests, Android host 240 tests, 0 failures. Counts: Android host = commonTest 154 + androidHostTest 86; iOS = commonTest 154 + iosTest 20. **Committed:** `feat(kmp): complete KMP migration phase 3 — iOS targets + headless AVPlayerProbe` + `fix(ios): apply code-review fixes to AVPlayerProbe and supporting mappers` (merged into `feature/kmp_migration` via worktree `kmp-phase3-ios`).
 
-### Phase 4 — Programmatic UIKit overlay on iOS (separate `UIWindow`)
+### Phase 4 — Programmatic UIKit overlay on iOS (separate `UIWindow`) ✅ COMPLETE
 
-- [ ] **4.1** Overlay window: a separate root-level `UIWindow` subclass at a high `windowLevel` (D15), with **hit-test passthrough** — touches outside the overlay's own subviews fall through to the host app. *Exit:* the overlay floats above the whole app and the app underneath stays interactive (even when the player is not full-screen).
-- [ ] **4.2** `StreamProbe.ios.kt` `show(...)` / `hide()`: create/tear down the overlay window; lifecycle-safe. *Exit:* show/hide is leak-free.
-- [ ] **4.3** iOS renderer: programmatic `UIView`/`UIStackView`/`UITableView` (no XIB/storyboard) consuming `presenter.viewState` (via SKIE async-sequence, or `.value`/manual collect pre-SKIE); maps `OverlayRow → UITableViewCell`.
-- [ ] **4.4** Drag via `UIPanGestureRecognizer`; collapse/chip/error-indicator all driven by the **same** `OverlayPresenter` — taps forward to `presenter.onChipSelected(...)` / `onCollapseToggled()`.
+- [x] **4.1** Overlay window: `StreamProbeOverlayWindow` — a `UIWindow` subclass at `windowLevel = .alert + 1` (D15). `hitTest` overridden: touches that land on the transparent window background (`self` or `rootViewController?.view`) return `nil`, falling through to the main window. *Actual:* 14-line `StreamProbeOverlayWindow.swift`. Created by the **host app** (`SceneDelegate`) not the SDK, which keeps UIKit fully out of the Kotlin framework. `overlayWindow` held strongly in `SceneDelegate`.
+- [x] **4.2** `StreamProbe.ios.kt` `show()` / `hide()`: control the **presenter** scope, not the UIKit window. `show()` creates a `CoroutineScope(Dispatchers.Main + SupervisorJob())` and calls `overlayPresenter.start(scope)`; `hide()` cancels it (live updates freeze, overlay stays visible). UIKit window lifecycle is the host app's responsibility. *Actual deviation from plan:* the SDK does not create or destroy any UIKit objects; the separation is cleaner and avoids a UIKit dependency in the Kotlin module.
+- [x] **4.3** iOS renderer (`iosApp/iosApp/Overlay/`): all programmatic UIKit (no XIB/storyboard). `OverlayPanelView` — `UIStackView` with header row, `ChipBarView`, `StatsView`, `UITableView` (dark semi-transparent `UIColor.black.withAlphaComponent(0.82)` background, `cornerRadius=12`). `OverlayHostViewController` — owns `Task { @MainActor for await state in presenter.viewState { render(state) } }` SKIE async-sequence loop; drives `tableHeightConstraint.constant` + `layoutIfNeeded()` for animated collapse. `OverlayTableDataSource` — `UITableViewDataSource`/`UITableViewDelegate` using `onEnum(of:)` for `OverlayRow`/`TrackSwitchEvent`/`DrmSessionEvent` exhaustive dispatch. `StatsView` — renders pre-formatted `OverlayStatsState` strings.
+- [x] **4.4** Drag via `UIPanGestureRecognizer` on `OverlayPanelView` (translates `center` by pan delta, zero-resets translation). Collapse button, error-indicator button, and chip callbacks all forward to `presenter.on*(...)`. `ChipBarView` — horizontally-scrollable chip bar consuming `ViewMode` as a SKIE Swift enum; `onChipSelected: ((ViewMode) -> Void)?` closure.
 
-**Exit gate:** the iOS demo app shows the UIKit overlay rendering live AVPlayer diagnostics; Android and iOS render the **same** `OverlayPresenter` state (visual parallel verification).
+> **SKIE 0.10.11 pulled into Phase 4 (was planned for 5.5):** required to bridge `StateFlow<OverlayViewState>` → Swift `AsyncStream` and expose `OverlayRow`/`TrackSwitchEvent`/`DrmSessionEvent` sealed hierarchies via `onEnum(of:)`. Added `co.touchlab.skie` plugin to `sdk/build.gradle.kts` (version `0.10.11`). SKIE generates typed Swift wrappers in `sdk/build/skie/`.
+
+> **Public surface change (Phase 4 SDK, commit 937eef4):** `OverlayPresenter` promoted to `public class` with `internal constructor`; `ViewMode`, `OverlayRow` and its subtypes, `ErrorIndicatorState`, `OverlayStatsState`, `OverlayListsState`, `OverlayViewState` all promoted to `public`. `start(scope)` remains `internal` — only `StreamProbe.ios.kt` calls it. `overlayPresenter: OverlayPresenter` added as `public val` to `StreamProbe.ios.kt`.
+
+> **AutoLayout fix (commit 447f34a):** height constraints on `chipWrapper`, `statsWrapper`, and `tableHeightConstraint` lowered to `.defaultHigh` (999) so `UIStackView`'s internal zero-height override wins cleanly when subviews are hidden. Collapse animation drives `tableHeightConstraint.constant` + `layoutIfNeeded()` rather than `frame.size.height` to avoid the two-authority constraint conflict. `tableHeightConstraint` exposed as `internal` so `OverlayHostViewController` can drive it directly.
+
+> **iOS demo app (commit 88426b0):** UIKit via `AppDelegate`/`SceneDelegate`/`PlayerViewController` — not SwiftUI (SwiftUI deferred to Phase 5; the overlay is UIKit, so UIKit makes a simpler demo). `SceneDelegate` creates both windows; `PlayerViewController` owns `StreamProbe_()` (SKIE name-mangling of `StreamProbe`), calls `probe.attach(player:)` + `probe.show()`. Generated via XcodeGen (`iosApp/project.yml`, deployment target iOS 15). References `sdk/build/XCFrameworks/debug/StreamProbe.xcframework`. `CFBundleExecutable` added to `Info.plist` in commit 60ad25e.
+
+**Exit gate (actual):** iOS demo app (`iosApp/`) builds and runs; `OverlayHostViewController` renders live AVPlayer diagnostics via `presenter.viewState` SKIE async-sequence; Android and iOS render the same `OverlayPresenter` `ViewState` (visual parallel verification confirmed). **Committed:** `feat(kmp/ios): Phase 4 SDK — SKIE, public overlay types, show/hide presenter API` + `feat(ios): Phase 4 — Swift/UIKit overlay window, panel renderer, iosApp demo` + `fix(ios): resolve AutoLayout constraint conflict on panel collapse` + `feat(ios): add CFBundleExecutable key to Info.plist for dynamic executable name`.
 
 ### Phase 5 — Feature completion + distribution (incl. deferred FairPlay DRM)
 
 - [ ] **5.1** **FairPlay DRM (deferred — D14):** `AVContentKeySession` delegate (FairPlay) → `addDrmSessionEvent` + `updateDrmState(FAIRPLAY)`; latency = request→response. Gated on license-server + cert availability; may slip to a later milestone. A thin Swift shim is allowed if the delegate-heavy interop is hard (D9).
 - [ ] **5.2** Remaining-signal polish + graceful degradation: stalls, an "aggregate" badge for roll-up segments (iOS segment cardinality differs from Android — risk #5).
 - [ ] **5.3** Language display-name `expect/actual` (D7): `expect fun displayLanguage(tag)` — Android `Locale`, iOS `NSLocale` — replacing the raw BCP-47 fallback.
-- [ ] **5.4** XCFramework + checked-in `Package.swift` (SPM binary target); `embedAndSignAppleFrameworkForXcode` for local iteration.
-- [ ] **5.5** SKIE (Touchlab): bridge `StateFlow`/`Flow` → Swift async-sequence and sealed classes → Swift enums (`OverlayRow`/`TrackSwitchEvent`/`DrmSessionEvent`/`ErrorDetail`).
-- [ ] **5.6** iOS demo app (`iosApp/`, separate Xcode project, SwiftUI): plays HLS/FairPlay, attaches `StreamProbe`, shows the UIKit overlay. Outside the Gradle modules.
+- [ ] **5.4** XCFramework + checked-in `Package.swift` (SPM binary target); `embedAndSignAppleFrameworkForXcode` for local iteration. *Note:* the demo app already references the debug XCFramework at `sdk/build/XCFrameworks/debug/StreamProbe.xcframework` via `project.yml`; a formal `Package.swift` for SDK consumers is the remaining distribution step.
+- [x] **5.5** ~~SKIE (Touchlab)~~ — **pulled into Phase 4.** SKIE 0.10.11 added in commit 937eef4; bridges `StateFlow<OverlayViewState>` → Swift async-sequence, `OverlayRow`/`TrackSwitchEvent`/`DrmSessionEvent`/`ViewMode` → exhaustive Swift enums via `onEnum(of:)`.
+- [x] **5.6** ~~iOS demo app (SwiftUI)~~ — **UIKit demo landed in Phase 4** (`iosApp/`, separate Xcode project, XcodeGen). Plays an HLS stream, attaches `StreamProbe`, shows the UIKit overlay. A SwiftUI wrapper layer can be added later but is not required for feature completeness.
 
-**Exit gate:** XCFramework consumable via SPM; the iOS demo app exercises full diagnostics; FairPlay validated when license infrastructure is available.
+**Exit gate:** XCFramework consumable via SPM (`Package.swift`); the iOS demo app exercises full diagnostics; FairPlay validated when license infrastructure is available.
 
 ---
 
@@ -186,10 +194,10 @@ OverlayPresenter        iOS targets + headless         (Phase 3.3 PoC is the ear
    │                      │
    └──────────┬───────────┘
               ▼
-           Phase 4 ── iOS UIKit overlay (separate UIWindow)   ◄── NEXT
+           Phase 4 ✅ iOS UIKit overlay (separate UIWindow)
               │
               ▼
-           Phase 5 ── Feature completion + distribution
+           Phase 5 ── Feature completion + distribution   ◄── NEXT
                       (incl. deferred FairPlay DRM)
 ```
 
@@ -260,8 +268,8 @@ OverlayViewState(mode, isCollapsed, activeTrackText, activeAudioText, activeSubt
 
 - **Android AAR:** coordinates unchanged (`io.github.oguzhaneksi:streamprobe`). vanniktech 0.36.0 supports KMP — with `kotlin("multiplatform")` + androidTarget it wires up the `release` AAR publication + klibs + the root metadata module automatically. The existing POM / `publishToMavenCentral()` / `signAllPublications()` keep working.
 - **iOS XCFramework — SPM (recommended).** Apple-native, no Ruby/CocoaPods toolchain; the Kotlin `XCFramework {}` task + a checked-in `Package.swift` binary target. `embedAndSignAppleFrameworkForXcode` for local iteration.
-- **SKIE (Touchlab) — add in Phase 4.** Bridges `StateFlow`/`Flow` to Swift async-sequences, sealed classes to Swift enums (OverlayRow/TrackSwitchEvent/DrmSessionEvent/ErrorDetail), and suspend to async. Not needed for the Phase 3 headless PoC (`.value` suffices).
-- **iOS demo app:** separate from Android `app/`, its own Xcode project (`iosApp/`), SwiftUI, plays HLS/FairPlay + attaches `StreamProbe` + shows the UIKit overlay. Outside the Gradle modules.
+- **SKIE (Touchlab) ✅ — added in Phase 4 (commit 937eef4).** SKIE 0.10.11 bridges `StateFlow`/`Flow` → Swift async-sequences, sealed interfaces → Swift exhaustive enums via `onEnum(of:)` (`OverlayRow`/`TrackSwitchEvent`/`DrmSessionEvent`/`ViewMode`/`ErrorDetail`). Generated Swift wrappers live in `sdk/build/skie/`.
+- **iOS demo app ✅ — UIKit demo landed in Phase 4 (`iosApp/`).** Separate Xcode project (XcodeGen, `project.yml`), UIKit (`AppDelegate`/`SceneDelegate`/`PlayerViewController`). Plays HLS, attaches `StreamProbe`, shows the UIKit overlay via `StreamProbeOverlayWindow`. A SwiftUI wrapper layer is optional and not required for feature completeness.
 
 ---
 
@@ -289,6 +297,7 @@ OverlayViewState(mode, isCollapsed, activeTrackText, activeAudioText, activeSubt
 - **Phase 1:** pure tests run as commonTest (`./gradlew :sdk:testDebugUnitTest` or KMP `allTests`); any JVM-API use in common is a **compile error** (portability proof). AAR behavior identical.
 - **Phase 2 ✅:** `OverlayPresenterTest` (11 tests, commonTest) locks the ViewMode/collapse/DRM-fallback/error-counter contract; `OverlayManagerErrorBehaviorTest` (6 tests, androidHostTest) unchanged. Full CI gate green. Android overlay behavior preserved byte-for-byte.
 - **Phase 3 ✅:** `./gradlew :sdk:linkDebugFrameworkIosSimulatorArm64` builds the framework. Pure mapper tests (AVMetricMappersTest + AVAccessLogMappersTest, iosTest) give hermetic coverage. `AVPlayerProbePocTest` skips the live leg when simulator TLS is unavailable (environment limitation, not a code defect). Full gate green: `:sdk:iosSimulatorArm64Test :sdk:assembleAndroidMain :sdk:testAndroidHostTest :sdk:lint :sdk:ktlintCheck :sdk:detektAndroidMain :sdk:detektAndroidHostTest :sdk:detektMetadataMain :app:assembleDebug`.
-- **Phase 4+:** the iOS demo app shows the UIKit overlay rendering live AVPlayer diagnostics; the Android and iOS overlays render the same `OverlayPresenter` state (parallel visual verification).
+- **Phase 4 ✅:** iOS demo app (`iosApp/`) builds and runs; `OverlayHostViewController` observes `presenter.viewState` via SKIE Swift async-sequence and renders the same `OverlayPresenter` `ViewState` as Android (visual parallel verification confirmed). SKIE 0.10.11 bridges sealed interfaces to Swift via `onEnum(of:)`. AutoLayout constraint priorities correctly handle animated collapse without ambiguity warnings.
+- **Phase 5:** XCFramework consumable via `Package.swift` (SPM); iOS demo exercises full diagnostics including FairPlay (when license infrastructure is available).
 
 **First concrete step:** implement **only Phase 0** — KMP plugin + androidTarget, no code moved, AAR byte-identical. It eliminates all toolchain risk with zero behavior change and safely unlocks everything that follows.
