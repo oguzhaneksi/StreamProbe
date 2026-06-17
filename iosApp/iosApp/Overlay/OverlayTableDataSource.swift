@@ -6,7 +6,7 @@ import StreamProbe
 final class OverlayTableDataSource: NSObject, UITableViewDataSource, UITableViewDelegate {
 
     private var state: OverlayViewState?
-    private var expandedRows: Set<Int> = []
+    private var expandedTimestampMs: Int64?
     private weak var tableView: UITableView?
 
     /// True while the last row was visible before the latest update (drives auto-scroll).
@@ -28,10 +28,13 @@ final class OverlayTableDataSource: NSObject, UITableViewDataSource, UITableView
     }
 
     func update(_ newState: OverlayViewState) {
-        // Clear expansion when leaving errors mode so stale indices don't persist.
-        if state?.mode != newState.mode { expandedRows.removeAll() }
         wasPinnedToBottom = isPinnedToBottom()
         state = newState
+        // Clear expansion if the expanded error is no longer present (mirrors Android onCurrentListChanged).
+        if let ts = expandedTimestampMs,
+           !newState.lists.errors.contains(where: { $0.timestampMs == ts }) {
+            expandedTimestampMs = nil
+        }
         tableView?.reloadData()
         if shouldAutoScroll(for: newState.mode) {
             scrollToBottomIfPinned()
@@ -98,20 +101,19 @@ final class OverlayTableDataSource: NSObject, UITableViewDataSource, UITableView
     private func errorCell(_ tv: UITableView, _ ip: IndexPath, _ event: PlaybackErrorEvent, _ s: OverlayViewState) -> UITableViewCell {
         let cell = tv.dequeueReusableCell(withIdentifier: ErrorCell.reuseID, for: ip) as! ErrorCell
         let base = s.lists.errors.first?.timestampMs ?? 0
-        cell.bind(index: ip.row, event: event, baseTimestampMs: base, expanded: expandedRows.contains(ip.row))
+        cell.bind(index: ip.row, event: event, baseTimestampMs: base, expanded: event.timestampMs == expandedTimestampMs)
         return cell
     }
 
     // MARK: - Expand (errors only)
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        guard state?.mode == .errors else { return }
-        if expandedRows.contains(indexPath.row) {
-            expandedRows.remove(indexPath.row)
-        } else {
-            expandedRows.insert(indexPath.row)
-        }
-        tableView.reloadRows(at: [indexPath], with: .automatic)
+        guard state?.mode == .errors,
+              let errors = state?.lists.errors,
+              indexPath.row < errors.count else { return }
+        let ts = errors[indexPath.row].timestampMs
+        expandedTimestampMs = (expandedTimestampMs == ts) ? nil : ts
+        tableView.reloadData()
     }
 
     // MARK: - Auto-scroll

@@ -148,9 +148,11 @@ enum OverlayFormattersSwift {
     }
 
     // ── Rendition helpers ─────────────────────────────────────────
+    // Mirrors the SDK's iOS `displayLanguage` actual, which returns the raw BCP-47 tag
+    // (localized language names are a deferred SDK task). Keeps the Tracks cells consistent
+    // with the AUDIO/SUBTITLE stat line, which uses that same SDK function.
     static func resolveDisplayName(_ languageTag: String) -> String? {
-        let name = Locale.current.localizedString(forLanguageCode: languageTag)
-        return (name?.isEmpty == false) ? name : nil
+        languageTag.isEmpty ? nil : languageTag
     }
 
     static func channelLabel(_ channelCount: Int32) -> String? {

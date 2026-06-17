@@ -60,7 +60,7 @@ final class HeaderView: UIView {
             errorIndicator.trailingAnchor.constraint(equalTo: collapseButton.leadingAnchor, constant: -4),
             errorIndicator.centerYAnchor.constraint(equalTo: centerYAnchor),
             errorIndicator.heightAnchor.constraint(equalToConstant: 20),
-            errorIndicator.widthAnchor.constraint(greaterThanOrEqualToConstant: 36),
+            errorIndicator.widthAnchor.constraint(greaterThanOrEqualToConstant: 48),
 
             collapseButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
             collapseButton.centerYAnchor.constraint(equalTo: centerYAnchor),
