@@ -10,6 +10,7 @@ final class OverlayHostViewController: UIViewController {
     private var panel: OverlayPanelView!
     private var observationTask: Task<Void, Never>?
     private var latestErrors: [PlaybackErrorEvent] = []
+    private var lastLandscape: Bool?
 
     init(presenter: OverlayPresenter) {
         self.presenter = presenter
@@ -22,9 +23,16 @@ final class OverlayHostViewController: UIViewController {
         view.backgroundColor = .clear
         buildPanel()
         startObserving()
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(orientationChanged),
-            name: UIDevice.orientationDidChangeNotification, object: nil)
+    }
+
+    /// Drives sizing from final bounds — reliable for both initial layout and rotation
+    /// (the UIDevice orientation notification reflects device, not interface, orientation).
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let landscape = view.bounds.width > view.bounds.height
+        if landscape != lastLandscape {
+            applySizing()
+        }
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -57,7 +65,9 @@ final class OverlayHostViewController: UIViewController {
 
     private func applySizing() {
         let bounds = view.bounds
+        guard bounds.width > 0, bounds.height > 0 else { return }
         let landscape = bounds.width > bounds.height
+        lastLandscape = landscape
         panel.setLandscape(landscape)
 
         let width = min(bounds.width - 32, landscape ? 540 : 310)
@@ -76,11 +86,6 @@ final class OverlayHostViewController: UIViewController {
             x: bounds.width - width - 16,
             y: view.safeAreaInsets.top + 16,
             width: width, height: height)
-    }
-
-    @objc private func orientationChanged() {
-        // Rebuild for the new orientation; presenter state (mode/collapse) is preserved.
-        applySizing()
     }
 
     // MARK: - Drag (header only), clamped to safe area

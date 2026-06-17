@@ -7,6 +7,7 @@ final class ChipBarView: UIView {
 
     var onChipSelected: ((ViewMode) -> Void)?
 
+    private let scrollView = UIScrollView()
     private let stack = UIStackView()
     private var chips: [ViewMode: UIButton] = [:]
     private var selectedMode: ViewMode = .tracks
@@ -18,16 +19,28 @@ final class ChipBarView: UIView {
         super.init(frame: frame)
         translatesAutoresizingMaskIntoConstraints = false
 
+        // Horizontal scroll so chips keep their natural width and never wrap on narrow panels.
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(scrollView)
+
         stack.axis = .horizontal
         stack.spacing = 6
         stack.alignment = .center
         stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
+        scrollView.addSubview(stack)
+
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
+
+            stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            stack.heightAnchor.constraint(equalTo: scrollView.frameLayoutGuide.heightAnchor),
         ])
 
         for mode in modes {
@@ -55,6 +68,9 @@ final class ChipBarView: UIView {
         config.title = title(mode)
         let btn = UIButton(configuration: config)
         btn.titleLabel?.font = .systemFont(ofSize: 11, weight: .medium)
+        btn.titleLabel?.numberOfLines = 1
+        btn.titleLabel?.lineBreakMode = .byClipping
+        btn.setContentCompressionResistancePriority(.required, for: .horizontal)
         btn.layer.cornerRadius = 12
         btn.layer.borderWidth = 1
         btn.clipsToBounds = true
