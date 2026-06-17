@@ -1,130 +1,113 @@
 import UIKit
 import StreamProbe
 
+/// The draggable overlay panel: rounded navy background, header, and a collapsible body.
+/// Body is a vertical stack (portrait) or horizontal split (landscape).
 final class OverlayPanelView: UIView {
-    let chipBar = ChipBarView()
+
+    let header = HeaderView()
     let statsView = StatsView()
-    lazy var tableView: UITableView = {
-        let tv = UITableView()
-        tv.backgroundColor = .clear
-        tv.separatorColor = UIColor.white.withAlphaComponent(0.15)
-        tv.translatesAutoresizingMaskIntoConstraints = false
-        tv.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
-        return tv
-    }()
+    let chipBar = ChipBarView()
+    let errorsHeader = ErrorsHeaderView()
+    let tableView = UITableView()
 
-    private let headerLabel: UILabel = {
-        let lbl = UILabel()
-        lbl.text = "StreamProbe"
-        lbl.font = .systemFont(ofSize: 12, weight: .bold)
-        lbl.textColor = .white
-        lbl.translatesAutoresizingMaskIntoConstraints = false
-        return lbl
-    }()
+    private let bodyContainer = UIView()
+    private var bodyStack: UIStackView!          // axis flips on orientation
+    private let leftColumn = UIStackView()        // stats
+    private let rightColumn = UIStackView()       // chip/errors header + table
+    private var tableHeightConstraint: NSLayoutConstraint!
 
-    let collapseButton: UIButton = {
-        let btn = UIButton(type: .system)
-        btn.setTitle("▾", for: .normal)
-        btn.tintColor = .white
-        btn.translatesAutoresizingMaskIntoConstraints = false
-        return btn
-    }()
+    private(set) var isLandscape: Bool
 
-    let errorIndicatorButton: UIButton = {
-        let btn = UIButton(type: .system)
-        btn.tintColor = .systemYellow
-        btn.titleLabel?.font = .systemFont(ofSize: 11, weight: .semibold)
-        btn.isHidden = true
-        btn.translatesAutoresizingMaskIntoConstraints = false
-        return btn
-    }()
-
-    // Initialized in setup() after super.init so tableView lazy var is safe to access
-    var tableHeightConstraint: NSLayoutConstraint!
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setup()
-    }
-    required init?(coder: NSCoder) { fatalError() }
-
-    private func setup() {
-        backgroundColor = UIColor.black.withAlphaComponent(0.82)
-        layer.cornerRadius = 12
+    init(isLandscape: Bool) {
+        self.isLandscape = isLandscape
+        super.init(frame: .zero)
+        backgroundColor = OverlayTheme.panelBg
+        layer.cornerRadius = OverlayTheme.panelCorner
         layer.masksToBounds = true
         translatesAutoresizingMaskIntoConstraints = false
 
-        // Sub-view references for layout
-        let chipWrapper = chipBar
-        chipWrapper.translatesAutoresizingMaskIntoConstraints = false
-        let statsWrapper = statsView
-        statsWrapper.translatesAutoresizingMaskIntoConstraints = false
+        configureTable()
+        buildColumns()
+        buildBody()
+    }
+    required init?(coder: NSCoder) { fatalError() }
 
-        // Header row
-        let headerRow = UIView()
-        headerRow.translatesAutoresizingMaskIntoConstraints = false
-        headerRow.addSubview(headerLabel)
-        headerRow.addSubview(errorIndicatorButton)
-        headerRow.addSubview(collapseButton)
-
-        NSLayoutConstraint.activate([
-            headerLabel.leadingAnchor.constraint(equalTo: headerRow.leadingAnchor, constant: 10),
-            headerLabel.centerYAnchor.constraint(equalTo: headerRow.centerYAnchor),
-            errorIndicatorButton.centerXAnchor.constraint(equalTo: headerRow.centerXAnchor),
-            errorIndicatorButton.centerYAnchor.constraint(equalTo: headerRow.centerYAnchor),
-            collapseButton.trailingAnchor.constraint(equalTo: headerRow.trailingAnchor, constant: -8),
-            collapseButton.centerYAnchor.constraint(equalTo: headerRow.centerYAnchor),
-            headerRow.heightAnchor.constraint(equalToConstant: 36),
-        ])
-
-        tableHeightConstraint = tableView.heightAnchor.constraint(equalToConstant: 200)
-        tableHeightConstraint.priority = .defaultHigh
-
-        let stack = UIStackView(arrangedSubviews: [headerRow, chipWrapper, statsWrapper, tableView])
-        stack.axis = .vertical
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
-
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            chipWrapper.heightAnchor.constraint(equalToConstant: 44).with(priority: .defaultHigh),
-            statsWrapper.heightAnchor.constraint(greaterThanOrEqualToConstant: 0).with(priority: .defaultHigh),
-            tableHeightConstraint,
-        ])
-
-        addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:))))
+    private func configureTable() {
+        tableView.backgroundColor = .clear
+        tableView.showsVerticalScrollIndicator = true
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        tableHeightConstraint = tableView.heightAnchor.constraint(lessThanOrEqualToConstant: 180)
+        tableHeightConstraint.priority = .required
+        tableHeightConstraint.isActive = true
     }
 
-    @objc private func handlePan(_ pan: UIPanGestureRecognizer) {
-        guard let superview = superview else { return }
-        let translation = pan.translation(in: superview)
-        center = CGPoint(x: center.x + translation.x, y: center.y + translation.y)
-        pan.setTranslation(.zero, in: superview)
+    private func buildColumns() {
+        leftColumn.axis = .vertical
+        leftColumn.translatesAutoresizingMaskIntoConstraints = false
+        leftColumn.addArrangedSubview(statsView)
+
+        rightColumn.axis = .vertical
+        rightColumn.spacing = 6
+        rightColumn.translatesAutoresizingMaskIntoConstraints = false
+        rightColumn.addArrangedSubview(chipBar)
+        rightColumn.addArrangedSubview(errorsHeader)
+        rightColumn.addArrangedSubview(tableView)
+        errorsHeader.isHidden = true
+    }
+
+    private func buildBody() {
+        bodyStack = UIStackView()
+        bodyStack.axis = isLandscape ? .horizontal : .vertical
+        bodyStack.spacing = isLandscape ? 12 : 12
+        bodyStack.alignment = .fill
+        bodyStack.distribution = isLandscape ? .fillEqually : .fill
+        bodyStack.translatesAutoresizingMaskIntoConstraints = false
+        bodyStack.addArrangedSubview(leftColumn)
+        bodyStack.addArrangedSubview(rightColumn)
+
+        bodyContainer.translatesAutoresizingMaskIntoConstraints = false
+        bodyContainer.addSubview(bodyStack)
+        NSLayoutConstraint.activate([
+            bodyStack.topAnchor.constraint(equalTo: bodyContainer.topAnchor, constant: 10),
+            bodyStack.bottomAnchor.constraint(equalTo: bodyContainer.bottomAnchor, constant: -14),
+            bodyStack.leadingAnchor.constraint(equalTo: bodyContainer.leadingAnchor, constant: 14),
+            bodyStack.trailingAnchor.constraint(equalTo: bodyContainer.trailingAnchor, constant: -14),
+        ])
+
+        let root = UIStackView(arrangedSubviews: [header, bodyContainer])
+        root.axis = .vertical
+        root.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(root)
+        NSLayoutConstraint.activate([
+            root.topAnchor.constraint(equalTo: topAnchor),
+            root.bottomAnchor.constraint(equalTo: bottomAnchor),
+            root.leadingAnchor.constraint(equalTo: leadingAnchor),
+            root.trailingAnchor.constraint(equalTo: trailingAnchor),
+        ])
+    }
+
+    /// Caps the list height (180pt portrait; 55% of screen clamped 200–360 landscape).
+    func setTableMaxHeight(_ height: CGFloat) {
+        tableHeightConstraint.constant = height
+    }
+
+    /// Flip the body axis when orientation changes.
+    func setLandscape(_ landscape: Bool) {
+        isLandscape = landscape
+        bodyStack.axis = landscape ? .horizontal : .vertical
+        bodyStack.distribution = landscape ? .fillEqually : .fill
+        leftColumn.isHidden = false
     }
 
     func applyCollapsed(_ isCollapsed: Bool) {
-        chipBar.isHidden = isCollapsed
-        statsView.isHidden = isCollapsed
-        tableView.isHidden = isCollapsed
-        collapseButton.setTitle(isCollapsed ? "▸" : "▾", for: .normal)
+        bodyContainer.isHidden = isCollapsed
+        header.applyCollapsed(isCollapsed)
     }
 
-    func applyErrorIndicator(_ indicator: ErrorIndicatorState?) {
-        if let ind = indicator {
-            errorIndicatorButton.setTitle(ind.text, for: .normal)
-            errorIndicatorButton.isHidden = false
-        } else {
-            errorIndicatorButton.isHidden = true
-        }
-    }
-}
-
-private extension NSLayoutConstraint {
-    func with(priority: UILayoutPriority) -> NSLayoutConstraint {
-        self.priority = priority
-        return self
+    /// Show chip bar in normal mode, errors header in errors mode.
+    func applyErrorsMode(_ isErrorsMode: Bool) {
+        chipBar.isHidden = isErrorsMode
+        errorsHeader.isHidden = !isErrorsMode
     }
 }
