@@ -18,8 +18,7 @@ final class OverlayHostViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .clear
 
-        panel.tableView.dataSource = tableDataSource
-        panel.tableView.delegate = tableDataSource
+        tableDataSource.register(panel.tableView)
 
         view.addSubview(panel)
         // Initial position: top-right, inset from safe area
@@ -67,7 +66,7 @@ final class OverlayHostViewController: UIViewController {
         panel.applyErrorIndicator(state.errorIndicator)
         panel.chipBar.setSelected(state.mode)
         panel.statsView.render(state.stats)
-        tableDataSource.update(state, tableView: panel.tableView)
+        tableDataSource.update(state)
 
         // Drive height via the constraint, not the frame, to avoid fighting AutoLayout
         let tableHeight: CGFloat = state.isCollapsed ? 0 : 200

@@ -1,15 +1,44 @@
 import UIKit
 import StreamProbe
 
+/// Drives the overlay table for all five tabs. Owns error-row expansion state and
+/// auto-scroll-to-newest behavior (scroll to last row unless the user scrolled up).
 final class OverlayTableDataSource: NSObject, UITableViewDataSource, UITableViewDelegate {
-    private var state: OverlayViewState?
 
-    func update(_ newState: OverlayViewState, tableView: UITableView) {
-        state = newState
-        tableView.reloadData()
+    private var state: OverlayViewState?
+    private var expandedRows: Set<Int> = []
+    private weak var tableView: UITableView?
+
+    /// True while the last row was visible before the latest update (drives auto-scroll).
+    private var wasPinnedToBottom = true
+
+    func register(_ tableView: UITableView) {
+        self.tableView = tableView
+        tableView.register(RenditionSectionHeaderCell.self, forCellReuseIdentifier: RenditionSectionHeaderCell.reuseID)
+        tableView.register(RenditionItemCell.self, forCellReuseIdentifier: RenditionItemCell.reuseID)
+        tableView.register(SegmentCell.self, forCellReuseIdentifier: SegmentCell.reuseID)
+        tableView.register(SwitchCell.self, forCellReuseIdentifier: SwitchCell.reuseID)
+        tableView.register(ErrorCell.self, forCellReuseIdentifier: ErrorCell.reuseID)
+        tableView.register(DrmCell.self, forCellReuseIdentifier: DrmCell.reuseID)
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 44
+        tableView.separatorStyle = .none
     }
 
-    // MARK: - UITableViewDataSource
+    func update(_ newState: OverlayViewState) {
+        // Clear expansion when leaving errors mode so stale indices don't persist.
+        if state?.mode != newState.mode { expandedRows.removeAll() }
+        wasPinnedToBottom = isPinnedToBottom()
+        state = newState
+        tableView?.reloadData()
+        if shouldAutoScroll(for: newState.mode) {
+            scrollToBottomIfPinned()
+        }
+    }
+
+    // MARK: - Counts
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         guard let s = state else { return 0 }
@@ -22,97 +51,88 @@ final class OverlayTableDataSource: NSObject, UITableViewDataSource, UITableView
         }
     }
 
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-        guard let s = state else { return cell }
-        cell.backgroundColor = .clear
-        cell.textLabel?.textColor = .white
-        cell.textLabel?.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
-        cell.textLabel?.numberOfLines = 2
-        cell.selectionStyle = .none
+    // MARK: - Cells
 
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        guard let s = state else { return UITableViewCell() }
         switch s.mode {
-        case .tracks:
-            cell.textLabel?.text = tracksText(s.lists.renditionRows[indexPath.row])
-        case .segments:
-            cell.textLabel?.text = segmentText(s.lists.segments[indexPath.row])
-        case .switches:
-            cell.textLabel?.text = switchText(s.lists.switches[indexPath.row])
-        case .drm:
-            cell.textLabel?.text = drmText(s.lists.drmEvents[indexPath.row])
-        case .errors:
-            cell.textLabel?.text = errorText(s.lists.errors[indexPath.row])
+        case .tracks:   return tracksCell(tableView, indexPath, s.lists.renditionRows[indexPath.row])
+        case .segments: return segmentCell(tableView, indexPath, s.lists.segments[indexPath.row])
+        case .switches: return switchCell(tableView, indexPath, s.lists.switches[indexPath.row], s)
+        case .drm:      return drmCell(tableView, indexPath, s.lists.drmEvents[indexPath.row], s)
+        case .errors:   return errorCell(tableView, indexPath, s.lists.errors[indexPath.row], s)
         }
+    }
+
+    private func tracksCell(_ tv: UITableView, _ ip: IndexPath, _ row: any OverlayRow) -> UITableViewCell {
+        if case .sectionHeader(let h) = onEnum(of: row) {
+            let cell = tv.dequeueReusableCell(withIdentifier: RenditionSectionHeaderCell.reuseID, for: ip) as! RenditionSectionHeaderCell
+            cell.bind(h.title)
+            return cell
+        }
+        let cell = tv.dequeueReusableCell(withIdentifier: RenditionItemCell.reuseID, for: ip) as! RenditionItemCell
+        cell.bind(row)
         return cell
     }
 
-    // MARK: - Row formatters
+    private func segmentCell(_ tv: UITableView, _ ip: IndexPath, _ metric: SegmentMetric) -> UITableViewCell {
+        let cell = tv.dequeueReusableCell(withIdentifier: SegmentCell.reuseID, for: ip) as! SegmentCell
+        cell.bind(index: ip.row, metric: metric)
+        return cell
+    }
 
-    /* SKIE 0.10.x exposes sealed interfaces via onEnum(of:) → __Sealed frozen enum.
-       Switch on onEnum(of: row) to get exhaustive .audio / .sectionHeader / .subtitle / .video cases. */
-    private func tracksText(_ row: any OverlayRow) -> String {
-        switch onEnum(of: row) {
-        case .sectionHeader(let header):
-            return "── \(header.title) ──"
-        case .video(let videoRow):
-            let info = videoRow.info
-            let sel = info.isSelected ? "▶" : " "
-            let kbps = info.bitrate / 1000
-            return "\(sel) \(info.width)×\(info.height) \(kbps)kbps"
-        case .audio(let audioRow):
-            let info = audioRow.info
-            let sel = info.isSelected ? "▶" : " "
-            let lang = info.language ?? info.label ?? "audio"
-            let kbps = info.bitrate / 1000
-            return "\(sel) \(lang) \(kbps)kbps\(info.isMuxed ? " [muxed]" : "")"
-        case .subtitle(let subtitleRow):
-            let info = subtitleRow.info
-            let sel = info.isSelected ? "▶" : " "
-            let lang = info.language ?? info.label ?? "subtitle"
-            return "\(sel) \(lang) [\(info.kind.name)]"
+    private func switchCell(_ tv: UITableView, _ ip: IndexPath, _ event: any TrackSwitchEvent, _ s: OverlayViewState) -> UITableViewCell {
+        let cell = tv.dequeueReusableCell(withIdentifier: SwitchCell.reuseID, for: ip) as! SwitchCell
+        let base = s.lists.switches.first?.timestampMs ?? 0
+        cell.bind(index: ip.row, event: event, baseTimestampMs: base)
+        return cell
+    }
+
+    private func drmCell(_ tv: UITableView, _ ip: IndexPath, _ event: any DrmSessionEvent, _ s: OverlayViewState) -> UITableViewCell {
+        let cell = tv.dequeueReusableCell(withIdentifier: DrmCell.reuseID, for: ip) as! DrmCell
+        let base = s.lists.drmEvents.first?.timestampMs ?? 0
+        cell.bind(index: ip.row, event: event, baseTimestampMs: base)
+        return cell
+    }
+
+    private func errorCell(_ tv: UITableView, _ ip: IndexPath, _ event: PlaybackErrorEvent, _ s: OverlayViewState) -> UITableViewCell {
+        let cell = tv.dequeueReusableCell(withIdentifier: ErrorCell.reuseID, for: ip) as! ErrorCell
+        let base = s.lists.errors.first?.timestampMs ?? 0
+        cell.bind(index: ip.row, event: event, baseTimestampMs: base, expanded: expandedRows.contains(ip.row))
+        return cell
+    }
+
+    // MARK: - Expand (errors only)
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        guard state?.mode == .errors else { return }
+        if expandedRows.contains(indexPath.row) {
+            expandedRows.remove(indexPath.row)
+        } else {
+            expandedRows.insert(indexPath.row)
         }
+        tableView.reloadRows(at: [indexPath], with: .automatic)
     }
 
-    private func segmentText(_ seg: SegmentMetric) -> String {
-        let kb = seg.sizeBytes / 1024
-        let kbps = seg.throughputBytesPerSec > 0 ? " \(seg.throughputBytesPerSec * 8 / 1000)kbps" : ""
-        let filename = (seg.uri as NSString).lastPathComponent
-        return "\(kb)KB\(kbps) \(filename)"
+    // MARK: - Auto-scroll
+
+    private func shouldAutoScroll(for mode: ViewMode) -> Bool {
+        // Timeline tabs append newest at the end; Tracks does not auto-scroll.
+        mode == .segments || mode == .switches || mode == .drm || mode == .errors
     }
 
-    /* TrackSwitchEvent sealed hierarchy via onEnum(of:) → .audioSwitch / .subtitleSwitch / .videoSwitch */
-    private func switchText(_ event: any TrackSwitchEvent) -> String {
-        switch onEnum(of: event) {
-        case .videoSwitch(let v):
-            let from = v.previousTrack.map { "\($0.width)×\($0.height)" } ?? "?"
-            let to = "\(v.newTrack.width)×\(v.newTrack.height)"
-            return "▶ Video \(from)→\(to) [\(v.reason.name)]"
-        case .audioSwitch(let a):
-            let from = a.previousTrack?.label ?? a.previousTrack?.language ?? "?"
-            let to = a.newTrack.label ?? a.newTrack.language ?? "?"
-            return "♪ Audio \(from)→\(to) [\(a.reason.name)]"
-        case .subtitleSwitch(let sub):
-            let from = sub.previousTrack?.label ?? sub.previousTrack?.language ?? "?"
-            let to = sub.newTrack?.label ?? sub.newTrack?.language ?? "off"
-            return "CC \(from)→\(to) [\(sub.reason.name)]"
+    private func isPinnedToBottom() -> Bool {
+        guard let tv = tableView, tv.contentSize.height > 0 else { return true }
+        let bottomEdge = tv.contentOffset.y + tv.bounds.height
+        return bottomEdge >= tv.contentSize.height - 24 // ~2 rows of slack
+    }
+
+    private func scrollToBottomIfPinned() {
+        guard wasPinnedToBottom, let tv = tableView else { return }
+        let rows = tableView(tv, numberOfRowsInSection: 0)
+        guard rows > 0 else { return }
+        DispatchQueue.main.async {
+            tv.scrollToRow(at: IndexPath(row: rows - 1, section: 0), at: .bottom, animated: false)
         }
-    }
-
-    /* DrmSessionEvent sealed hierarchy via onEnum(of:) → .keysLoaded / .sessionAcquired / .sessionError / .sessionReleased */
-    private func drmText(_ event: any DrmSessionEvent) -> String {
-        switch onEnum(of: event) {
-        case .sessionAcquired(let e):
-            return "🔑 Acquired [\(e.scheme.name)] state=\(e.state.name)"
-        case .keysLoaded(let e):
-            return "✓ Keys loaded [\(e.scheme.name)] \(e.licenseLatencyMs)ms"
-        case .sessionError(let e):
-            return "✗ Error [\(e.scheme.name)] \(e.message)"
-        case .sessionReleased(let e):
-            return "○ Released [\(e.scheme.name)]"
-        }
-    }
-
-    private func errorText(_ event: PlaybackErrorEvent) -> String {
-        return "[\(event.category.name)] \(event.message)"
     }
 }
