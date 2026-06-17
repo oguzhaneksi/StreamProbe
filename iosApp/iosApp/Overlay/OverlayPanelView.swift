@@ -16,6 +16,7 @@ final class OverlayPanelView: UIView {
     private let leftColumn = UIStackView()        // stats
     private let rightColumn = UIStackView()       // chip/errors header + table
     private var tableHeightConstraint: NSLayoutConstraint!
+    private var maxTableHeight: CGFloat = 180
 
     private(set) var isLandscape: Bool
 
@@ -37,7 +38,9 @@ final class OverlayPanelView: UIView {
         tableView.backgroundColor = .clear
         tableView.showsVerticalScrollIndicator = true
         tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableHeightConstraint = tableView.heightAnchor.constraint(lessThanOrEqualToConstant: 180)
+        // UITableView has no intrinsic content height, so it must be given a definite
+        // height; we set it to min(content, cap) and refresh after every reload.
+        tableHeightConstraint = tableView.heightAnchor.constraint(equalToConstant: 0)
         tableHeightConstraint.priority = .required
         tableHeightConstraint.isActive = true
     }
@@ -89,7 +92,16 @@ final class OverlayPanelView: UIView {
 
     /// Caps the list height (180pt portrait; 55% of screen clamped 200–360 landscape).
     func setTableMaxHeight(_ height: CGFloat) {
-        tableHeightConstraint.constant = height
+        maxTableHeight = height
+        refreshTableHeight()
+    }
+
+    /// Sizes the table to its content, capped at `maxTableHeight` (scrolls beyond).
+    /// Must be called after the table's data reloads.
+    func refreshTableHeight() {
+        tableView.layoutIfNeeded()
+        let content = tableView.contentSize.height
+        tableHeightConstraint.constant = min(max(content, 0), maxTableHeight)
     }
 
     /// Flip the body axis when orientation changes.

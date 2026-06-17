@@ -144,6 +144,8 @@ final class OverlayHostViewController: UIViewController {
         dataSource.update(state)
 
         // Resize panel height to fit content (width/position unchanged).
+        // Table has no intrinsic height — size it to its content first.
+        panel.refreshTableHeight()
         panel.setNeedsLayout()
         panel.layoutIfNeeded()
         let fitted = panel.systemLayoutSizeFitting(
