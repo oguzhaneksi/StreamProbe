@@ -11,6 +11,7 @@ final class OverlayHostViewController: UIViewController {
     private var observationTask: Task<Void, Never>?
     private var latestErrors: [PlaybackErrorEvent] = []
     private var lastLandscape: Bool?
+    private var hasUserDragged = false
 
     init(presenter: OverlayPresenter) {
         self.presenter = presenter
@@ -82,26 +83,51 @@ final class OverlayHostViewController: UIViewController {
         panel.layoutIfNeeded()
         let height = panel.systemLayoutSizeFitting(
             CGSize(width: width, height: UIView.layoutFittingCompressedSize.height)).height
-        panel.frame = CGRect(
-            x: bounds.width - width - 16,
-            y: view.safeAreaInsets.top + 16,
-            width: width, height: height)
+        panel.frame.size = CGSize(width: width, height: height)
+        // Orientation change (or first layout) re-snaps to the top-right corner, like Android.
+        hasUserDragged = false
+        positionTopRight()
     }
 
-    // MARK: - Drag (header only), clamped to safe area
+    /// Re-snap to the top-right corner, inset from the safe area.
+    private func positionTopRight() {
+        guard panel != nil, view.bounds.width > 0 else { return }
+        let insets = view.safeAreaInsets
+        panel.frame.origin = CGPoint(
+            x: view.bounds.width - panel.frame.width - 16 - insets.right,
+            y: insets.top + 16)
+    }
 
-    @objc private func handlePan(_ pan: UIPanGestureRecognizer) {
-        let t = pan.translation(in: view)
-        var newX = panel.frame.origin.x + t.x
-        var newY = panel.frame.origin.y + t.y
+    /// Keep the panel within the safe area (used after drag and on inset changes).
+    private func clampIntoSafeArea() {
+        guard panel != nil else { return }
         let insets = view.safeAreaInsets
         let minX = insets.left
         let maxX = max(view.bounds.width - panel.frame.width - insets.right, minX)
         let minY = insets.top
         let maxY = max(view.bounds.height - panel.frame.height - insets.bottom, minY)
-        newX = min(max(newX, minX), maxX)
-        newY = min(max(newY, minY), maxY)
-        panel.frame.origin = CGPoint(x: newX, y: newY)
+        panel.frame.origin.x = min(max(panel.frame.origin.x, minX), maxX)
+        panel.frame.origin.y = min(max(panel.frame.origin.y, minY), maxY)
+    }
+
+    /// Safe-area insets arrive after the first layout (and change on rotation / island).
+    /// Re-snap to the corner if untouched; otherwise just clamp the dragged position.
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        if hasUserDragged {
+            clampIntoSafeArea()
+        } else {
+            positionTopRight()
+        }
+    }
+
+    // MARK: - Drag (header only), clamped to safe area
+
+    @objc private func handlePan(_ pan: UIPanGestureRecognizer) {
+        hasUserDragged = true
+        let t = pan.translation(in: view)
+        panel.frame.origin = CGPoint(x: panel.frame.origin.x + t.x, y: panel.frame.origin.y + t.y)
+        clampIntoSafeArea()
         pan.setTranslation(.zero, in: view)
     }
 
