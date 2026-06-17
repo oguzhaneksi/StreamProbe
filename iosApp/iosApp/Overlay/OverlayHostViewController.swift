@@ -65,7 +65,7 @@ final class OverlayHostViewController: UIViewController {
     private func render(_ state: OverlayViewState) {
         panel.applyCollapsed(state.isCollapsed)
         panel.applyErrorIndicator(state.errorIndicator)
-        panel.chipBar.setSelected(mode: state.mode)
+        panel.chipBar.setSelected(state.mode)
         panel.statsView.render(state.stats)
         tableDataSource.update(state, tableView: panel.tableView)
 
