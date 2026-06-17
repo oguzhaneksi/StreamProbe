@@ -13,6 +13,8 @@ import com.streamprobe.sdk.model.isSameRenditionAs
  * model is set by the player via [Tracks.Group.isTrackSelected], so no secondary
  * comparison is needed here. Rows are assembled in the common `OverlayPresenter`
  * and delivered as [OverlayRow]s.
+ *
+ * DiffUtil identity: video rows by id/dimensions; audio/subtitle rows via [isSameRenditionAs].
  */
 internal class RenditionListAdapter : ListAdapter<OverlayRow, RecyclerView.ViewHolder>(DIFF) {
     override fun getItemViewType(position: Int): Int =

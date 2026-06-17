@@ -27,6 +27,9 @@ import platform.Foundation.languageCode
  *
  * The numeric/string conversions are factored into pure top-level helpers so they unit-test
  * without a live `AVAsset`.
+ *
+ * Gotcha: `variants` is an extension on `AVURLAsset`, not `AVAsset` — callers must cast
+ * `item.asset as? AVURLAsset` before reading them.
  */
 
 /** Picks the most representative bitrate (peak preferred, then average); 0 when both unavailable. */

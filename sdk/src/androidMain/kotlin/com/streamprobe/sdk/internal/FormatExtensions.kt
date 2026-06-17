@@ -8,6 +8,7 @@ import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.SubtitleKind
 import com.streamprobe.sdk.model.SubtitleTrackInfo
 
+/** Extension mappers from Media3 [Format] to SDK-owned track models. */
 @UnstableApi
 internal fun Format.toActiveTrackInfo() =
     ActiveTrackInfo(

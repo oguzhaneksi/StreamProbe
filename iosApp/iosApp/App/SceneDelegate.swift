@@ -1,6 +1,9 @@
 import UIKit
 import StreamProbe
 
+/// Creates two windows: the main app window (PlayerViewController) and a separate
+/// `StreamProbeOverlayWindow` at `windowLevel = .alert + 1` so the overlay always
+/// sits above the host app. Both windows are held with strong references.
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     var overlayWindow: StreamProbeOverlayWindow?

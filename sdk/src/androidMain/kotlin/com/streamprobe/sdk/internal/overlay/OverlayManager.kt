@@ -42,6 +42,12 @@ import kotlinx.coroutines.launch
  * across orientation rebuilds (and across [hide]/[show] cycles). This preserves the selected
  * [ViewMode] across rebuilds — e.g. if the user switched to Segments, the rebuilt overlay shows
  * Segments too. The presenter holds no View references, so reusing it is leak-free.
+ *
+ * The single `viewState.collect { render(it) }` runs on [Dispatchers.Main.immediate] so it fires
+ * synchronously on the main thread, reflecting taps instantly. Click handlers forward to the
+ * presenter; the share button builds an [Intent] from the pure `formatErrorsForExport`. The four
+ * timeline lists auto-scroll to the newest item unless the user has scrolled up; the target adapter
+ * is attached BEFORE `submitList()` so the initial-load auto-scroll guard holds.
  */
 internal class OverlayManager(
     private val sessionStore: SessionStore,

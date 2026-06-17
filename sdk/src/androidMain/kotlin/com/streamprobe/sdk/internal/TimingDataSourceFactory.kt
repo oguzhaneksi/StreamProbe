@@ -14,7 +14,13 @@ import androidx.media3.datasource.DataSpec
  * connection setup time.
  *
  * Only HTTP/HTTPS schemes are timed; file/asset/cache schemes are passed through unchanged.
- * If open() throws, no entry is written (exception propagates; no false TTFB recorded).
+ * If open() throws, no entry is written (exception propagates; no false TTFB recorded). Entries are
+ * keyed by request URI + byte position, and timing uses [SystemClock.elapsedRealtimeNanos] to match
+ * `loadDurationMs`' clock domain.
+ *
+ * **Invariant:** this wrapper MUST be the outermost `DataSource.Factory` wrapper, so inner adapters
+ * that throw in `open()` (e.g. error injection) propagate BEFORE the timing record is written —
+ * otherwise a false TTFB is recorded on injected errors.
  */
 @UnstableApi
 internal class TimingDataSourceFactory(

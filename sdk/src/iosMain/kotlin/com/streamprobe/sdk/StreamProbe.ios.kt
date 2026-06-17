@@ -15,6 +15,10 @@ import platform.AVFoundation.AVPlayer
  * Owns the shared [SessionStore], the [AVPlayerProbe] that feeds it from AVFoundation, and the
  * common [OverlayPresenter] that turns the store into a render-ready [com.streamprobe.sdk.internal.presenter.OverlayViewState].
  *
+ * The SDK creates and destroys **no** UIKit objects: the host app owns the overlay window
+ * lifecycle and observes [overlayPresenter] (via SKIE) to render it. [show] only starts the
+ * presenter collectors; [hide] only cancels them (live updates freeze, the overlay stays visible).
+ *
  * Typical usage:
  * ```swift
  * let probe = StreamProbe_()

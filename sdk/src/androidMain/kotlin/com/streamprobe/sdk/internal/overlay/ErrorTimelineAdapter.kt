@@ -6,6 +6,10 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 
+/**
+ * Adapter for the Errors timeline tab. Tracks a single expanded row keyed by `timestampMs`
+ * (stable across DiffUtil merges); the expansion is cleared when that item leaves the list.
+ */
 internal class ErrorTimelineAdapter : ListAdapter<PlaybackErrorEvent, ErrorTimelineAdapter.ViewHolder>(DIFF) {
     private var expandedTimestampMs: Long? = null
 

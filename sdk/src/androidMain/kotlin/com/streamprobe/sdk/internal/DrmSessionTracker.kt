@@ -20,6 +20,9 @@ import com.streamprobe.sdk.model.PlaybackErrorEvent
  * Registered by [PlayerInterceptor.attach] as an additional analytics listener;
  * unregistered and reset in [PlayerInterceptor.detach].
  *
+ * Measures license latency and dual-surfaces DRM errors to BOTH `drmSessionEvents` and
+ * `playbackErrors` via a single write path (no duplication).
+ *
  * **Known limitations (single-session assumption):**
  * - [lastDrmAcquireTimestampMs] is a single value; concurrent audio/video DRM sessions
  *   will overwrite each other's acquire timestamp, causing inaccurate latency attribution.

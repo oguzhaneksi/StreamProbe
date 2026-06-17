@@ -2,6 +2,9 @@ import UIKit
 import AVFoundation
 import StreamProbe
 
+/// Demo player: plays an Apple HLS test stream and wires it to StreamProbe via
+/// `probe.attach(player:)` + `probe.show()`. `StreamProbe_` is SKIE's name-mangled
+/// alias for the Kotlin `StreamProbe` class.
 class PlayerViewController: UIViewController {
     let probe = StreamProbe_()
 

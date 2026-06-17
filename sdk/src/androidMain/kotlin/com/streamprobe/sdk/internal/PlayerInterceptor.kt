@@ -30,6 +30,23 @@ import java.io.IOException
 /**
  * Listens to a [Player] for track selection changes,
  * mapping Media3 types into SDK-owned models and pushing them into [SessionStore].
+ * Also registers/unregisters [DrmSessionTracker].
+ *
+ * **Invariants:**
+ * - **TTFB redirect key:** in [onLoadCompleted] the [networkTimingRegistry] lookup MUST use
+ *   `loadEventInfo.dataSpec.uri` (the pre-redirect URI [TimingDataSourceFactory] recorded), NEVER
+ *   `loadEventInfo.uri` (post-redirect) — the latter silently misses TTFB on every CDN-redirected
+ *   stream. `SegmentMetric.uri` still stores `loadEventInfo.uri` for display.
+ * - **Video switch signal split:** `onVideoInputFormatChanged` (decoder-level) is authoritative for
+ *   [VideoSwitch][com.streamprobe.sdk.model.TrackSwitchEvent]; `onDownstreamFormatChanged` only
+ *   caches the reason into `pendingVideoSwitchReason` (consumed when the format change fires) to
+ *   avoid duplicate events. A `DEFAULT`-type downstream event updates the pending reason only when
+ *   `format.width > 0 || format.height > 0`, guarding against a muxed-audio `DEFAULT` overwriting
+ *   the video reason.
+ * - **Subtitle-disabled event:** when track probing finds `foundSubtitle == null` but
+ *   `lastSubtitleTrack != null`, emit `SubtitleSwitch(newTrack = null, MANUAL)`.
+ * - `isSelected` is taken directly from `Tracks.Group.isTrackSelected(i)` (no secondary
+ *   active-track comparison).
  */
 @UnstableApi
 internal class PlayerInterceptor(

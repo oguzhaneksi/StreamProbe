@@ -37,14 +37,23 @@ import platform.darwin.dispatch_get_main_queue
  * into the shared [SessionStore]. Headless — no UI.
  *
  * - Track listing (3.3): async `variants`-key load → `updateTrackList` (parsing the HLS master is
- *   enough, so it works before `readyToPlay` and without playback progressing).
+ *   enough, so it works before `readyToPlay` and without playback progressing — there is no
+ *   KVO/time-observer because playback does not progress when headless). Stale-closure guard: the
+ *   load callback only publishes when `statusOfValueForKey(...) == Loaded` **and** the live
+ *   `this.player?.currentItem?.asset === asset` (the live player, not a captured local), so a stale
+ *   or re-attached closure is rejected.
  * - Segment metrics / bitrate switches / dropped frames (3.4–3.6): each new `AVPlayerItemAccessLog`
- *   entry is mapped to a coarse `SegmentMetric`, an adaptive `VideoSwitch` (on indicated-bitrate
- *   change), and a `DROPPED_FRAMES` error. The *current* (still-mutating) log entry is processed one
- *   notification later, once it is finalized, so its stats are complete.
+ *   entry is mapped to a coarse `SegmentMetric`, an adaptive `VideoSwitch` (on `indicatedBitrate`
+ *   change across entries), and a `DROPPED_FRAMES` error. The *current* (still-mutating) log entry is
+ *   processed one notification later (`accessLog()?.events?.dropLast(1)`), once it is finalized, so
+ *   only complete (non-mutating) stats are read; the last entry is picked up by the next notification.
  * - Errors (3.6): each new `AVPlayerItemErrorLog` entry → `LOAD_ERROR`.
  *
- * All callbacks are delivered on the main queue.
+ * Observers are registered via `NSNotificationCenter` scoped to [AVPlayer.currentItem] (the object
+ * filter) so sibling-player / `AVQueuePlayer` callbacks cannot fire this probe's handlers. All
+ * callbacks are delivered on the main queue. [nowMs] uses `CACurrentMediaTime()` plus an epoch offset
+ * computed once at [attach] for monotonic timestamps (avoids wall-clock non-monotonicity).
+ * [attach] calls `store.clear()`; the [NSObjectProtocol] observer tokens are removed in [detach].
  *
  * **Known iOS limitation:** Observers and [finalizedAccessEntries] / [processedErrorEntries] counters
  * are scoped to the [AVPlayer.currentItem] at [attach] time. `AVQueuePlayer` item changes are not

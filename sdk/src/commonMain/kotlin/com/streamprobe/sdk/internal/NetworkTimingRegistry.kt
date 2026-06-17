@@ -7,8 +7,11 @@ import kotlinx.atomicfu.locks.synchronized
  * Bounded, thread-safe handoff between the I/O-thread writer (TimingDataSource.open) and the
  * playback-thread reader (PlayerInterceptor.onLoadCompleted).
  *
- * Entries are keyed by "uri|position". FIFO eviction (insertion-ordered [LinkedHashMap] + manual
- * eldest removal) prevents un-consumed entries (manifest/key/cancelled loads) from leaking.
+ * Entries are keyed by "uri|position"; the pipe delimiter is deliberate because `@` can appear in a
+ * URI and would collide with the position separator. Synchronization uses a kotlinx.atomicfu lock.
+ * FIFO eviction at [MAX_ENTRIES] = 128 (insertion-ordered [LinkedHashMap] + manual eldest removal —
+ * the common LinkedHashMap has no `removeEldestEntry` hook) prevents un-consumed entries
+ * (manifest/key/cancelled loads) from leaking.
  */
 internal class NetworkTimingRegistry {
     private val lock = SynchronizedObject()

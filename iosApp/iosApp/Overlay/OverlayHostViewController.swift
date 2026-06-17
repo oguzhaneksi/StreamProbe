@@ -3,6 +3,9 @@ import StreamProbe
 
 /// Hosts the overlay panel: positions it, drives the presenter→view render loop,
 /// handles drag (from the header only), orientation rebuild, and share.
+///
+/// The render loop consumes `presenter.viewState` via SKIE's `for await` Flow bridge.
+/// Share exports errors via `UIActivityViewController`.
 final class OverlayHostViewController: UIViewController {
 
     private let presenter: OverlayPresenter

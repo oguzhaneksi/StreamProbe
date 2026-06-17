@@ -29,6 +29,8 @@ import androidx.recyclerview.widget.RecyclerView
  * calls [onConfigurationChanged] on all attached views. [OverlayPanelView] forwards only
  * orientation changes to [onOrientationChanged] so [OverlayManager] can rebuild the panel
  * in place.
+ *
+ * The list is a `BoundedRecyclerView` that caps its measured height at `bodyMaxHeightPx`.
  */
 @SuppressLint("ViewConstructor")
 internal class OverlayPanelView(

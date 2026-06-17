@@ -3,6 +3,8 @@ package com.streamprobe.sdk.model
 /**
  * SDK-owned representation of a single stream variant (HLS variant or DASH Representation).
  * Maps from Media3's [androidx.media3.common.Format] without leaking any Media3 types.
+ *
+ * The nullable [id] is preferred over width/height dimension matching for DiffUtil identity.
  */
 data class VariantInfo(
     /** Declared bitrate in bits per second. */
@@ -17,6 +19,9 @@ data class VariantInfo(
     val frameRate: Float,
     /** Player/Format-provided track identifier used for reliable active-track matching. Null if unavailable. */
     val id: String? = null,
-    /** True if this variant is currently selected by the player. Set from player.currentTracks. */
+    /**
+     * True if this variant is currently selected by the player. Sourced directly from
+     * `Tracks.Group.isTrackSelected(i)` (Android) — not a secondary active-track comparison.
+     */
     val isSelected: Boolean = false,
 )

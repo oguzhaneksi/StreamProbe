@@ -165,6 +165,32 @@ This is the **feasibility proof**. It depends only on Phase 1 (see dependency gr
 
 **Exit gate (actual):** iOS demo app (`iosApp/`) builds and runs; `OverlayHostViewController` renders live AVPlayer diagnostics via `presenter.viewState` SKIE async-sequence; Android and iOS render the same `OverlayPresenter` `ViewState` (visual parallel verification confirmed). **Committed:** `feat(kmp/ios): Phase 4 SDK — SKIE, public overlay types, show/hide presenter API` + `feat(ios): Phase 4 — Swift/UIKit overlay window, panel renderer, iosApp demo` + `fix(ios): resolve AutoLayout constraint conflict on panel collapse` + `feat(ios): add CFBundleExecutable key to Info.plist for dynamic executable name`.
 
+> **Phase 4 follow-up — iOS overlay Android parity (committed after initial Phase 4):** The initial Phase 4 overlay used generic `textLabel` cells. A subsequent redesign (`docs/superpowers/plans/2026-06-16-ios-overlay-android-parity.md`) brought the iOS overlay to pixel-for-pixel parity with Android. All changes are host-app side (`iosApp/iosApp/Overlay/`); no SDK changes.
+>
+> **New files added:**
+> - `OverlayTheme.swift` — all color tokens (`panelBg #E6101024`, `headerBg #331A1A3A`, `accent #66B2FF`, etc.) + `cacheDot(status:)` / `errorCategoryDot(_:)` / `drmEventDot(_:)` factories; `UIColor(argbHex:)` extension parses Android ARGB hex.
+> - `OverlayFormattersSwift.swift` — Swift port of `OverlayFormatters.kt` + `DrmFormatters.kt` (those are `internal` Kotlin, invisible to Swift): all formatting helpers for the five list tabs.
+> - `HeaderView.swift` — 44pt header bar (title label with kern 0.04em, error pill on `#FF453A`, collapse button that rotates 180°; header background is `#331A1A3A` with top-corners-only `cornerRadius = 14` via a `CALayer` sublayer).
+> - `ErrorsHeaderView.swift` — errors-mode header replacing the chip bar: ← Back · Errors (N) · Clear · ↗ Share.
+> - `RenditionCell.swift` — `RenditionSectionHeaderCell` + `RenditionItemCell` (8pt dot + two-line: resolution/bitrate top, codecs bottom).
+> - `SegmentCell.swift` — `#N · DL: Xms · cacheDot` + secondary (size · throughput · TTFB).
+> - `SwitchCell.swift` — `#N · VID/AUD/SUB badge · switch text` + secondary (buf · reason · +timestamp).
+> - `ErrorCell.swift` — expandable: summary line always visible; detail block toggled by tapping (expand state keyed by `timestampMs` in `OverlayTableDataSource.expandedTimestamps: Set<Int64>`).
+> - `DrmCell.swift` — `#N · dot · scheme badge · event label · latency (KeysLoaded only) · +timestamp`.
+>
+> **Files fully rewritten:** `StatsView.swift` (section-label + value-row hierarchy matching Android spacing), `ChipBarView.swift` (accent style: fill `#66B2FF` checked / border unchecked; DRM chip hidden when `!drmVisible`; title-case labels), `OverlayPanelView.swift` (portrait = vertical stack; landscape = horizontal split with `fillEqually` columns; `refreshTableHeight()` sizes the table to `min(contentSize, cap)`), `OverlayTableDataSource.swift` (registers 6 cell types; dispatches on `state.mode`; auto-scrolls to newest when already at bottom), `OverlayHostViewController.swift` (drag clamped to safe area via `viewSafeAreaInsetsDidChange`; sizing driven by `viewDidLayoutSubviews` → `applySizing()` rather than `UIDevice.orientationDidChangeNotification` to catch all geometry changes; panel snaps to top-right corner on orientation change; share via `UIActivityViewController`).
+>
+> **Xcode project:** converted `Overlay` group to `PBXFileSystemSynchronizedRootGroup` (`build(ios): convert Overlay group to file-system-synchronized group`) so new overlay files are auto-included without editing `project.pbxproj`.
+>
+> **Key layout decisions:**
+> - Table height constraint priority `.required`, constant set to `min(contentSize.height, maxTableHeight)` and refreshed after every `reloadData` (`refreshTableHeight()`). This gives the table a definite height (fixes empty list in portrait).
+> - Portrait max: **180pt**; landscape max: `(bounds.height × 0.55).clamped(200…360)`.
+> - Panel width: portrait `min(screenWidth − 32, 310)`; landscape `min(screenWidth − 32, 540)`.
+> - Drag attaches to `HeaderView` only (not the full panel), clamped to `view.safeAreaInsets` on every pan event and re-clamped on `viewSafeAreaInsetsDidChange`.
+> - Landscape columns use `alignment = .top` so chip bar aligns with the first stat row.
+>
+> **Commits for this follow-up:** `docs: add iOS overlay design spec` + `docs: add iOS overlay Android-parity implementation plan` + per-task commits (OverlayTheme → OverlayFormattersSwift → HeaderView → StatsView → ChipBarView → ErrorsHeaderView → RenditionCell → SegmentCell → SwitchCell → ErrorCell → DrmCell → OverlayTableDataSource → OverlayPanelView + OverlayHostViewController) + several bug-fix commits (`fix(ios-overlay): scrollable non-wrapping chip row`, `fix(ios-overlay): give table a definite content-based height`, `fix(ios-overlay): top-align landscape columns`, `fix(ios-overlay): position panel within safe area after insets resolve`).
+
 ### Phase 5 — Feature completion + distribution (incl. deferred FairPlay DRM)
 
 - [ ] **5.1** **FairPlay DRM (deferred — D14):** `AVContentKeySession` delegate (FairPlay) → `addDrmSessionEvent` + `updateDrmState(FAIRPLAY)`; latency = request→response. Gated on license-server + cert availability; may slip to a later milestone. A thin Swift shim is allowed if the delegate-heavy interop is hard (D9).

@@ -11,8 +11,10 @@ import com.streamprobe.sdk.model.SegmentMetric
  * models. iOS exposes only roll-up access-log entries — no per-segment TTFB and no response headers
  * — so `SegmentMetric.networkTiming` is null and `CdnHeaderInfo` degrades to UNKNOWN via an
  * empty-header parse (`CdnHeaderParser.parse(emptyMap())`), and the `serverAddress` (a CDN IP, not a
- * header) has no home in the model. The numeric/string conversions are pure top-level helpers,
- * unit-tested without live AVFoundation events.
+ * header) has no home in the model. Throughput prefers AVFoundation's `observedBitrate / 8` (else
+ * size/duration); `SegmentMetric.requestTimestampMs` comes from
+ * `event.playbackStartDate?.timeIntervalSince1970` (falling back to `nowMs()`). The numeric/string
+ * conversions are pure top-level helpers, unit-tested without live AVFoundation events.
  */
 
 private const val BITS_PER_BYTE = 8

@@ -3,6 +3,9 @@ import StreamProbe
 
 /// Drives the overlay table for all five tabs. Owns error-row expansion state and
 /// auto-scroll-to-newest behavior (scroll to last row unless the user scrolled up).
+///
+/// Expansion is keyed by the error's `timestampMs` (not IndexPath) so it survives
+/// list reloads.
 final class OverlayTableDataSource: NSObject, UITableViewDataSource, UITableViewDelegate {
 
     private var state: OverlayViewState?

@@ -13,8 +13,10 @@ public enum class ViewMode { TRACKS, SEGMENTS, SWITCHES, DRM, ERRORS }
 
 /**
  * A single row in the unified Tracks list (video variants, audio tracks, subtitles).
- * Carries the raw model so the platform renderer can apply selection styling and exact
- * row formatting; the presenter owns only the section *assembly* and ordering.
+ * Carries the raw model (not a pre-formatted string) so the platform renderer can apply selection
+ * styling and exact row formatting; the presenter owns only the section *assembly* and ordering.
+ * Raw is also required because [SubtitleTrackInfo.isSameRenditionAs] DiffUtil identity is
+ * non-transitive (nullable-label rule) and cannot be reduced to a single string key.
  */
 public sealed interface OverlayRow {
     public data class SectionHeader(
@@ -64,6 +66,10 @@ public data class OverlayListsState(
  * Render-ready snapshot of the entire overlay. [OverlayPresenter] emits one of these on every
  * [com.streamprobe.sdk.internal.SessionStore] change or UI intent; the platform renderer maps it
  * to views with a single `collect`.
+ *
+ * Stat/header fields are grouped into [OverlayStatsState] / [OverlayListsState] sub-structs to keep
+ * this top-level constructor under detekt's `LongParameterList` threshold of 8. Header/stat fields
+ * are pre-formatted; timeline lists + Tracks rows stay raw and are rendered per-platform.
  */
 public data class OverlayViewState(
     val mode: ViewMode,

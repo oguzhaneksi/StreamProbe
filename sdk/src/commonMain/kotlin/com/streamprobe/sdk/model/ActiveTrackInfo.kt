@@ -1,7 +1,8 @@
 package com.streamprobe.sdk.model
 
 /**
- * Describes the track currently selected by the player for playback.
+ * Describes the video track currently being decoded for playback. Sourced from the decoder,
+ * not from the track group — deliberately distinct from [VariantInfo].
  */
 data class ActiveTrackInfo(
     /** Bitrate in bits per second. */
