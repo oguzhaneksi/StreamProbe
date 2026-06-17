@@ -62,8 +62,10 @@ final class OverlayPanelView: UIView {
     private func buildBody() {
         bodyStack = UIStackView()
         bodyStack.axis = isLandscape ? .horizontal : .vertical
-        bodyStack.spacing = isLandscape ? 12 : 12
-        bodyStack.alignment = .fill
+        bodyStack.spacing = 12
+        // Landscape: top-align the columns (chips line up with the first stat row, like Android).
+        // Portrait: fill so each column spans the full panel width.
+        bodyStack.alignment = isLandscape ? .top : .fill
         bodyStack.distribution = isLandscape ? .fillEqually : .fill
         bodyStack.translatesAutoresizingMaskIntoConstraints = false
         bodyStack.addArrangedSubview(leftColumn)
@@ -108,6 +110,7 @@ final class OverlayPanelView: UIView {
     func setLandscape(_ landscape: Bool) {
         isLandscape = landscape
         bodyStack.axis = landscape ? .horizontal : .vertical
+        bodyStack.alignment = landscape ? .top : .fill
         bodyStack.distribution = landscape ? .fillEqually : .fill
         leftColumn.isHidden = false
     }
