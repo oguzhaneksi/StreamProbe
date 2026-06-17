@@ -37,6 +37,14 @@
 		C4BF0AF8888E75D06A7B209F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		F6E07FAD03EAD8D773A2D6E8 /* Overlay */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Overlay;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
 		EF8A6E9BFD470986D9D5C9B5 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -102,11 +110,6 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		F6E07FAD03EAD8D773A2D6E8 /* Overlay */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Overlay;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -140,8 +143,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = FF7CA1CA754D017066F1822F /* Build configuration list for PBXProject "iosApp" */;
 			developmentRegion = en;
