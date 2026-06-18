@@ -29,10 +29,10 @@
 		854CB607A35478101EB865D8 /* MockPlayerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D36B7DD919F30587E4A5F99 /* MockPlayerEngine.swift */; };
 		8FAFEC0B24682CF5BDDC53AD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B43EC0E08445403CA0A6D591 /* AppDelegate.swift */; };
 		962F1BD451E0F714BADA71EF /* ErrorsHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC383BD6B9B867AF0B1A2B6 /* ErrorsHeaderView.swift */; };
+		9B679DBCB5E7FA37A80BA426 /* DemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47843AB6538D0603D88F519B /* DemoApp.swift */; };
 		9CE9CD8254A281B02F00AC0E /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4520138AC508F27FCF010E /* SettingsScreen.swift */; };
 		9DFB73C5126A1F9D54EEB4C4 /* StreamProbe.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 62BCEDD1806CAC0922999B58 /* StreamProbe.xcframework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A8B4DA79DC497F872E9EB9AF /* RenditionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1328921200E0857E444CC40B /* RenditionCell.swift */; };
-		ACDC28B5481B5C9671FC98B6 /* PlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCE4DF50A8C4E8D3BCFFDC7 /* PlayerViewController.swift */; };
 		AE61DA3BDD9200E382C71FC2 /* SettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750C9ED2E6CF82B42EBC792C /* SettingsStoreTests.swift */; };
 		B3EBA0EF31CF1C641D549F56 /* PlayerControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA879DDADB2A914641381577 /* PlayerControlsView.swift */; };
 		BAD074E953D5F3F6F43A8728 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BA404AA9251B5A81FE46680 /* SceneDelegate.swift */; };
@@ -79,7 +79,6 @@
 /* Begin PBXFileReference section */
 		00CC377686B5AC391DF6D3AC /* OverlayHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayHostViewController.swift; sourceTree = "<group>"; };
 		092D08101147086E2CF074B0 /* PlayerViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewModelTests.swift; sourceTree = "<group>"; };
-		0CCE4DF50A8C4E8D3BCFFDC7 /* PlayerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewController.swift; sourceTree = "<group>"; };
 		0F4637F57D6DD60B52384F07 /* PlayerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerEngine.swift; sourceTree = "<group>"; };
 		1328921200E0857E444CC40B /* RenditionCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenditionCell.swift; sourceTree = "<group>"; };
 		156AA7FE63DC7ED492314667 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
@@ -90,6 +89,7 @@
 		323906AFB18147ABEDEBDB38 /* iosAppUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = iosAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		395C01994C7D9D139F7CA827 /* AppDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDependencies.swift; sourceTree = "<group>"; };
 		3D36B7DD919F30587E4A5F99 /* MockPlayerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockPlayerEngine.swift; sourceTree = "<group>"; };
+		47843AB6538D0603D88F519B /* DemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoApp.swift; sourceTree = "<group>"; };
 		4B0CDDA167603EAD06284B99 /* StreamProbeOverlayWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamProbeOverlayWindow.swift; sourceTree = "<group>"; };
 		5450C004AA50439CAF2BDB03 /* VideoSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSurfaceView.swift; sourceTree = "<group>"; };
 		56583BC252B5F01ED9DEA19D /* iosAppTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -187,7 +187,7 @@
 			children = (
 				B43EC0E08445403CA0A6D591 /* AppDelegate.swift */,
 				395C01994C7D9D139F7CA827 /* AppDependencies.swift */,
-				0CCE4DF50A8C4E8D3BCFFDC7 /* PlayerViewController.swift */,
+				47843AB6538D0603D88F519B /* DemoApp.swift */,
 				8BA404AA9251B5A81FE46680 /* SceneDelegate.swift */,
 			);
 			path = App;
@@ -381,6 +381,7 @@
 				8FAFEC0B24682CF5BDDC53AD /* AppDelegate.swift in Sources */,
 				5CC85050CBE86F9E93BCEEE5 /* AppDependencies.swift in Sources */,
 				6415A66FFC7F266EFB2CEECA /* ChipBarView.swift in Sources */,
+				9B679DBCB5E7FA37A80BA426 /* DemoApp.swift in Sources */,
 				322DB1DA713B4A86D5A2A9E5 /* DrmCell.swift in Sources */,
 				F49E12030A92607708478484 /* ErrorCell.swift in Sources */,
 				962F1BD451E0F714BADA71EF /* ErrorsHeaderView.swift in Sources */,
@@ -393,7 +394,6 @@
 				B3EBA0EF31CF1C641D549F56 /* PlayerControlsView.swift in Sources */,
 				380025169FFCF78A391C9B14 /* PlayerEngine.swift in Sources */,
 				FE57932B61B78D6739219E00 /* PlayerScreen.swift in Sources */,
-				ACDC28B5481B5C9671FC98B6 /* PlayerViewController.swift in Sources */,
 				14D2D7D62BCC74B972D38F63 /* PlayerViewModel.swift in Sources */,
 				A8B4DA79DC497F872E9EB9AF /* RenditionCell.swift in Sources */,
 				BAD074E953D5F3F6F43A8728 /* SceneDelegate.swift in Sources */,

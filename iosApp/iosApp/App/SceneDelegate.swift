@@ -1,32 +1,27 @@
-import UIKit
 import StreamProbe
+import UIKit
 
-/// Creates two windows: the main app window (PlayerViewController) and a separate
-/// `StreamProbeOverlayWindow` at `windowLevel = .alert + 1` so the overlay always
-/// sits above the host app. Both windows are held with strong references.
+/// Creates and retains the StreamProbe overlay window (a separate root-level `UIWindow` at
+/// `windowLevel = .alert + 1`) above the SwiftUI main window. Never `makeKeyAndVisible` — that
+/// would steal key-window status from the player UI. The overlay observes the shared probe's presenter.
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
-    var window: UIWindow?
-    var overlayWindow: StreamProbeOverlayWindow?
+    var overlayWindow: StreamProbeOverlayWindow?   // strong ref — a detached UIWindow deallocates
 
     func scene(_ scene: UIScene,
                willConnectTo session: UISceneSession,
                options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
 
-        // Main app window
-        let mainWindow = UIWindow(windowScene: windowScene)
-        let playerVC = PlayerViewController()
-        mainWindow.rootViewController = playerVC
-        mainWindow.makeKeyAndVisible()
-        window = mainWindow
-
-        // Overlay window — separate root-level UIWindow
+        let deps = AppDependencies.shared
         let overlay = StreamProbeOverlayWindow(windowScene: windowScene)
-        overlay.windowLevel = .alert + 1          // always above the host app
+        overlay.windowLevel = .alert + 1
         overlay.backgroundColor = .clear
+        let host = OverlayHostViewController(presenter: deps.probe.overlayPresenter)
+        host.view.backgroundColor = .clear
+        overlay.rootViewController = host
         overlay.isHidden = false
-        let overlayVC = OverlayHostViewController(presenter: playerVC.probe.overlayPresenter)
-        overlay.rootViewController = overlayVC
         overlayWindow = overlay
+
+        deps.registerOverlayWindow(overlay)
     }
 }
