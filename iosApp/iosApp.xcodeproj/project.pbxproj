@@ -21,11 +21,13 @@
 		6415A66FFC7F266EFB2CEECA /* ChipBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 853B5198A8E8BE62295090B6 /* ChipBarView.swift */; };
 		663182D674DF8538DF7574C9 /* StreamCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60F37E0601F1176009B36AB /* StreamCatalogTests.swift */; };
 		6DD12A47825F093C7F92B4C1 /* SwitchCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CB5F09BFC24A9D67CC63E5F /* SwitchCell.swift */; };
+		756CB25D1683BEF7FDB983FC /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C6040FE88AACAD01D43F07C /* SettingsStore.swift */; };
 		8FAFEC0B24682CF5BDDC53AD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B43EC0E08445403CA0A6D591 /* AppDelegate.swift */; };
 		962F1BD451E0F714BADA71EF /* ErrorsHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC383BD6B9B867AF0B1A2B6 /* ErrorsHeaderView.swift */; };
 		9DFB73C5126A1F9D54EEB4C4 /* StreamProbe.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 62BCEDD1806CAC0922999B58 /* StreamProbe.xcframework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A8B4DA79DC497F872E9EB9AF /* RenditionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1328921200E0857E444CC40B /* RenditionCell.swift */; };
 		ACDC28B5481B5C9671FC98B6 /* PlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCE4DF50A8C4E8D3BCFFDC7 /* PlayerViewController.swift */; };
+		AE61DA3BDD9200E382C71FC2 /* SettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750C9ED2E6CF82B42EBC792C /* SettingsStoreTests.swift */; };
 		BAD074E953D5F3F6F43A8728 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BA404AA9251B5A81FE46680 /* SceneDelegate.swift */; };
 		BBBAD9D7D14C73E512ADF068 /* SegmentCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF43B1C28041021D4A56765 /* SegmentCell.swift */; };
 		C17021D58E9436FDD9242924 /* Stream.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF752F753B88FFFE8E6DB32C /* Stream.swift */; };
@@ -70,6 +72,7 @@
 		1328921200E0857E444CC40B /* RenditionCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenditionCell.swift; sourceTree = "<group>"; };
 		156AA7FE63DC7ED492314667 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		1BC383BD6B9B867AF0B1A2B6 /* ErrorsHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorsHeaderView.swift; sourceTree = "<group>"; };
+		1C6040FE88AACAD01D43F07C /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		323906AFB18147ABEDEBDB38 /* iosAppUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = iosAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4B0CDDA167603EAD06284B99 /* StreamProbeOverlayWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamProbeOverlayWindow.swift; sourceTree = "<group>"; };
 		56583BC252B5F01ED9DEA19D /* iosAppTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -78,6 +81,7 @@
 		62BCEDD1806CAC0922999B58 /* StreamProbe.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = StreamProbe.xcframework; path = ../sdk/build/XCFrameworks/debug/StreamProbe.xcframework; sourceTree = "<group>"; };
 		662F3CB608F51B24D978905E /* DemoFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoFlowUITests.swift; sourceTree = "<group>"; };
 		6D5220A894DBA7DE28C1644C /* OverlayTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayTheme.swift; sourceTree = "<group>"; };
+		750C9ED2E6CF82B42EBC792C /* SettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStoreTests.swift; sourceTree = "<group>"; };
 		853B5198A8E8BE62295090B6 /* ChipBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChipBarView.swift; sourceTree = "<group>"; };
 		86038AE1032E284E79B32AD6 /* iosApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8BA404AA9251B5A81FE46680 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -112,6 +116,7 @@
 				5DBDE60058A6672895D37E2A /* App */,
 				F6E07FAD03EAD8D773A2D6E8 /* Overlay */,
 				1EEC3D4E9285A39087C3ADA0 /* Resources */,
+				8AD09A33681C22D59FD6D944 /* Settings */,
 				5DC7FBD54C4A80841869E12D /* Streams */,
 				E3A8C0381F8CADD141E02FA2 /* Support */,
 			);
@@ -148,6 +153,7 @@
 		407F741E7FEBA273A8579B0E /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				750C9ED2E6CF82B42EBC792C /* SettingsStoreTests.swift */,
 				A60F37E0601F1176009B36AB /* StreamCatalogTests.swift */,
 			);
 			path = iosAppTests;
@@ -169,6 +175,14 @@
 				FF752F753B88FFFE8E6DB32C /* Stream.swift */,
 			);
 			path = Streams;
+			sourceTree = "<group>";
+		};
+		8AD09A33681C22D59FD6D944 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				1C6040FE88AACAD01D43F07C /* SettingsStore.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		94C98B8B3A2BFC1966447269 /* Products */ = {
@@ -341,6 +355,7 @@
 				A8B4DA79DC497F872E9EB9AF /* RenditionCell.swift in Sources */,
 				BAD074E953D5F3F6F43A8728 /* SceneDelegate.swift in Sources */,
 				BBBAD9D7D14C73E512ADF068 /* SegmentCell.swift in Sources */,
+				756CB25D1683BEF7FDB983FC /* SettingsStore.swift in Sources */,
 				12D3FAF8BAA2775373A8BC46 /* StatsView.swift in Sources */,
 				C17021D58E9436FDD9242924 /* Stream.swift in Sources */,
 				5636038FAFFCD9B09F318260 /* StreamProbeOverlayWindow.swift in Sources */,
@@ -352,6 +367,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AE61DA3BDD9200E382C71FC2 /* SettingsStoreTests.swift in Sources */,
 				663182D674DF8538DF7574C9 /* StreamCatalogTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
