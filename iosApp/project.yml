@@ -35,6 +35,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.streamprobe.iosAppTests
         SWIFT_VERSION: 5.0
         IPHONEOS_DEPLOYMENT_TARGET: 15.0
+        GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: iosApp
 
@@ -49,6 +50,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.streamprobe.iosAppUITests
         SWIFT_VERSION: 5.0
         IPHONEOS_DEPLOYMENT_TARGET: 15.0
+        GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: iosApp
 
