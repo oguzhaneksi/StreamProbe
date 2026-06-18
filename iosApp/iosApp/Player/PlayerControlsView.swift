@@ -62,7 +62,6 @@ struct PlayerControlsView: View {
                 )
             }
         }
-        .accessibilityIdentifier(A11y.Player.screen)
     }
 
     private func transportButton(_ systemName: String, id: String, size: CGFloat = 26,

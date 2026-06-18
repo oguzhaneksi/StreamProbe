@@ -32,6 +32,7 @@ struct PlayerScreen: View {
         .contentShape(Rectangle())
         .onTapGesture { toggleControls() }
         .statusBarHidden(true)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(A11y.Player.screen)
         .onAppear(perform: start)
         .onDisappear(perform: stop)
