@@ -69,8 +69,11 @@ androidUnitTest  Robolectric/Mockito/Media3-dependent tests stay (PlayerIntercep
 | D11 | iOS overlay impl language | Swift/UIKit, consumes the Kotlin presenter (UIKit ergonomics + SKIE) |
 | D12 | Distribution | AAR via vanniktech (unchanged); iOS XCFramework via **SPM**; SKIE in Phase 4; separate SwiftUI iOS demo app |
 | **D13** | **iOS deployment base** | **iOS 15** — clean `AVAssetVariant`; no 13/14 degrade-variant fallback (resolves risk #4) |
-| **D14** | **FairPlay DRM timing** | **Deferred** to Phase 5, gated on license-server + cert availability; **not** in the first iOS feature-complete pass |
+| **D14** | **FairPlay DRM timing** | **Deferred** to **Phase 6** (re-scoped 2026-06-18), gated on license-server + cert availability; **not** in the iOS feature-complete pass |
 | **D15** | **iOS overlay window** | **Separate root-level `UIWindow`** at a high `windowLevel` — production players may not be full-screen, so confining the overlay to a small player layer is wrong; residual hit-test passthrough handled in Phase 4 |
+| **D16** | **iOS demo app UI** | **SwiftUI** (re-scoped 2026-06-18). Replaces the minimal UIKit demo from Phase 4 with a comprehensive SwiftUI app at Android parity: stream-selection list → fullscreen player (custom controls) → Settings. **HLS streams only** (no DASH/MP4/DRM). The UIKit overlay window is unchanged — the SwiftUI app coexists with it. |
+| **D17** | **iOS demo test strategy** | **Unit (XCTest) + UI (XCUITest).** AVPlayer is abstracted behind a protocol so the player view-model is unit-testable headlessly; XCUITest covers the navigation flow (launch → select stream → player → exit). "Completely testable" is the Phase 5 acceptance bar. |
+| **D18** | **iOS demo Settings** | **Overlay + playback prefs** (show/hide overlay, auto-play, loop). **No** port of Android's "inject load errors" toggle — that needs a Media3 `DataSource` hook AVPlayer lacks; the `AVAssetResourceLoaderDelegate` injection path stays out of scope. **No track-selection sheet** (trimmed for simplicity). |
 
 ---
 
@@ -191,16 +194,33 @@ This is the **feasibility proof**. It depends only on Phase 1 (see dependency gr
 >
 > **Commits for this follow-up:** `docs: add iOS overlay design spec` + `docs: add iOS overlay Android-parity implementation plan` + per-task commits (OverlayTheme → OverlayFormattersSwift → HeaderView → StatsView → ChipBarView → ErrorsHeaderView → RenditionCell → SegmentCell → SwitchCell → ErrorCell → DrmCell → OverlayTableDataSource → OverlayPanelView + OverlayHostViewController) + several bug-fix commits (`fix(ios-overlay): scrollable non-wrapping chip row`, `fix(ios-overlay): give table a definite content-based height`, `fix(ios-overlay): top-align landscape columns`, `fix(ios-overlay): position panel within safe area after insets resolve`).
 
-### Phase 5 — Feature completion + distribution (incl. deferred FairPlay DRM)
+### Phase 5 — Comprehensive SwiftUI demo app + iOS testability ✅
 
-- [ ] **5.1** **FairPlay DRM (deferred — D14):** `AVContentKeySession` delegate (FairPlay) → `addDrmSessionEvent` + `updateDrmState(FAIRPLAY)`; latency = request→response. Gated on license-server + cert availability; may slip to a later milestone. A thin Swift shim is allowed if the delegate-heavy interop is hard (D9).
-- [ ] **5.2** Remaining-signal polish + graceful degradation: stalls, an "aggregate" badge for roll-up segments (iOS segment cardinality differs from Android — risk #5).
-- [ ] **5.3** Language display-name `expect/actual` (D7): `expect fun displayLanguage(tag)` — Android `Locale`, iOS `NSLocale` — replacing the raw BCP-47 fallback.
-- [ ] **5.4** XCFramework + checked-in `Package.swift` (SPM binary target); `embedAndSignAppleFrameworkForXcode` for local iteration. *Note:* the demo app already references the debug XCFramework at `sdk/build/XCFrameworks/debug/StreamProbe.xcframework` via `project.yml`; a formal `Package.swift` for SDK consumers is the remaining distribution step.
-- [x] **5.5** ~~SKIE (Touchlab)~~ — **pulled into Phase 4.** SKIE 0.10.11 added in commit 937eef4; bridges `StateFlow<OverlayViewState>` → Swift async-sequence, `OverlayRow`/`TrackSwitchEvent`/`DrmSessionEvent`/`ViewMode` → exhaustive Swift enums via `onEnum(of:)`.
-- [x] **5.6** ~~iOS demo app (SwiftUI)~~ — **UIKit demo landed in Phase 4** (`iosApp/`, separate Xcode project, XcodeGen). Plays an HLS stream, attaches `StreamProbe`, shows the UIKit overlay. A SwiftUI wrapper layer can be added later but is not required for feature completeness.
+> **Re-scoped 2026-06-18 (D16–D18):** Phase 5 was "Feature completion + distribution (incl. FairPlay)". FairPlay, SPM distribution, the language `expect/actual`, and remaining-signal polish all moved to the **new Phase 6**. Phase 5 is now laser-focused on a **comprehensive SwiftUI demo at Android parity** and making the iOS app **completely testable**. The existing minimal UIKit demo (`AppDelegate`/`SceneDelegate`/`PlayerViewController` from Phase 4) is replaced by a SwiftUI app; the UIKit **overlay** window is unchanged and the SwiftUI app coexists with it.
 
-**Exit gate:** XCFramework consumable via SPM (`Package.swift`); the iOS demo app exercises full diagnostics; FairPlay validated when license infrastructure is available.
+Scope (D16): stream-selection list (**HLS only**) → fullscreen player (custom controls: seek ±10s, play/pause, buffered seekbar, position/duration, exit) → Settings (overlay + playback prefs, D18). No track-selection sheet, no DASH/MP4/DRM streams.
+
+- [x] **5.1** **App shell + overlay coexistence (D16):** structure the SwiftUI app so it still creates the SDK's separate root-level overlay `UIWindow` (`StreamProbeOverlayWindow`, `windowLevel = .alert+1`) and hands it `probe.overlayPresenter`. Resolve the SwiftUI-`App`-lifecycle vs UIKit-`SceneDelegate` question (see implementation plan). *Exit:* app launches, overlay window renders above SwiftUI content.
+- [x] **5.2** **Stream-selection screen:** SwiftUI list of curated **HLS** streams (cards: title + HLS badge), parity with Android `StreamSelectionScreen`; a Settings entry point. *Exit:* tapping a stream navigates to the player; tapping Settings opens Settings.
+- [x] **5.3** **Player view-model + AVPlayer abstraction (D17):** an `ObservableObject` driving play/pause, position, duration, buffered fraction, buffering state from AVPlayer (periodic time observer + KVO). AVPlayer hidden behind a protocol so the view-model is unit-testable headlessly. `probe.attach(player:)` + `probe.show()` wired here. *Exit:* unit tests drive the view-model with a fake player.
+- [x] **5.4** **Fullscreen player screen + custom controls:** SwiftUI player (custom controls, NOT system chrome) — seek ±10s, play/pause, scrubber with buffered progress + drag-to-seek, position/remaining labels, exit button; tap-to-toggle + auto-hide. Parity with Android `PlayerController`. *Exit:* controls drive playback; exit returns to the list and releases the player.
+- [x] **5.5** **Settings screen (D18):** SwiftUI Settings with overlay + playback prefs (show/hide overlay → `probe.show()`/`hide()`; auto-play; loop), persisted (`UserDefaults`/`@AppStorage`). *Exit:* toggling overlay visibility hides/shows the SDK overlay live.
+- [x] **5.6** **Unit tests (XCTest):** player view-model (with fake AVPlayer), scrub/seek logic, settings persistence, stream-list model. *Exit:* tests green in Xcode + on `xcodebuild test`.
+- [x] **5.7** **UI tests (XCUITest):** accessibility identifiers on key views; flow test launch → select stream → player appears → controls visible → exit → back to list; Settings toggle reflected. *Exit:* XCUITest suite green.
+
+**Exit gate:** SwiftUI demo runs at Android parity (stream list → player → settings) and exercises live diagnostics through the unchanged UIKit overlay; the app is completely testable — XCTest unit suite + XCUITest flow suite both green via `xcodebuild test`.
+
+### Phase 6 — Feature completion + distribution (incl. deferred FairPlay DRM)
+
+> **New phase (re-scoped 2026-06-18):** absorbs everything that was in the old Phase 5 except the demo app. Sub-tasks are largely independent; FairPlay (6.1) is gated on external license infrastructure and may slip to a later milestone.
+
+- [ ] **6.1** **FairPlay DRM (deferred — D14):** `AVContentKeySession` delegate (FairPlay) → `addDrmSessionEvent` + `updateDrmState(FAIRPLAY)`; latency = request→response. Gated on license-server + cert availability. A thin Swift shim is allowed if the delegate-heavy interop is hard (D9). Add a DRM (FairPlay) HLS stream to the demo's stream list when this lands.
+- [ ] **6.2** Remaining-signal polish + graceful degradation: stalls, an "aggregate" badge for roll-up segments (iOS segment cardinality differs from Android — risk #5).
+- [ ] **6.3** Language display-name `expect/actual` (D7): `expect fun displayLanguage(tag)` — Android `Locale`, iOS `NSLocale` — replacing the raw BCP-47 fallback.
+- [ ] **6.4** XCFramework + checked-in `Package.swift` (SPM binary target); `embedAndSignAppleFrameworkForXcode` for local iteration. *Note:* the demo app already references the debug XCFramework at `sdk/build/XCFrameworks/debug/StreamProbe.xcframework` via `project.yml`; a formal `Package.swift` for SDK consumers is the remaining distribution step.
+- [x] **6.5** ~~SKIE (Touchlab)~~ — **pulled into Phase 4.** SKIE 0.10.11 added in commit 937eef4; bridges `StateFlow<OverlayViewState>` → Swift async-sequence, `OverlayRow`/`TrackSwitchEvent`/`DrmSessionEvent`/`ViewMode` → exhaustive Swift enums via `onEnum(of:)`.
+
+**Exit gate:** XCFramework consumable via SPM (`Package.swift`); FairPlay validated when license infrastructure is available; iOS overlay exercises full diagnostics including DRM.
 
 ---
 
@@ -223,7 +243,10 @@ OverlayPresenter        iOS targets + headless         (Phase 3.3 PoC is the ear
            Phase 4 ✅ iOS UIKit overlay (separate UIWindow)
               │
               ▼
-           Phase 5 ── Feature completion + distribution   ◄── NEXT
+           Phase 5 ✅ Comprehensive SwiftUI demo + iOS testability
+              │
+              ▼
+           Phase 6 ── Feature completion + distribution
                       (incl. deferred FairPlay DRM)
 ```
 
@@ -232,11 +255,12 @@ OverlayPresenter        iOS targets + headless         (Phase 3.3 PoC is the ear
 | 0 | — | everything | — |
 | 1 | 0 | 2, 3 | — |
 | 2 | 1 | 4 | **3** |
-| 3 | 1 | 4; 5 (DRM, distribution) | **2** |
+| 3 | 1 | 4; 6 (DRM, distribution) | **2** |
 | 4 | 2, 3 | 5 | — |
-| 5 | 4 (demo); 3 (DRM/dist); 1 (lang) | — | sub-tasks 5.1–5.6 largely independent |
+| 5 | 4 (overlay window + presenter API) | — | **6** (sub-tasks independent) |
+| 6 | 3 (DRM/dist); 1 (lang) | — | **5**; sub-tasks 6.1–6.5 largely independent |
 
-**Critical path:** `0 → 1 → 2 → 4 → 5`, with Phase 3 branching off after Phase 1 and rejoining at Phase 4.
+**Critical path:** `0 → 1 → 2 → 4 → 5`, with Phase 3 branching off after Phase 1 and rejoining at Phase 4. Phase 6 (FairPlay + distribution + lang + polish) depends on Phases 3/1, not on the Phase 5 demo, so it can run in parallel with — or after — Phase 5.
 
 **Key parallelization insight:** Phase 3 (the iOS feasibility PoC — the entire motivation of this effort) depends only on Phase 1, **not** on Phase 2. After Phase 1 lands, the work forks: one track does Phase 2 (Android-side leverage, byte-for-byte behavior-preserving), the other does Phase 3 (iOS feasibility proof). They converge at Phase 4. So feasibility can be proven early, in parallel with — not behind — the highest-effort UI refactor.
 
@@ -295,7 +319,7 @@ OverlayViewState(mode, isCollapsed, activeTrackText, activeAudioText, activeSubt
 - **Android AAR:** coordinates unchanged (`io.github.oguzhaneksi:streamprobe`). vanniktech 0.36.0 supports KMP — with `kotlin("multiplatform")` + androidTarget it wires up the `release` AAR publication + klibs + the root metadata module automatically. The existing POM / `publishToMavenCentral()` / `signAllPublications()` keep working.
 - **iOS XCFramework — SPM (recommended).** Apple-native, no Ruby/CocoaPods toolchain; the Kotlin `XCFramework {}` task + a checked-in `Package.swift` binary target. `embedAndSignAppleFrameworkForXcode` for local iteration.
 - **SKIE (Touchlab) ✅ — added in Phase 4 (commit 937eef4).** SKIE 0.10.11 bridges `StateFlow`/`Flow` → Swift async-sequences, sealed interfaces → Swift exhaustive enums via `onEnum(of:)` (`OverlayRow`/`TrackSwitchEvent`/`DrmSessionEvent`/`ViewMode`/`ErrorDetail`). Generated Swift wrappers live in `sdk/build/skie/`.
-- **iOS demo app ✅ — UIKit demo landed in Phase 4 (`iosApp/`).** Separate Xcode project (XcodeGen, `project.yml`), UIKit (`AppDelegate`/`SceneDelegate`/`PlayerViewController`). Plays HLS, attaches `StreamProbe`, shows the UIKit overlay via `StreamProbeOverlayWindow`. A SwiftUI wrapper layer is optional and not required for feature completeness.
+- **iOS demo app — minimal UIKit demo landed in Phase 4 (`iosApp/`); replaced by a comprehensive SwiftUI app in Phase 5 (D16).** Separate Xcode project (XcodeGen, `project.yml`). Phase 4 shipped a single-screen UIKit demo (`AppDelegate`/`SceneDelegate`/`PlayerViewController`) that plays one HLS stream, attaches `StreamProbe`, and shows the UIKit overlay via `StreamProbeOverlayWindow`. **Phase 5** rebuilds the host app in SwiftUI at Android parity (stream list → fullscreen custom-control player → settings, HLS-only) while keeping the same overlay window; the app is made unit- (XCTest) and UI- (XCUITest) testable (D17).
 
 ---
 
@@ -312,7 +336,7 @@ OverlayViewState(mode, isCollapsed, activeTrackText, activeAudioText, activeSubt
 
 **Resolved decisions (formerly open; now fixed — see D13–D15):**
 - **(a) iOS deployment base = 15.** Clean `AVAssetVariant`; no degrade-variant fallback.
-- **(b) FairPlay DRM = deferred.** Stays in Phase 5, gated on license-server + cert availability; explicitly not part of the first iOS feature-complete pass.
+- **(b) FairPlay DRM = deferred.** Moved to **Phase 6** (re-scoped 2026-06-18), gated on license-server + cert availability; explicitly not part of the first iOS feature-complete pass.
 - **(c) Overlay = separate root-level `UIWindow`.** Production players may not be full-screen, so confining the overlay to a small player-sized layer is wrong; a root-level window keeps it always-on-top across the whole app.
 
 ---
@@ -324,6 +348,7 @@ OverlayViewState(mode, isCollapsed, activeTrackText, activeAudioText, activeSubt
 - **Phase 2 ✅:** `OverlayPresenterTest` (11 tests, commonTest) locks the ViewMode/collapse/DRM-fallback/error-counter contract; `OverlayManagerErrorBehaviorTest` (6 tests, androidHostTest) unchanged. Full CI gate green. Android overlay behavior preserved byte-for-byte.
 - **Phase 3 ✅:** `./gradlew :sdk:linkDebugFrameworkIosSimulatorArm64` builds the framework. Pure mapper tests (AVMetricMappersTest + AVAccessLogMappersTest, iosTest) give hermetic coverage. `AVPlayerProbePocTest` skips the live leg when simulator TLS is unavailable (environment limitation, not a code defect). Full gate green: `:sdk:iosSimulatorArm64Test :sdk:assembleAndroidMain :sdk:testAndroidHostTest :sdk:lint :sdk:ktlintCheck :sdk:detektAndroidMain :sdk:detektAndroidHostTest :sdk:detektMetadataMain :app:assembleDebug`.
 - **Phase 4 ✅:** iOS demo app (`iosApp/`) builds and runs; `OverlayHostViewController` observes `presenter.viewState` via SKIE Swift async-sequence and renders the same `OverlayPresenter` `ViewState` as Android (visual parallel verification confirmed). SKIE 0.10.11 bridges sealed interfaces to Swift via `onEnum(of:)`. AutoLayout constraint priorities correctly handle animated collapse without ambiguity warnings.
-- **Phase 5:** XCFramework consumable via `Package.swift` (SPM); iOS demo exercises full diagnostics including FairPlay (when license infrastructure is available).
+- **Phase 5 ✅:** SwiftUI demo runs at Android parity (stream list → fullscreen player → settings) and renders live diagnostics through the unchanged UIKit overlay; XCTest unit suite (player view-model via a fake AVPlayer, scrub/seek, settings) + XCUITest flow suite both green via `xcodebuild test`. *Actual:* SwiftUI `@main DemoApp` with `UIApplicationDelegateAdaptor` + custom `SceneDelegate` retaining the overlay `UIWindow`; `Info.plist` static `UISceneConfigurations` removed so `SceneDelegate.scene(_:willConnectTo:options:)` installs the overlay window programmatically. HLS-only stream catalog (5 HTTPS streams). `PlayerEngine` protocol hiding `AVPlayer` behind `load/play/pause/seek/teardown` + `currentTimePublisher`; `AVPlayerEngine` and `MockPlayerEngine`. `PlayerViewModel` (`ObservableObject`, periodic time observer + KVO for duration/buffered fraction/buffering state, seek ±10s, scrub-gate) — 9 XCTest unit tests. `SettingsStore` (injectable `UserDefaults` persistence via `@Published`/`didSet`, overlayVisible → overlay-window `isHidden` via `AppDependencies`) — 3 unit tests. `StreamCatalog` — 4 unit tests. `VideoSurfaceView` (`UIViewRepresentable` wrapping `AVPlayerLayer`). `PlayerControlsView` (tap-to-toggle + 3 s auto-hide, seek ±10s, scrubber with buffered progress, position/remaining labels, exit button). `PlayerScreen` (`fullScreenCover`-presented, wires probe). `StreamSelectionScreen` (`NavigationView` + `.navigationViewStyle(.stack)`, `fullScreenCover` → PlayerScreen, gear button → SettingsScreen). `SettingsScreen` (overlay/autoPlay/loop toggles). `AppDependencies` (singleton `StreamProbe_` + `SettingsStore`, `registerOverlayWindow(_:)`). iOS-18 passthrough: `StreamProbeOverlayWindow.hitTest` returns `nil` for background touches so SwiftUI scroll/tap events reach the main window. 3 XCUITest flow tests green (launch → stream list visible; select stream → player appears → exit → list; settings opens → overlay toggle reflected). Loop pref persisted (`UserDefaults`) only; runtime wiring left as an optional refinement.
+- **Phase 6:** XCFramework consumable via `Package.swift` (SPM); iOS overlay exercises full diagnostics including FairPlay (when license infrastructure is available).
 
 **First concrete step:** implement **only Phase 0** — KMP plugin + androidTarget, no code moved, AAR byte-identical. It eliminates all toolchain risk with zero behavior change and safely unlocks everything that follows.
