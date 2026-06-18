@@ -23,3 +23,43 @@ targets:
       - framework: ../sdk/build/XCFrameworks/debug/StreamProbe.xcframework
         embed: true
         codeSign: false
+
+  iosAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - iosAppTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.streamprobe.iosAppTests
+        SWIFT_VERSION: 5.0
+        IPHONEOS_DEPLOYMENT_TARGET: 15.0
+    dependencies:
+      - target: iosApp
+
+  iosAppUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - iosAppUITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.streamprobe.iosAppUITests
+        SWIFT_VERSION: 5.0
+        IPHONEOS_DEPLOYMENT_TARGET: 15.0
+    dependencies:
+      - target: iosApp
+
+schemes:
+  iosApp:
+    build:
+      targets:
+        iosApp: all
+    test:
+      targets:
+        - iosAppTests
+        - iosAppUITests
+    run:
+      config: Debug
