@@ -48,11 +48,11 @@ struct PlayerScreen: View {
 
     private func start() {
         configureAudioSession()
+        viewModel.attach(streamURL: stream.url, autoPlay: settings.autoPlay)
         if let player = viewModel.avPlayer {
             probe.attach(player: player)
             probe.show()
         }
-        viewModel.attach(streamURL: stream.url, autoPlay: settings.autoPlay)
         scheduleAutoHide()
     }
 

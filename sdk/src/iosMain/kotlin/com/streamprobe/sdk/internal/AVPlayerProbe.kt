@@ -24,6 +24,7 @@ import platform.AVFoundation.loadValuesAsynchronouslyForKeys
 import platform.AVFoundation.mediaSelectionGroupForMediaCharacteristic
 import platform.AVFoundation.variants
 import platform.Foundation.NSDate
+import platform.Foundation.NSLog
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
 import platform.Foundation.timeIntervalSince1970
@@ -76,6 +77,7 @@ internal class AVPlayerProbe(
 
     @OptIn(ExperimentalForeignApi::class)
     fun attach(player: AVPlayer) {
+		println("asdasdsa")
         detach()
         this.player = player
         active = true
@@ -87,7 +89,7 @@ internal class AVPlayerProbe(
             dispatch_async(dispatch_get_main_queue()) {
                 // Guard: probe still active AND this is still the current asset (item may have changed
                 // or a re-attach may have installed a different player entirely).
-                if (active && this.player?.currentItem?.asset === asset) {
+                if (active && this.player?.currentItem?.asset == asset) {
                     val status = asset.statusOfValueForKey(VARIANTS_KEY, null)
                     if (status == AVKeyValueStatusLoaded) publishTracks(asset)
                 }

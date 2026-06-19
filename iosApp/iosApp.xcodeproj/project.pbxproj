@@ -11,7 +11,6 @@
 		0E121BC0668C568FFFBE7E7B /* DemoFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 662F3CB608F51B24D978905E /* DemoFlowUITests.swift */; };
 		12D3FAF8BAA2775373A8BC46 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 156AA7FE63DC7ED492314667 /* StatsView.swift */; };
 		14D2D7D62BCC74B972D38F63 /* PlayerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B19E2729DE1CD61C943C534 /* PlayerViewModel.swift */; };
-		154B044C0326A92C8A35658B /* StreamProbe.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 62BCEDD1806CAC0922999B58 /* StreamProbe.xcframework */; };
 		15F5B46D3D15D9AA7043013F /* OverlayPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A23958C7859C2654EAA0B /* OverlayPanelView.swift */; };
 		21BFFA625046939060B83347 /* OverlayHostViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00CC377686B5AC391DF6D3AC /* OverlayHostViewController.swift */; };
 		322DB1DA713B4A86D5A2A9E5 /* DrmCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1A2BB845270FDA6C023BA0 /* DrmCell.swift */; };
@@ -31,7 +30,6 @@
 		962F1BD451E0F714BADA71EF /* ErrorsHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC383BD6B9B867AF0B1A2B6 /* ErrorsHeaderView.swift */; };
 		9B679DBCB5E7FA37A80BA426 /* DemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47843AB6538D0603D88F519B /* DemoApp.swift */; };
 		9CE9CD8254A281B02F00AC0E /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4520138AC508F27FCF010E /* SettingsScreen.swift */; };
-		9DFB73C5126A1F9D54EEB4C4 /* StreamProbe.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 62BCEDD1806CAC0922999B58 /* StreamProbe.xcframework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A8B4DA79DC497F872E9EB9AF /* RenditionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1328921200E0857E444CC40B /* RenditionCell.swift */; };
 		AE61DA3BDD9200E382C71FC2 /* SettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750C9ED2E6CF82B42EBC792C /* SettingsStoreTests.swift */; };
 		B3EBA0EF31CF1C641D549F56 /* PlayerControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA879DDADB2A914641381577 /* PlayerControlsView.swift */; };
@@ -62,20 +60,6 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		DB76241340C08196BD9C492C /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				9DFB73C5126A1F9D54EEB4C4 /* StreamProbe.xcframework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
 		00CC377686B5AC391DF6D3AC /* OverlayHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayHostViewController.swift; sourceTree = "<group>"; };
 		092D08101147086E2CF074B0 /* PlayerViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewModelTests.swift; sourceTree = "<group>"; };
@@ -98,10 +82,45 @@
 		5B19E2729DE1CD61C943C534 /* PlayerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewModel.swift; sourceTree = "<group>"; };
 		62BCEDD1806CAC0922999B58 /* StreamProbe.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = StreamProbe.xcframework; path = ../sdk/build/XCFrameworks/debug/StreamProbe.xcframework; sourceTree = "<group>"; };
 		662F3CB608F51B24D978905E /* DemoFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoFlowUITests.swift; sourceTree = "<group>"; };
+		698BB56F2FE41CC800F73A71 /* DrmFormatters.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = DrmFormatters.kt; sourceTree = "<group>"; };
+		698BB5702FE41CC800F73A71 /* LanguageNames.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LanguageNames.kt; sourceTree = "<group>"; };
+		698BB5712FE41CC800F73A71 /* OverlayFormatters.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = OverlayFormatters.kt; sourceTree = "<group>"; };
+		698BB5732FE41CC800F73A71 /* OverlayPresenter.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = OverlayPresenter.kt; sourceTree = "<group>"; };
+		698BB5742FE41CC800F73A71 /* OverlayViewState.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = OverlayViewState.kt; sourceTree = "<group>"; };
+		698BB5762FE41CC800F73A71 /* CdnHeaderParser.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CdnHeaderParser.kt; sourceTree = "<group>"; };
+		698BB5772FE41CC800F73A71 /* DrmSchemeDetectorCommon.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = DrmSchemeDetectorCommon.kt; sourceTree = "<group>"; };
+		698BB5782FE41CC800F73A71 /* NetworkTimingRegistry.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = NetworkTimingRegistry.kt; sourceTree = "<group>"; };
+		698BB5792FE41CC800F73A71 /* SessionStore.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = SessionStore.kt; sourceTree = "<group>"; };
+		698BB57B2FE41CC800F73A71 /* ActiveTrackInfo.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = ActiveTrackInfo.kt; sourceTree = "<group>"; };
+		698BB57C2FE41CC800F73A71 /* AudioTrackInfo.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = AudioTrackInfo.kt; sourceTree = "<group>"; };
+		698BB57D2FE41CC800F73A71 /* CdnHeaderInfo.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CdnHeaderInfo.kt; sourceTree = "<group>"; };
+		698BB57E2FE41CC800F73A71 /* DrmScheme.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = DrmScheme.kt; sourceTree = "<group>"; };
+		698BB57F2FE41CC800F73A71 /* DrmSessionEvent.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = DrmSessionEvent.kt; sourceTree = "<group>"; };
+		698BB5802FE41CC800F73A71 /* DrmSessionState.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = DrmSessionState.kt; sourceTree = "<group>"; };
+		698BB5812FE41CC800F73A71 /* DrmStatusInfo.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = DrmStatusInfo.kt; sourceTree = "<group>"; };
+		698BB5822FE41CC800F73A71 /* ErrorCategory.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = ErrorCategory.kt; sourceTree = "<group>"; };
+		698BB5832FE41CC800F73A71 /* NetworkTiming.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = NetworkTiming.kt; sourceTree = "<group>"; };
+		698BB5842FE41CC800F73A71 /* PlaybackErrorEvent.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = PlaybackErrorEvent.kt; sourceTree = "<group>"; };
+		698BB5852FE41CC800F73A71 /* SegmentMetric.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = SegmentMetric.kt; sourceTree = "<group>"; };
+		698BB5862FE41CC800F73A71 /* SubtitleTrackInfo.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = SubtitleTrackInfo.kt; sourceTree = "<group>"; };
+		698BB5872FE41CC800F73A71 /* SwitchReason.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = SwitchReason.kt; sourceTree = "<group>"; };
+		698BB5882FE41CC800F73A71 /* TrackListInfo.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = TrackListInfo.kt; sourceTree = "<group>"; };
+		698BB5892FE41CC800F73A71 /* TracksSnapshot.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = TracksSnapshot.kt; sourceTree = "<group>"; };
+		698BB58A2FE41CC800F73A71 /* TrackSwitchEvent.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = TrackSwitchEvent.kt; sourceTree = "<group>"; };
+		698BB58B2FE41CC800F73A71 /* VariantInfo.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = VariantInfo.kt; sourceTree = "<group>"; };
+		698BB58D2FE41CC800F73A71 /* Util.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Util.kt; sourceTree = "<group>"; };
+		698BB58F2FE41CC800F73A71 /* StreamProbe.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = StreamProbe.kt; sourceTree = "<group>"; };
+		698BB5952FE41CC800F73A71 /* LanguageNames.ios.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LanguageNames.ios.kt; sourceTree = "<group>"; };
+		698BB5972FE41CC800F73A71 /* AVAccessLogMappers.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = AVAccessLogMappers.kt; sourceTree = "<group>"; };
+		698BB5982FE41CC800F73A71 /* AVMetricMappers.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = AVMetricMappers.kt; sourceTree = "<group>"; };
+		698BB5992FE41CC800F73A71 /* AVPlayerProbe.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = AVPlayerProbe.kt; sourceTree = "<group>"; };
+		698BB59A2FE41CC800F73A71 /* IosConstants.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = IosConstants.kt; sourceTree = "<group>"; };
+		698BB59C2FE41CC800F73A71 /* StreamProbe.ios.kt */ = {isa = PBXFileReference; lastKnownFileType = text; path = StreamProbe.ios.kt; sourceTree = "<group>"; };
+		698BB5A12FE41CC800F73A71 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
 		6D5220A894DBA7DE28C1644C /* OverlayTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayTheme.swift; sourceTree = "<group>"; };
 		750C9ED2E6CF82B42EBC792C /* SettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStoreTests.swift; sourceTree = "<group>"; };
 		853B5198A8E8BE62295090B6 /* ChipBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChipBarView.swift; sourceTree = "<group>"; };
-		86038AE1032E284E79B32AD6 /* iosApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		86038AE1032E284E79B32AD6 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8BA404AA9251B5A81FE46680 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		8E40C83D1C7E41A25D170C1A /* OverlayTableDataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayTableDataSource.swift; sourceTree = "<group>"; };
 		9CB5F09BFC24A9D67CC63E5F /* SwitchCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchCell.swift; sourceTree = "<group>"; };
@@ -123,7 +142,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				154B044C0326A92C8A35658B /* StreamProbe.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -163,6 +181,7 @@
 		38B69C3F79CD97858CF7B609 = {
 			isa = PBXGroup;
 			children = (
+				698BB56E2FE41CA800F73A71 /* Kotlin Debug */,
 				1DB4B685CAEE8BEFEBBAEF94 /* iosApp */,
 				407F741E7FEBA273A8579B0E /* iosAppTests */,
 				FC16215C5E8EEAF655CB992F /* iosAppUITests */,
@@ -201,6 +220,186 @@
 			);
 			path = Streams;
 			sourceTree = "<group>";
+		};
+		698BB56E2FE41CA800F73A71 /* Kotlin Debug */ = {
+			isa = PBXGroup;
+			children = (
+				698BB5942FE41CC800F73A71 /* commonMain */,
+				698BB5A22FE41CC800F73A71 /* iosMain */,
+			);
+			path = "Kotlin Debug";
+			sourceTree = "<group>";
+		};
+		698BB5722FE41CC800F73A71 /* overlay */ = {
+			isa = PBXGroup;
+			children = (
+				698BB56F2FE41CC800F73A71 /* DrmFormatters.kt */,
+				698BB5702FE41CC800F73A71 /* LanguageNames.kt */,
+				698BB5712FE41CC800F73A71 /* OverlayFormatters.kt */,
+			);
+			path = overlay;
+			sourceTree = "<group>";
+		};
+		698BB5752FE41CC800F73A71 /* presenter */ = {
+			isa = PBXGroup;
+			children = (
+				698BB5732FE41CC800F73A71 /* OverlayPresenter.kt */,
+				698BB5742FE41CC800F73A71 /* OverlayViewState.kt */,
+			);
+			path = presenter;
+			sourceTree = "<group>";
+		};
+		698BB57A2FE41CC800F73A71 /* internal */ = {
+			isa = PBXGroup;
+			children = (
+				698BB5722FE41CC800F73A71 /* overlay */,
+				698BB5752FE41CC800F73A71 /* presenter */,
+				698BB5762FE41CC800F73A71 /* CdnHeaderParser.kt */,
+				698BB5772FE41CC800F73A71 /* DrmSchemeDetectorCommon.kt */,
+				698BB5782FE41CC800F73A71 /* NetworkTimingRegistry.kt */,
+				698BB5792FE41CC800F73A71 /* SessionStore.kt */,
+			);
+			path = internal;
+			sourceTree = "<group>";
+		};
+		698BB58C2FE41CC800F73A71 /* model */ = {
+			isa = PBXGroup;
+			children = (
+				698BB57B2FE41CC800F73A71 /* ActiveTrackInfo.kt */,
+				698BB57C2FE41CC800F73A71 /* AudioTrackInfo.kt */,
+				698BB57D2FE41CC800F73A71 /* CdnHeaderInfo.kt */,
+				698BB57E2FE41CC800F73A71 /* DrmScheme.kt */,
+				698BB57F2FE41CC800F73A71 /* DrmSessionEvent.kt */,
+				698BB5802FE41CC800F73A71 /* DrmSessionState.kt */,
+				698BB5812FE41CC800F73A71 /* DrmStatusInfo.kt */,
+				698BB5822FE41CC800F73A71 /* ErrorCategory.kt */,
+				698BB5832FE41CC800F73A71 /* NetworkTiming.kt */,
+				698BB5842FE41CC800F73A71 /* PlaybackErrorEvent.kt */,
+				698BB5852FE41CC800F73A71 /* SegmentMetric.kt */,
+				698BB5862FE41CC800F73A71 /* SubtitleTrackInfo.kt */,
+				698BB5872FE41CC800F73A71 /* SwitchReason.kt */,
+				698BB5882FE41CC800F73A71 /* TrackListInfo.kt */,
+				698BB5892FE41CC800F73A71 /* TracksSnapshot.kt */,
+				698BB58A2FE41CC800F73A71 /* TrackSwitchEvent.kt */,
+				698BB58B2FE41CC800F73A71 /* VariantInfo.kt */,
+			);
+			path = model;
+			sourceTree = "<group>";
+		};
+		698BB58E2FE41CC800F73A71 /* util */ = {
+			isa = PBXGroup;
+			children = (
+				698BB58D2FE41CC800F73A71 /* Util.kt */,
+			);
+			path = util;
+			sourceTree = "<group>";
+		};
+		698BB5902FE41CC800F73A71 /* sdk */ = {
+			isa = PBXGroup;
+			children = (
+				698BB57A2FE41CC800F73A71 /* internal */,
+				698BB58C2FE41CC800F73A71 /* model */,
+				698BB58E2FE41CC800F73A71 /* util */,
+				698BB58F2FE41CC800F73A71 /* StreamProbe.kt */,
+			);
+			path = sdk;
+			sourceTree = "<group>";
+		};
+		698BB5912FE41CC800F73A71 /* streamprobe */ = {
+			isa = PBXGroup;
+			children = (
+				698BB5902FE41CC800F73A71 /* sdk */,
+			);
+			path = streamprobe;
+			sourceTree = "<group>";
+		};
+		698BB5922FE41CC800F73A71 /* com */ = {
+			isa = PBXGroup;
+			children = (
+				698BB5912FE41CC800F73A71 /* streamprobe */,
+			);
+			path = com;
+			sourceTree = "<group>";
+		};
+		698BB5932FE41CC800F73A71 /* kotlin */ = {
+			isa = PBXGroup;
+			children = (
+				698BB5922FE41CC800F73A71 /* com */,
+			);
+			path = kotlin;
+			sourceTree = "<group>";
+		};
+		698BB5942FE41CC800F73A71 /* commonMain */ = {
+			isa = PBXGroup;
+			children = (
+				698BB5932FE41CC800F73A71 /* kotlin */,
+			);
+			name = commonMain;
+			path = ../sdk/src/commonMain;
+			sourceTree = SOURCE_ROOT;
+		};
+		698BB5962FE41CC800F73A71 /* overlay */ = {
+			isa = PBXGroup;
+			children = (
+				698BB5952FE41CC800F73A71 /* LanguageNames.ios.kt */,
+			);
+			path = overlay;
+			sourceTree = "<group>";
+		};
+		698BB59B2FE41CC800F73A71 /* internal */ = {
+			isa = PBXGroup;
+			children = (
+				698BB5962FE41CC800F73A71 /* overlay */,
+				698BB5972FE41CC800F73A71 /* AVAccessLogMappers.kt */,
+				698BB5982FE41CC800F73A71 /* AVMetricMappers.kt */,
+				698BB5992FE41CC800F73A71 /* AVPlayerProbe.kt */,
+				698BB59A2FE41CC800F73A71 /* IosConstants.kt */,
+			);
+			path = internal;
+			sourceTree = "<group>";
+		};
+		698BB59D2FE41CC800F73A71 /* sdk */ = {
+			isa = PBXGroup;
+			children = (
+				698BB59B2FE41CC800F73A71 /* internal */,
+				698BB59C2FE41CC800F73A71 /* StreamProbe.ios.kt */,
+			);
+			path = sdk;
+			sourceTree = "<group>";
+		};
+		698BB59E2FE41CC800F73A71 /* streamprobe */ = {
+			isa = PBXGroup;
+			children = (
+				698BB59D2FE41CC800F73A71 /* sdk */,
+			);
+			path = streamprobe;
+			sourceTree = "<group>";
+		};
+		698BB59F2FE41CC800F73A71 /* com */ = {
+			isa = PBXGroup;
+			children = (
+				698BB59E2FE41CC800F73A71 /* streamprobe */,
+			);
+			path = com;
+			sourceTree = "<group>";
+		};
+		698BB5A02FE41CC800F73A71 /* kotlin */ = {
+			isa = PBXGroup;
+			children = (
+				698BB59F2FE41CC800F73A71 /* com */,
+			);
+			path = kotlin;
+			sourceTree = "<group>";
+		};
+		698BB5A22FE41CC800F73A71 /* iosMain */ = {
+			isa = PBXGroup;
+			children = (
+				698BB5A02FE41CC800F73A71 /* kotlin */,
+				698BB5A12FE41CC800F73A71 /* CLAUDE.md */,
+			);
+			name = iosMain;
+			path = ../sdk/src/iosMain;
+			sourceTree = SOURCE_ROOT;
 		};
 		8AD09A33681C22D59FD6D944 /* Settings */ = {
 			isa = PBXGroup;
@@ -278,9 +477,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 29DCA9F0B3A40325067EB163 /* Build configuration list for PBXNativeTarget "iosApp" */;
 			buildPhases = (
+				698BB5A42FE513BC00F73A71 /* ShellScript */,
 				297B59D9CE634556D6007C40 /* Sources */,
 				EF8A6E9BFD470986D9D5C9B5 /* Frameworks */,
-				DB76241340C08196BD9C492C /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -363,6 +562,27 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		698BB5A42FE513BC00F73A71 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\ncd \"$SRCROOT/..\"\n   ./gradlew :sdk:embedAndSignAppleFrameworkForXcode\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		230C1ACAE727061B7F5FBD3D /* Sources */ = {
@@ -638,7 +858,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"../sdk/build/XCFrameworks/debug\"",
+					"\"../sdk/build/XCFrameworks/debug/StreamProbe.xcframework\"",
 				);
 				INFOPLIST_FILE = iosApp/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -660,7 +880,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"../sdk/build/XCFrameworks/debug\"",
+					"\"../sdk/build/XCFrameworks/release/StreamProbe.xcframework\"",
 				);
 				INFOPLIST_FILE = iosApp/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
