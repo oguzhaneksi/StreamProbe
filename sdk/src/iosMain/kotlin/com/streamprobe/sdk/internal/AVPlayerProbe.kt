@@ -1,5 +1,6 @@
 package com.streamprobe.sdk.internal
 
+import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.SwitchReason
 import com.streamprobe.sdk.model.TrackSwitchEvent
 import com.streamprobe.sdk.model.TracksSnapshot
@@ -19,12 +20,11 @@ import platform.AVFoundation.AVURLAsset
 import platform.AVFoundation.accessLog
 import platform.AVFoundation.asset
 import platform.AVFoundation.currentItem
+import platform.AVFoundation.currentMediaSelection
 import platform.AVFoundation.errorLog
-import platform.AVFoundation.loadValuesAsynchronouslyForKeys
 import platform.AVFoundation.mediaSelectionGroupForMediaCharacteristic
 import platform.AVFoundation.variants
 import platform.Foundation.NSDate
-import platform.Foundation.NSLog
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
 import platform.Foundation.timeIntervalSince1970
@@ -32,6 +32,7 @@ import platform.QuartzCore.CACurrentMediaTime
 import platform.darwin.NSObjectProtocol
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
+import kotlin.math.abs
 
 /**
  * iOS analogue of `PlayerInterceptor`: observes an `AVPlayer` and writes the existing SDK models
@@ -49,6 +50,12 @@ import platform.darwin.dispatch_get_main_queue
  *   processed one notification later (`accessLog()?.events?.dropLast(1)`), once it is finalized, so
  *   only complete (non-mutating) stats are read; the last entry is picked up by the next notification.
  * - Errors (3.6): each new `AVPlayerItemErrorLog` entry → `LOAD_ERROR`.
+ * - Active track resolution: `emitBitrateSwitch` looks up the closest variant in the known list to
+ *   provide resolution/codecs in `ActiveTrackInfo` (access log alone only carries bitrate). It also
+ *   marks `isSelected` on the matching `VariantInfo` in the stored snapshot.
+ * - Audio selection: `publishTracks` reads `currentMediaSelection` to detect the initially-selected
+ *   audio rendition. `refreshAudioSelection` is called from `onNewAccessLogEntry` as a fallback for
+ *   streams where the selection is made after the variants key loads.
  *
  * Observers are registered via `NSNotificationCenter` scoped to [AVPlayer.currentItem] (the object
  * filter) so sibling-player / `AVQueuePlayer` callbacks cannot fire this probe's handlers. All
@@ -77,7 +84,6 @@ internal class AVPlayerProbe(
 
     @OptIn(ExperimentalForeignApi::class)
     fun attach(player: AVPlayer) {
-		println("asdasdsa")
         detach()
         this.player = player
         active = true
@@ -138,22 +144,26 @@ internal class AVPlayerProbe(
     private fun publishTracks(asset: AVURLAsset) {
         val variants = asset.variants.mapNotNull { (it as? AVAssetVariant)?.let(::mapVariant) }
         if (variants.isEmpty()) return
-        store.updateTrackList(
-            TracksSnapshot(
-                variants = variants,
-                audioTracks = optionsFor(asset, AVMediaCharacteristicAudible).map(::mapAudioOption),
-                subtitleTracks = optionsFor(asset, AVMediaCharacteristicLegible).map(::mapLegibleOption),
-            ),
-        )
-    }
-
-    private fun optionsFor(
-        asset: AVURLAsset,
-        characteristic: String?,
-    ): List<AVMediaSelectionOption> {
-        val mediaCharacteristic = characteristic ?: return emptyList()
-        val group = asset.mediaSelectionGroupForMediaCharacteristic(mediaCharacteristic)
-        return group?.options?.mapNotNull { it as? AVMediaSelectionOption }.orEmpty()
+        val mediaSelection = player?.currentItem?.currentMediaSelection
+        val audioGroup = asset.mediaSelectionGroupForMediaCharacteristic(AVMediaCharacteristicAudible)
+        val selectedAudio = audioGroup?.let { mediaSelection?.selectedMediaOptionInMediaSelectionGroup(it) }
+        val audioTracks =
+            audioGroup
+                ?.options
+                ?.filterIsInstance<AVMediaSelectionOption>()
+                .orEmpty()
+                .map { option -> mapAudioOption(option).copy(isSelected = option == selectedAudio) }
+        val subtitleGroup = asset.mediaSelectionGroupForMediaCharacteristic(AVMediaCharacteristicLegible)
+        val selectedSubtitle = subtitleGroup?.let { mediaSelection?.selectedMediaOptionInMediaSelectionGroup(it) }
+        val subtitleTracks =
+            subtitleGroup
+                ?.options
+                ?.filterIsInstance<AVMediaSelectionOption>()
+                .orEmpty()
+                .map { option -> mapLegibleOption(option).copy(isSelected = option == selectedSubtitle) }
+        store.updateTrackList(TracksSnapshot(variants, audioTracks, subtitleTracks))
+        store.updateActiveAudioTrack(audioTracks.find { it.isSelected })
+        store.updateActiveSubtitleTrack(subtitleTracks.find { it.isSelected })
     }
 
     private fun onNewAccessLogEntry(flushAll: Boolean = false) {
@@ -166,6 +176,9 @@ internal class AVPlayerProbe(
             (events[finalizedAccessEntries] as? AVPlayerItemAccessLogEvent)?.let(::processAccessEntry)
             finalizedAccessEntries++
         }
+        // Access log firing means the player is actively playing — a reliable point to detect the
+        // selected audio rendition if publishTracks fired before the player made its initial selection.
+        if (store.activeAudioTrack.value == null) refreshAudioSelection()
     }
 
     private fun processAccessEntry(event: AVPlayerItemAccessLogEvent) {
@@ -196,7 +209,7 @@ internal class AVPlayerProbe(
         indicatedBitrate: Double,
     ) {
         if (!isBitrateSwitch(lastIndicatedBitrate, indicatedBitrate)) return
-        val newTrack = activeTrackFromIndicatedBitrate(indicatedBitrate)
+        val newTrack = resolveActiveTrack(indicatedBitrate)
         val previousTrack = store.activeTrack.value
         val reason = if (previousTrack == null) SwitchReason.INITIAL else SwitchReason.ADAPTIVE
         store.addTrackSwitchEvent(
@@ -209,7 +222,61 @@ internal class AVPlayerProbe(
             ),
         )
         store.updateActiveTrack(newTrack)
+        updateVariantSelection(newTrack.bitrate)
         lastIndicatedBitrate = indicatedBitrate
+    }
+
+    /**
+     * Looks up the closest-bitrate variant in the known track list, providing resolution and codecs
+     * that the access log's `indicatedBitrate` alone cannot supply. Falls back to a bitrate-only
+     * [ActiveTrackInfo] when no track list has been published yet.
+     */
+    private fun resolveActiveTrack(indicatedBitrate: Double): ActiveTrackInfo {
+        val bitrate = indicatedBitrate.toInt()
+        val variant =
+            store.trackListInfo.value
+                ?.variants
+                ?.minByOrNull { abs(it.bitrate - bitrate) }
+        return if (variant != null) {
+            ActiveTrackInfo(
+                bitrate = variant.bitrate,
+                width = variant.width,
+                height = variant.height,
+                codecs = variant.codecs,
+                id = variant.id,
+            )
+        } else {
+            activeTrackFromIndicatedBitrate(indicatedBitrate)
+        }
+    }
+
+    /** Marks the variant closest in bitrate to [selectedBitrate] as selected in the stored snapshot. */
+    private fun updateVariantSelection(selectedBitrate: Int) {
+        val snapshot = store.trackListInfo.value ?: return
+        val idx =
+            snapshot.variants.indices
+                .minByOrNull { i -> abs(snapshot.variants[i].bitrate - selectedBitrate) } ?: return
+        val updated = snapshot.variants.mapIndexed { i, v -> v.copy(isSelected = i == idx) }
+        store.updateTrackList(TracksSnapshot(updated, snapshot.audioTracks, snapshot.subtitleTracks))
+    }
+
+    /**
+     * Queries [AVPlayerItem.currentMediaSelection] to detect which audio rendition is playing and
+     * updates [SessionStore] with the result. Called lazily from [onNewAccessLogEntry] for streams
+     * where the player makes its audio selection after the variants key has loaded.
+     */
+    private fun refreshAudioSelection() {
+        val currentItem = player?.currentItem ?: return
+        val asset = currentItem.asset as? AVURLAsset ?: return
+        val snapshot = store.trackListInfo.value ?: return
+        val group = asset.mediaSelectionGroupForMediaCharacteristic(AVMediaCharacteristicAudible) ?: return
+        val selected = currentItem.currentMediaSelection.selectedMediaOptionInMediaSelectionGroup(group) ?: return
+        val options = group.options.filterIsInstance<AVMediaSelectionOption>()
+        val idx = options.indexOfFirst { it == selected }
+        if (idx < 0 || snapshot.audioTracks.getOrNull(idx)?.isSelected == true) return
+        val updatedAudio = snapshot.audioTracks.mapIndexed { i, t -> t.copy(isSelected = i == idx) }
+        store.updateTrackList(TracksSnapshot(snapshot.variants, updatedAudio, snapshot.subtitleTracks))
+        store.updateActiveAudioTrack(updatedAudio.find { it.isSelected })
     }
 
     private fun onNewErrorLogEntry() {
