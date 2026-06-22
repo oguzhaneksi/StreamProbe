@@ -366,7 +366,7 @@ class OverlayFormattingTest {
     @Test
     fun `formatActiveAudio with only language contains display language`() {
         // Platform-neutral: the formatter must surface whatever the platform `displayLanguage`
-        // actual resolves for the tag (Android: "English"; iOS raw-tag fallback: "en").
+        // actual resolves for the tag (Android and iOS both: "English").
         val result = OverlayFormatters.formatActiveAudio(makeAudio(language = "en"))
         val expected = displayLanguage("en")
         assertNotNull(expected, "displayLanguage should resolve a non-null name for 'en'")
@@ -423,7 +423,7 @@ class OverlayFormattingTest {
 
     @Test
     fun `formatActiveSubtitle with language shows display language`() {
-        // Platform-neutral: see formatActiveAudio counterpart. Android resolves "Turkish"; iOS "tr".
+        // Platform-neutral: see formatActiveAudio counterpart. Android and iOS both resolve "Turkish".
         val result = OverlayFormatters.formatActiveSubtitle(makeSubtitle(language = "tr"))
         val expected = displayLanguage("tr")
         assertNotNull(expected, "displayLanguage should resolve a non-null name for 'tr'")
