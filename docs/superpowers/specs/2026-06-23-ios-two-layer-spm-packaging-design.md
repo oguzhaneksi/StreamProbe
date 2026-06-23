@@ -18,7 +18,7 @@ The decision is to restructure iOS into the **mainstream "KMP for shared logic, 
 
 - Ship iOS as an SPM-consumable package that gives external consumers the **full draggable overlay out of the box** (Android parity).
 - Move all iOS-specific AVFoundation observation and UI into a **debuggable Swift layer** (`Sources/`).
-- Keep `StreamProbeCore` a pure, portable shared brain (no AVFoundation cinterop except the tiny `NSLocale` `displayLanguage` actual).
+- Keep `commonMain` the pure, portable shared brain; confine iOS-only Kotlin (facade + mapping helpers) to `iosMain`, leaving the `NSLocale` `displayLanguage` actual as the only remaining K/N cinterop.
 - Preserve Android's published public API **byte-identical** and its Maven Central flow **untouched**.
 
 ## Non-Goals (out of scope)
@@ -34,15 +34,16 @@ The decision is to restructure iOS into the **mainstream "KMP for shared logic, 
 
 ```
 ┌─ StreamProbeCore  (Kotlin binary XCFramework — shared with Android) ──────────┐
-│  commonMain:                                                                   │
+│  commonMain (the genuinely-shared brain — UNCHANGED in spirit):               │
 │    • SessionStore (internal), 17 models, OverlayPresenter, formatters,         │
 │      parsers, registries, StallDiagnostics (M12), displayLanguage (expect fun) │
-│    • NEW pure mapping helpers (primitive-typed): pickVariantBitrate,           │
-│      segmentThroughput, switch-from-bitrate-delta detection, etc.              │
-│    • NEW narrow public facade: StreamProbeCore holder + write-sink interface   │
 │  androidMain:  StreamProbe (plain class, same public API), PlayerInterceptor,  │
 │                overlay Views   ← UNCHANGED                                      │
-│  iosMain:      LanguageNames.ios.kt only (NSLocale actual — last K/N cinterop)  │
+│  iosMain (iOS-only Kotlin, exported to the framework):                         │
+│    • LanguageNames.ios.kt (NSLocale actual — the only K/N cinterop)            │
+│    • NEW pure mapping helpers (primitive-typed): pickVariantBitrate,           │
+│      segmentThroughput, switch-from-bitrate-delta detection, etc.              │
+│    • NEW narrow public facade: ProbeCore holder + DiagnosticsSink interface    │
 │  framework baseName: "StreamProbeCore"                                          │
 └────────────────────────────────────────────────────────────────────────────────┘
                               ▲ depends on (SPM binary target)
@@ -59,16 +60,17 @@ The decision is to restructure iOS into the **mainstream "KMP for shared logic, 
 
 ### Component responsibilities & interfaces
 
-**`StreamProbeCore` (Kotlin, binary).** The shared cross-platform brain.
+**`StreamProbeCore` (the Kotlin binary XCFramework).** Bundles the shared `commonMain` brain plus a thin iOS-only `iosMain` Kotlin layer; both are exported to the framework.
 
-- *What it does:* aggregates diagnostics (`SessionStore`), turns them into a render-ready `OverlayViewState` (`OverlayPresenter`), and provides pure model-mapping math.
-- *How you use it (from Swift):* construct a `StreamProbeCore` holder; write diagnostics through its narrow **sink**; observe `core.presenter.viewState` (SKIE async-sequence); drive presenter intents (`onChipSelected`, `onCollapseToggled`, …).
-- *Public surface (new/changed):*
-  - A `StreamProbeCore` class bundling the (internal) `SessionStore`, the public `OverlayPresenter`, and the show/hide coroutine-scope lifecycle (moved out of the old `StreamProbe.ios.kt`).
-  - A narrow **write-sink** interface exposing only the writes the probe needs: `updateTrackList`, `updateActiveTrack`, `updateActiveAudioTrack`, `updateActiveSubtitleTrack`, `addSegmentMetric`, `addTrackSwitchEvent`, `addPlaybackError`, `addDrmSessionEvent`, `updateDrmState`, `clearPlaybackErrors`, `clear`. `SessionStore` stays `internal` behind it.
-  - The 17 model types stay `public` (already are — SKIE already exposes them to the demo).
-  - The pure mapping helpers become `public`, taking **primitives** (no AVFoundation types) so they live in `commonMain` and keep hermetic `commonTest` coverage.
-- *Depends on:* nothing platform-specific (commonMain is portable; iosMain has only the `NSLocale` `displayLanguage` actual).
+- *What it does:* aggregates diagnostics (`SessionStore`), turns them into a render-ready `OverlayViewState` (`OverlayPresenter`), and provides pure model-mapping math for the iOS probe.
+- *How you use it (from Swift):* construct the Kotlin holder; write diagnostics through its narrow **sink**; observe `holder.presenter.viewState` (SKIE async-sequence); drive presenter intents (`onChipSelected`, `onCollapseToggled`, …).
+- *Where things live & why:* the genuinely-shared types (`SessionStore`, models, `OverlayPresenter`, formatters, parsers, registries) stay in **commonMain** — they are the only code Android also uses. The facade and the mapping helpers are **iOS-only logic consumed only by the Swift layer**, so they live in **iosMain**, next to their only consumer. This is legal and clean because in a KMP module all source sets compile into **one module** — `internal` visibility spans the whole module, so `iosMain` can call `SessionStore`'s `internal` write methods directly and re-expose only a narrow `public` surface to Swift, with no need to widen anything in commonMain.
+- *Public surface (new/changed), all in `iosMain`:*
+  - A Kotlin holder class (working name **`ProbeCore`** — distinct from the `StreamProbeCore` framework/module name) bundling the `internal` `SessionStore`, the public `OverlayPresenter`, and the show/hide coroutine-scope lifecycle (moved out of the old `StreamProbe.ios.kt`).
+  - A narrow **write-sink** interface (working name **`DiagnosticsSink`**) exposing only the writes the probe needs: `updateTrackList`, `updateActiveTrack`, `updateActiveAudioTrack`, `updateActiveSubtitleTrack`, `addSegmentMetric`, `addTrackSwitchEvent`, `addPlaybackError`, `addDrmSessionEvent`, `updateDrmState`, `clearPlaybackErrors`, `clear`. `SessionStore` stays `internal` behind it.
+  - The pure mapping helpers become `public`, refactored to take **primitives** (no AVFoundation types). They stay in `iosMain` and keep their existing hermetic `iosTest` coverage (`AVMetricMappersTest`, `AVAccessLogMappersTest`) — zero test migration.
+  - The 17 model types stay `public` in commonMain (already are — SKIE already exposes them to the demo).
+- *Depends on:* commonMain is portable; the only K/N cinterop remaining in `iosMain` is the `NSLocale` `displayLanguage` actual (the mapping helpers are now AVFoundation-free).
 
 **`StreamProbeIOS` (Swift, source).** All iOS platform glue + UI.
 
@@ -96,7 +98,7 @@ AVPlayer ─ NSNotificationCenter / KVO / AVAssetVariant   (Swift: AVPlayerProbe
    → StreamProbeOverlayWindow (Swift, separate root UIWindow at .alert+1)
 ```
 
-Only the **observation + extraction** legs move to Swift; the **store, presenter, and pure mapping math** remain shared Kotlin.
+Only the **observation + extraction** legs move to Swift; the **store, presenter, and pure mapping math** remain Kotlin in the `StreamProbeCore` binary (store/presenter shared via commonMain; the iOS mapping math in iosMain).
 
 ---
 
@@ -164,7 +166,7 @@ The demo **consumes `StreamProbeIOS` as a local SPM dependency** (XcodeGen `pack
 
 ## Testing
 
-- **Core (Kotlin):** pure mapping helpers keep hermetic coverage in `commonTest` (now primitive-typed, fully portable — runs under both `testAndroidHostTest` and `iosSimulatorArm64Test`). `OverlayPresenterTest` unchanged. The narrow sink/facade gets unit coverage.
+- **Core (Kotlin):** the iOS mapping helpers keep their existing hermetic coverage in `iosTest` (`AVMetricMappersTest`, `AVAccessLogMappersTest`), now primitive-typed — no test migration. `OverlayPresenterTest` (commonTest) unchanged. The narrow sink/`ProbeCore` facade gets `iosTest` unit coverage.
 - **StreamProbeIOS (Swift):** XCTest for the Swift probe's extraction + observation logic (feasible now that it's native Swift with injectable AVFoundation seams) and any Swift-side helpers. The existing demo XCTest/XCUITest suites continue to pass against the repackaged app.
 - **Live verification (required):** the rewritten `AVPlayerProbe.swift` must be verified against a real stream on a **simulator/device** — the Kotlin probe's live leg was blocked by the simulator-TLS sandbox, so this path was never end-to-end verified.
 - **SPM consumability:** verify SKIE-bridged Core types (flows, `onEnum` sealed dispatch) resolve and compile from a **source** SPM target consuming the **binary** target; `Package.swift` parses (`swift package dump-package`).
