@@ -26,15 +26,14 @@ path = sys.argv[1]
 with open(path, "r") as f:
     text = f.read()
 
-# 1. Find the XCLocalSwiftPackageReference object ID for the local package (relativePath = ..)
-ref_match = re.search(
-    r'(/\* XCLocalSwiftPackageReference "\.\." \*/ = \{[^}]*?\bisa = XCLocalSwiftPackageReference\b[^}]*?\})',
+# 1. Verify the XCLocalSwiftPackageReference block for the local package exists (fail loudly if not).
+if not re.search(
+    r'XCLocalSwiftPackageReference "\.\."[^}]*\bisa = XCLocalSwiftPackageReference\b',
     text, re.DOTALL
-)
-if not ref_match:
+):
     sys.exit("ERROR: Could not find XCLocalSwiftPackageReference for '..' in pbxproj")
 
-# Extract the hex object ID that precedes the block comment
+# Extract the hex object ID that precedes the block comment.
 id_match = re.search(
     r'\b([0-9A-Fa-f]{24})\s+/\* XCLocalSwiftPackageReference "\.\." \*/',
     text
@@ -45,7 +44,7 @@ if not id_match:
 ref_id = id_match.group(1)
 print(f"  XCLocalSwiftPackageReference id = {ref_id}")
 
-# 2. Locate the XCSwiftPackageProductDependency block for productName = StreamProbe
+# 2. Locate the XCSwiftPackageProductDependency block for productName = StreamProbe.
 dep_pattern = re.compile(
     r'(/\* StreamProbe \*/ = \{\s*isa = XCSwiftPackageProductDependency;)(.*?)(productName = StreamProbe;)',
     re.DOTALL
@@ -55,24 +54,30 @@ dep_match = dep_pattern.search(text)
 if not dep_match:
     sys.exit("ERROR: Could not find XCSwiftPackageProductDependency for StreamProbe")
 
+# 3. Check whether the correct key is already present (idempotency fast-path).
 full_block = dep_match.group(0)
-
-# 3. Check whether the key is already present
 if f"package = {ref_id}" in full_block:
     print("  package key already present — nothing to do.")
     sys.exit(0)
 
-# 4. Re-inject: insert `package = <id> /* … */;` right after the `isa` line
-injected = dep_pattern.sub(
-    lambda m: (
+# 4. Strip any stale `package = <hex> /* XCLocalSwiftPackageReference ".." */;` line within
+#    the dependency block before re-injecting — makes the script idempotent even if XcodeGen
+#    rotates the object ID between runs (prevents a malformed double-`package` pbxproj).
+def patch_block(m):
+    inner = m.group(2)
+    inner = re.sub(
+        r'\n\t\t\tpackage = [0-9A-Fa-f]{24} /\* XCLocalSwiftPackageReference "\.\." \*/;',
+        '',
+        inner
+    )
+    return (
         m.group(1)
         + f"\n\t\t\tpackage = {ref_id} /* XCLocalSwiftPackageReference \"..\" */;"
-        + m.group(2)
+        + inner
         + m.group(3)
-    ),
-    text,
-    count=1
-)
+    )
+
+injected = dep_pattern.sub(patch_block, text, count=1)
 
 with open(path, "w") as f:
     f.write(injected)

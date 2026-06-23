@@ -6,9 +6,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 /**
- * Unit tests for the pure mapping helpers extracted from [mapVariant] / [mapAudioOption] /
- * [mapLegibleOption]. These exercise the numeric/string conversions without a live `AVAsset`;
- * the end-to-end AVFoundation chain is covered by `AVPlayerProbePocTest`.
+ * Unit tests for the pure primitive helpers in `AVMetricMappers.kt`:
+ * `pickVariantBitrate`, `dimensionOrUnknown`, `frameRateOrUnknown`, `joinCodecs`,
+ * `fourCCToString`, `preferredLanguageTag`, and `defaultSubtitleKind`.
+ * These exercise the numeric/string conversions without a live `AVAsset`.
  */
 class AVMetricMappersTest {
     @Test

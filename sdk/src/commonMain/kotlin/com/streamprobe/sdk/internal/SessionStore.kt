@@ -18,8 +18,9 @@ import kotlinx.coroutines.flow.update
 
 /**
  * Thread-safe in-memory store for the current debug session — the central hub both platform
- * adapters (Android [PlayerInterceptor], iOS AVPlayerProbe) write to and the overlay reads from via
- * the exposed [StateFlow]s.
+ * adapters write to and the overlay reads from via the exposed [StateFlow]s. On Android,
+ * [PlayerInterceptor] writes directly; on iOS, the Swift `AVPlayerProbe` writes via
+ * `DiagnosticsSink` → `ProbeCore` → this store.
  *
  * Bounded to keep memory flat: 500 segment metrics, 200 each of switch events / errors / DRM events.
  * Consecutive [ErrorCategory.DROPPED_FRAMES] within [DROPPED_FRAMES_DEDUP_WINDOW_MS] (5 s) merge into
