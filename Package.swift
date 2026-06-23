@@ -22,14 +22,14 @@ let package = Package(
     name: "StreamProbe",
     platforms: [.iOS(.v15)],
     products: [
-        .library(name: "StreamProbe", targets: ["StreamProbeIOS"]),
+        .library(name: "StreamProbe", targets: ["StreamProbe"]),
     ],
     targets: [
         coreBinaryTarget,
         .target(
-            name: "StreamProbeIOS",
+            name: "StreamProbe",
             dependencies: ["StreamProbeCore"],
-            path: "Sources/StreamProbeIOS"
+            path: "Sources/StreamProbe"
         ),
     ]
 )

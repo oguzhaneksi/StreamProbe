@@ -7,7 +7,7 @@ import SwiftUI
 /// `scenePhase` to pause/resume. The probe instance is shared (created in `AppDependencies`).
 struct PlayerScreen: View {
     let stream: Stream
-    let probe: StreamProbe_
+    let probe: StreamProbe
     let onExit: () -> Void
 
     @StateObject private var viewModel = PlayerViewModel(engine: AVPlayerEngine())

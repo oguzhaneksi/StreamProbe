@@ -4,7 +4,7 @@ import SwiftUI
 /// Root screen: a list of HLS streams (Android-parity cards with an HLS badge) plus a Settings
 /// entry. Selecting a stream presents the fullscreen player as a cover.
 struct StreamSelectionScreen: View {
-    let probe: StreamProbe_
+    let probe: StreamProbe
     @ObservedObject var settings: SettingsStore
 
     @State private var selectedStream: Stream?

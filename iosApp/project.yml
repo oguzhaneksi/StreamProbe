@@ -6,6 +6,10 @@ options:
   xcodeVersion: "16"
   createIntermediateGroups: true
 
+packages:
+  StreamProbe:
+    path: ..
+
 targets:
   iosApp:
     type: application
@@ -20,9 +24,8 @@ targets:
         IPHONEOS_DEPLOYMENT_TARGET: 15.0
         INFOPLIST_FILE: iosApp/Resources/Info.plist
     dependencies:
-      - framework: ../sdk/build/XCFrameworks/debug/StreamProbe.xcframework
-        embed: true
-        codeSign: false
+      - package: StreamProbe
+        product: StreamProbe
 
   iosAppTests:
     type: bundle.unit-test

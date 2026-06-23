@@ -6,7 +6,7 @@ import SwiftUI
 /// loop affect the next/created player. No "inject errors" toggle — AVPlayer has no DataSource hook.
 struct SettingsScreen: View {
     @ObservedObject var settings: SettingsStore
-    let probe: StreamProbe_
+    let probe: StreamProbe
     let onClose: () -> Void
 
     var body: some View {

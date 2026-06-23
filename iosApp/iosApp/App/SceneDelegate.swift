@@ -5,7 +5,7 @@ import UIKit
 /// `windowLevel = .alert + 1`) above the SwiftUI main window. Never `makeKeyAndVisible` — that
 /// would steal key-window status from the player UI. The overlay observes the shared probe's presenter.
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
-    var overlayWindow: StreamProbeOverlayWindow?   // strong ref — a detached UIWindow deallocates
+    var overlayWindow: UIWindow?   // strong ref — a detached UIWindow deallocates
 
     func scene(_ scene: UIScene,
                willConnectTo session: UISceneSession,
@@ -13,13 +13,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         let deps = AppDependencies.shared
-        let overlay = StreamProbeOverlayWindow(windowScene: windowScene)
-        overlay.windowLevel = .alert + 1
-        overlay.backgroundColor = .clear
-        let host = OverlayHostViewController(presenter: deps.probe.overlayPresenter)
-        host.view.backgroundColor = .clear
-        overlay.rootViewController = host
-        overlay.isHidden = false
+        let overlay = deps.probe.makeOverlayWindow(windowScene: windowScene)
         overlayWindow = overlay
 
         deps.registerOverlayWindow(overlay)
