@@ -39,14 +39,14 @@ kotlin {
         }
     }
 
-    val xcf = XCFramework("StreamProbe")
+    val xcf = XCFramework("StreamProbeCore")
     listOf(
         iosArm64(),
         iosSimulatorArm64(),
         iosX64(),
     ).forEach { target ->
         target.binaries.framework {
-            baseName = "StreamProbe"
+            baseName = "StreamProbeCore"
             isStatic = true
             xcf.add(this)
         }
@@ -118,4 +118,22 @@ mavenPublishing {
 
     publishToMavenCentral()
     signAllPublications()
+}
+
+tasks.register<Exec>("zipReleaseXCFramework") {
+    group = "build"
+    description = "Zips the Release StreamProbeCore XCFramework and prints its SwiftPM checksum."
+    dependsOn("assembleStreamProbeCoreReleaseXCFramework")
+    workingDir =
+        layout.buildDirectory
+            .dir("XCFrameworks/release")
+            .get()
+            .asFile
+    commandLine(
+        "bash",
+        "-c",
+        "rm -f StreamProbeCore.xcframework.zip && " +
+            "ditto -c -k --keepParent StreamProbeCore.xcframework StreamProbeCore.xcframework.zip && " +
+            "printf 'CHECKSUM ' && swift package compute-checksum StreamProbeCore.xcframework.zip",
+    )
 }
