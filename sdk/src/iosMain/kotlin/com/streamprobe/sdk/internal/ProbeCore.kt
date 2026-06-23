@@ -25,6 +25,9 @@ import kotlinx.coroutines.cancel
  *
  * Lives in `iosMain` (not `commonMain`): all source sets share one module, so this reaches
  * [SessionStore]'s `internal` writes directly while keeping the store off the public surface.
+ *
+ * **Thread-safety:** not thread-safe; all methods (including [DiagnosticsSink] writes, [start],
+ * and [stop]) must be called from the main thread (consistent with [Dispatchers.Main] scope).
  */
 public class ProbeCore : DiagnosticsSink {
     private val store = SessionStore()
