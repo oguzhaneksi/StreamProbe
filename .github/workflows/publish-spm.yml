@@ -30,6 +30,10 @@ jobs:
       - name: Assert version matches IOS_VERSION_NAME
         run: |
           EXPECTED=$(grep '^IOS_VERSION_NAME=' gradle.properties | cut -d'=' -f2)
+          if [ -z "$EXPECTED" ]; then
+            echo "::error::IOS_VERSION_NAME not found in gradle.properties"
+            exit 1
+          fi
           if [ "${{ github.event.inputs.version }}" != "$EXPECTED" ]; then
             echo "::error::Input version '${{ github.event.inputs.version }}' != IOS_VERSION_NAME '$EXPECTED'"
             exit 1
@@ -63,7 +67,7 @@ jobs:
           echo "---- Package.swift ----"; cat Package.swift
 
       - name: Verify Package.swift parses
-        run: swift package dump-package > /dev/null
+        run: STREAMPROBE_LOCAL=1 swift package dump-package > /dev/null
 
       - name: Commit Package.swift
         run: |
@@ -85,5 +89,6 @@ jobs:
           gh release create "v${VERSION}" \
             sdk/build/XCFrameworks/release/StreamProbeCore.xcframework.zip \
             --draft \
+            --target "$(git rev-parse HEAD)" \
             --title "iOS v${VERSION}" \
             --notes "StreamProbe iOS SPM release v${VERSION}. Install: https://github.com/${{ github.repository }}.git (from: \"${VERSION}\")."
