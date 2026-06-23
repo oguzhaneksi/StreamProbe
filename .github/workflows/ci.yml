@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  checks:
-    name: Build, Unit Tests & Static Analysis
+  android-checks:
+    name: Android Build, Unit Tests & Static Analysis
     runs-on: ubuntu-latest
 
     steps:
@@ -30,20 +30,20 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build (Debug)
-        run: ./gradlew assembleDebug --no-daemon
+      - name: Build SDK (androidMain) + demo APK
+        run: ./gradlew :sdk:assembleAndroidMain :app:assembleDebug --no-daemon
 
-      - name: Unit Tests
-        run: ./gradlew test --no-daemon
+      - name: Unit Tests (Robolectric host tests)
+        run: ./gradlew :sdk:testAndroidHostTest --no-daemon
 
       - name: Android Lint
-        run: ./gradlew lint --no-daemon
+        run: ./gradlew :sdk:lint --no-daemon
 
-      - name: Ktlint
-        run: ./gradlew ktlintCheck --no-daemon
+      - name: Ktlint (commonMain + androidMain + iosMain)
+        run: ./gradlew :sdk:ktlintCheck --no-daemon
 
-      - name: Detekt
-        run: ./gradlew detekt --no-daemon
+      - name: Detekt (androidMain + androidHostTest + commonMain metadata)
+        run: ./gradlew :sdk:detektAndroidMain :sdk:detektAndroidHostTest :sdk:detektMetadataMain --no-daemon
 
       - name: Upload Reports
         if: always()
@@ -54,6 +54,40 @@ jobs:
             **/build/reports/lint-results*.html
             **/build/reports/detekt/
             **/build/reports/tests/
+          retention-days: 14
+
+  ios-checks:
+    name: iOS Unit Tests & XCFramework
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: iOS Unit Tests (iosSimulatorArm64)
+        run: ./gradlew :sdk:iosSimulatorArm64Test --no-daemon
+
+      - name: Build iOS Debug XCFramework
+        run: ./gradlew :sdk:assembleStreamProbeCoreDebugXCFramework --no-daemon
+
+      - name: Verify Package.swift parses
+        run: STREAMPROBE_LOCAL=1 swift package dump-package > /dev/null
+
+      - name: Upload iOS Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-reports
+          path: '**/build/reports/tests/'
           retention-days: 14
 
   instrumented-tests:

@@ -25,7 +25,7 @@ Three top-level modules:
 ./gradlew :sdk:assembleAndroidMain
 
 # Build iOS debug XCFramework (consumed by iosApp via project.yml)
-./gradlew :sdk:assembleStreamProbeDebugXCFramework
+./gradlew :sdk:assembleStreamProbeCoreDebugXCFramework
 
 # Run SDK unit tests (Robolectric, pinned via robolectric.properties)
 ./gradlew :sdk:testAndroidHostTest
@@ -45,7 +45,7 @@ Three top-level modules:
 Full CI gate (all checks green):
 
 ```bash
-./gradlew :sdk:iosSimulatorArm64Test :sdk:assembleStreamProbeDebugXCFramework :sdk:assembleAndroidMain :sdk:testAndroidHostTest :sdk:lint :sdk:ktlintCheck :sdk:detektAndroidMain :sdk:detektAndroidHostTest :sdk:detektMetadataMain :app:assembleDebug
+./gradlew :sdk:iosSimulatorArm64Test :sdk:assembleStreamProbeCoreDebugXCFramework :sdk:assembleAndroidMain :sdk:testAndroidHostTest :sdk:lint :sdk:ktlintCheck :sdk:detektAndroidMain :sdk:detektAndroidHostTest :sdk:detektMetadataMain :app:assembleDebug
 ```
 
 Regenerate the iosApp Xcode project with `iosApp/generate.sh` (not bare `xcodegen generate`) — XcodeGen 2.45.4 drops the `package =` key from the local `StreamProbe` `XCSwiftPackageProductDependency`, which the script re-injects automatically.
@@ -124,7 +124,7 @@ Android demo (MVVM + Compose) that attaches the SDK to an `ExoPlayer`. See the s
 
 ### `iosApp/`
 
-Swift/UIKit iOS demo (XcodeGen project). **Rebuild `:sdk:assembleStreamProbeDebugXCFramework` before opening in Xcode**; the programmatic overlay lives in `iosApp/iosApp/Overlay/`.
+Swift/UIKit iOS demo (XcodeGen project). **Rebuild `:sdk:assembleStreamProbeCoreDebugXCFramework` before opening in Xcode**; the programmatic overlay lives in `iosApp/iosApp/Overlay/`.
 
 ## Publishing
 
