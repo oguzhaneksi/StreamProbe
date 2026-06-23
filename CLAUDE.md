@@ -48,6 +48,8 @@ Full CI gate (all checks green):
 ./gradlew :sdk:iosSimulatorArm64Test :sdk:assembleStreamProbeDebugXCFramework :sdk:assembleAndroidMain :sdk:testAndroidHostTest :sdk:lint :sdk:ktlintCheck :sdk:detektAndroidMain :sdk:detektAndroidHostTest :sdk:detektMetadataMain :app:assembleDebug
 ```
 
+Regenerate the iosApp Xcode project with `iosApp/generate.sh` (not bare `xcodegen generate`) — XcodeGen 2.45.4 drops the `package =` key from the local `StreamProbe` `XCSwiftPackageProductDependency`, which the script re-injects automatically.
+
 ## Code & Formatting Standards
 
 All code must pass `ktlintCheck`, `detekt`, and `lint` before merging. `detekt` is `maxIssues: 0` — zero tolerance for new issues. **Fix the root cause; never suppress with `@Suppress` or `// detekt:disable`.**
