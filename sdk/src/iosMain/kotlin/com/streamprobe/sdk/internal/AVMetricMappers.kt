@@ -1,21 +1,6 @@
 package com.streamprobe.sdk.internal
 
-import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.SubtitleKind
-import com.streamprobe.sdk.model.SubtitleTrackInfo
-import com.streamprobe.sdk.model.VariantInfo
-import kotlinx.cinterop.CValue
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.useContents
-import platform.AVFoundation.AVAssetVariant
-import platform.AVFoundation.AVAssetVariantVideoAttributes
-import platform.AVFoundation.AVMediaSelectionOption
-import platform.AVFoundation.extendedLanguageTag
-import platform.AVFoundation.nominalFrameRate
-import platform.AVFoundation.presentationSize
-import platform.CoreGraphics.CGSize
-import platform.Foundation.NSNumber
-import platform.Foundation.languageCode
 
 /*
  * Maps AVFoundation value objects to StreamProbe's existing platform-neutral models.
@@ -89,52 +74,3 @@ public fun preferredLanguageTag(
  * so legible renditions default to SIDECAR. (Known iOS gap vs Android — see roadmap risk #5.)
  */
 public fun defaultSubtitleKind(): SubtitleKind = SubtitleKind.SIDECAR
-
-@OptIn(ExperimentalForeignApi::class)
-private fun readPresentationSize(size: CValue<CGSize>): Pair<Int, Int> =
-    size.useContents { dimensionOrUnknown(width) to dimensionOrUnknown(height) }
-
-@OptIn(ExperimentalForeignApi::class)
-private fun videoCodecs(attributes: AVAssetVariantVideoAttributes): String? =
-    joinCodecs(attributes.codecTypes.mapNotNull { (it as? NSNumber)?.let { n -> fourCCToString(n.intValue) } })
-
-/** Maps an `AVAssetVariant` (iOS 15+) to a [VariantInfo]. `isSelected`/`id` are unknown up front. */
-@OptIn(ExperimentalForeignApi::class)
-internal fun mapVariant(variant: AVAssetVariant): VariantInfo {
-    val video = variant.videoAttributes
-    val (width, height) = video?.let { readPresentationSize(it.presentationSize) } ?: (-1 to -1)
-    return VariantInfo(
-        bitrate = pickVariantBitrate(variant.peakBitRate, variant.averageBitRate),
-        width = width,
-        height = height,
-        codecs = video?.let { videoCodecs(it) },
-        frameRate = video?.let { frameRateOrUnknown(it.nominalFrameRate) } ?: -1f,
-        id = null,
-        isSelected = false,
-    )
-}
-
-/** Maps an audible `AVMediaSelectionOption` to an [AudioTrackInfo]. Channel/sample-rate are unavailable on iOS. */
-internal fun mapAudioOption(option: AVMediaSelectionOption): AudioTrackInfo =
-    AudioTrackInfo(
-        language = preferredLanguageTag(option.extendedLanguageTag, option.locale?.languageCode),
-        label = option.displayName.takeIf { it.isNotBlank() },
-        codecs = null,
-        bitrate = 0,
-        channelCount = 0,
-        sampleRate = 0,
-        isMuxed = false,
-        id = null,
-        isSelected = false,
-    )
-
-/** Maps a legible `AVMediaSelectionOption` to a [SubtitleTrackInfo]. */
-internal fun mapLegibleOption(option: AVMediaSelectionOption): SubtitleTrackInfo =
-    SubtitleTrackInfo(
-        language = preferredLanguageTag(option.extendedLanguageTag, option.locale?.languageCode),
-        label = option.displayName.takeIf { it.isNotBlank() },
-        mimeType = null,
-        kind = defaultSubtitleKind(),
-        id = null,
-        isSelected = false,
-    )
