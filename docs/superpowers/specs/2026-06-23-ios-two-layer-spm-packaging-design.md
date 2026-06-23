@@ -144,6 +144,8 @@ let package = Package(
 | Android | `VERSION_NAME` (`gradle.properties`) | `release/vX.Y.Z` (existing) | Maven Central (`publish-sdk.yml`, **unchanged**) |
 | iOS | **new `IOS_VERSION_NAME`** (`gradle.properties`) | `vX.Y.Z` (plain) | GitHub Release zip (`publish-spm.yml`) |
 
+iOS versioning **starts fresh at `0.1.0`** (iOS has never been distributed), independent of Android's current `0.5.0`.
+
 Rationale: **SPM only recognizes plain-semver tags** (`X.Y.Z` / `vX.Y.Z`) and ignores path-prefixed tags like `release/v...`. The two tag namespaces therefore never collide, and SPM only ever sees iOS releases. Independent versions also fit the independent distribution channels and allow platform-only fixes. (Trade-off: a shared `commonMain` change warrants bumping both.)
 
 ### Release CI — `publish-spm.yml` (new, separate)
