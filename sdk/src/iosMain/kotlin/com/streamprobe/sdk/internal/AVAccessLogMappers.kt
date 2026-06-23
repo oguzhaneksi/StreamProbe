@@ -22,10 +22,10 @@ private const val UNKNOWN_URI = "(unknown)"
 private val UNKNOWN_CDN_INFO = CdnHeaderParser.parse(emptyMap())
 
 /** Converts a duration in seconds to whole milliseconds; 0 for the AVFoundation -1 "unknown" sentinel. */
-internal fun secondsToMillis(seconds: Double): Long = if (seconds > 0) (seconds * MILLIS_PER_SECOND).toLong() else 0
+public fun secondsToMillis(seconds: Double): Long = if (seconds > 0) (seconds * MILLIS_PER_SECOND).toLong() else 0
 
 /** Bytes-per-second throughput: prefer AVFoundation's observed bitrate, else size/duration, else 0. */
-internal fun segmentThroughput(
+public fun segmentThroughput(
     observedBitrate: Double,
     sizeBytes: Long,
     durationMs: Long,
@@ -37,7 +37,7 @@ internal fun segmentThroughput(
     }
 
 /** Builds a coarse [SegmentMetric] from one access-log entry (sentinels -> 0 / null / UNKNOWN). */
-internal fun accessLogSegmentMetric(
+public fun accessLogSegmentMetric(
     nowMs: Long,
     uri: String?,
     sizeBytes: Long,
@@ -58,7 +58,7 @@ internal fun accessLogSegmentMetric(
 }
 
 /** A degraded [ActiveTrackInfo] carrying only the indicated bitrate (access log has no resolution/codecs). */
-internal fun activeTrackFromIndicatedBitrate(indicatedBitrate: Double): ActiveTrackInfo =
+public fun activeTrackFromIndicatedBitrate(indicatedBitrate: Double): ActiveTrackInfo =
     ActiveTrackInfo(
         bitrate = if (indicatedBitrate > 0) indicatedBitrate.toInt() else 0,
         width = -1,
@@ -68,13 +68,13 @@ internal fun activeTrackFromIndicatedBitrate(indicatedBitrate: Double): ActiveTr
     )
 
 /** True when the indicated bitrate changed to a new valid value — i.e. an adaptive variant switch. */
-internal fun isBitrateSwitch(
+public fun isBitrateSwitch(
     previousIndicated: Double,
     currentIndicated: Double,
 ): Boolean = currentIndicated > 0 && currentIndicated != previousIndicated
 
 /** A DROPPED_FRAMES error for one access-log entry; the store merges bursts within its 5s window. */
-internal fun droppedFramesError(
+public fun droppedFramesError(
     nowMs: Long,
     droppedFrames: Long,
 ): PlaybackErrorEvent =
@@ -91,7 +91,7 @@ internal fun droppedFramesError(
     )
 
 /** A LOAD_ERROR from one error-log entry. */
-internal fun loadError(
+public fun loadError(
     nowMs: Long,
     errorDomain: String?,
     statusCode: Long,
@@ -106,7 +106,7 @@ internal fun loadError(
     )
 
 /** Formats an error-log entry as "Domain code: lastPathSegment" (mirrors the Android one-liner). */
-internal fun loadErrorMessage(
+public fun loadErrorMessage(
     errorDomain: String?,
     statusCode: Long,
     uri: String?,

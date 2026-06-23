@@ -33,7 +33,7 @@ import platform.Foundation.languageCode
  */
 
 /** Picks the most representative bitrate (peak preferred, then average); 0 when both unavailable. */
-internal fun pickVariantBitrate(
+public fun pickVariantBitrate(
     peakBitRate: Double,
     averageBitRate: Double,
 ): Int =
@@ -44,13 +44,13 @@ internal fun pickVariantBitrate(
     }
 
 /** A CoreGraphics dimension as an Int, or -1 when not a positive value (matches Android's unknown sentinel). */
-internal fun dimensionOrUnknown(value: Double): Int = if (value > 0) value.toInt() else -1
+public fun dimensionOrUnknown(value: Double): Int = if (value > 0) value.toInt() else -1
 
 /** Nominal frame rate as a Float, or -1f when unavailable (matches Android's unknown sentinel). */
-internal fun frameRateOrUnknown(nominalFrameRate: Double): Float = if (nominalFrameRate > 0) nominalFrameRate.toFloat() else -1f
+public fun frameRateOrUnknown(nominalFrameRate: Double): Float = if (nominalFrameRate > 0) nominalFrameRate.toFloat() else -1f
 
 /** Joins codec type strings into a single comma-separated string, or null when empty. */
-internal fun joinCodecs(codecTypes: List<String>): String? = codecTypes.filter { it.isNotBlank() }.ifEmpty { null }?.joinToString(",")
+public fun joinCodecs(codecTypes: List<String>): String? = codecTypes.filter { it.isNotBlank() }.ifEmpty { null }?.joinToString(",")
 
 /**
  * Converts a [CMVideoCodecType] integer (a FourCharCode) to its 4-character ASCII name.
@@ -64,7 +64,7 @@ internal fun joinCodecs(codecTypes: List<String>): String? = codecTypes.filter {
  * (e.g. `"avc1"`, `"hvc1"`, `"av01"`) rather than the full MIME codec string Android produces
  * from the HLS `CODECS` attribute (e.g. `"avc1.42e00a"`).
  */
-internal fun fourCCToString(value: Int): String =
+public fun fourCCToString(value: Int): String =
     buildString(4) {
         for (shift in 24 downTo 0 step 8) {
             append(((value ushr shift) and 0xFF).toChar())
@@ -76,7 +76,7 @@ internal fun fourCCToString(value: Int): String =
  * `extendedLanguageTag` over the locale's language code. AVFoundation's "und" (undetermined)
  * collapses to null so the UI shows nothing rather than a meaningless token.
  */
-internal fun preferredLanguageTag(
+public fun preferredLanguageTag(
     extendedLanguageTag: String?,
     localeLanguageCode: String?,
 ): String? {
@@ -88,7 +88,7 @@ internal fun preferredLanguageTag(
  * iOS exposes no reliable CEA-608/708-vs-WebVTT/TTML signal through `AVMediaSelectionOption`,
  * so legible renditions default to SIDECAR. (Known iOS gap vs Android — see roadmap risk #5.)
  */
-internal fun defaultSubtitleKind(): SubtitleKind = SubtitleKind.SIDECAR
+public fun defaultSubtitleKind(): SubtitleKind = SubtitleKind.SIDECAR
 
 @OptIn(ExperimentalForeignApi::class)
 private fun readPresentationSize(size: CValue<CGSize>): Pair<Int, Int> =
