@@ -87,6 +87,24 @@ dependencies {
 }
 ```
 
+### iOS (Swift Package Manager)
+
+Add StreamProbe via Xcode's **File ▸ Add Package Dependencies…** or in your `Package.swift`:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/oguzhaneksi/StreamProbe.git", from: "0.1.0")
+],
+targets: [
+    .target(
+        name: "YourApp",
+        dependencies: [.product(name: "StreamProbe", package: "StreamProbe")]
+    )
+]
+```
+
+Then `import StreamProbe` — you get the Swift entry point plus (via `@_exported`) the Core types. iOS is versioned independently of the Android (Maven Central) release.
+
 *Note: Even though it is an `implementation` dependency, we recommend gating the SDK activation behind debug checks in the usage step to ensure it remains a development-only tool without compilation errors in release builds.*
 
 ---
