@@ -1,5 +1,5 @@
 import UIKit
-import StreamProbe
+import StreamProbeCore
 
 /// Segments tab row.
 /// Row 1: #N · "DL: Xms" · cache dot.  Row 2 (indented 32pt): size · throughput · TTFB.

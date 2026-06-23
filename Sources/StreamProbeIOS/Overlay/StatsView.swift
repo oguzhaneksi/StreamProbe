@@ -1,5 +1,5 @@
 import UIKit
-import StreamProbe
+import StreamProbeCore
 
 /// Stats section — vertical stack of (section label → value) pairs, matching Android.
 /// DRM label+value are hidden unless `drmVisible`.

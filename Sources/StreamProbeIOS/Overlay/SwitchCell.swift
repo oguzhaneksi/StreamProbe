@@ -1,5 +1,5 @@
 import UIKit
-import StreamProbe
+import StreamProbeCore
 
 /// Switches tab row.
 /// Row 1: #N · type badge (VID/AUD/SUB) · switch text.

@@ -1,5 +1,5 @@
 import UIKit
-import StreamProbe
+import StreamProbeCore
 
 /// Errors tab row. Summary line is always visible; the detail block shows when expanded.
 /// Expansion state is owned by the data source (the cell only renders it).

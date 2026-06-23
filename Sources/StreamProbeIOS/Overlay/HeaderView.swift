@@ -1,5 +1,5 @@
 import UIKit
-import StreamProbe
+import StreamProbeCore
 
 /// 44pt header bar: title (flex) · error pill · collapse button.
 /// Background is headerBg with only the top corners rounded (14pt).

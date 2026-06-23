@@ -1,5 +1,5 @@
 import UIKit
-import StreamProbe
+import StreamProbeCore
 
 /// Section header row ("VIDEO" / "AUDIO" / "SUBTITLES") in the Tracks list.
 final class RenditionSectionHeaderCell: UITableViewCell {

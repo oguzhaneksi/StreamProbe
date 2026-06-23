@@ -1,5 +1,5 @@
 import UIKit
-import StreamProbe
+import StreamProbeCore
 
 /// Colors and dot-color factories for the debug overlay.
 /// Mirrors `OverlayDrawables.kt`. Hex strings use Android ARGB order (#AARRGGBB)

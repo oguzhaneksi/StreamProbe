@@ -1,5 +1,5 @@
 import UIKit
-import StreamProbe
+import StreamProbeCore
 
 /// Hosts the overlay panel: positions it, drives the presenter→view render loop,
 /// handles drag (from the header only), orientation rebuild, and share.

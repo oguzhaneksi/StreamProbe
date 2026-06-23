@@ -1,5 +1,5 @@
 import UIKit
-import StreamProbe
+import StreamProbeCore
 
 /// Filter chip row. Checked = accent fill + white text; unchecked = clear fill,
 /// 1pt accent border, accent text. Title-case labels. DRM chip hidden unless visible.

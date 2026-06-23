@@ -1,5 +1,5 @@
 import UIKit
-import StreamProbe
+import StreamProbeCore
 
 /// Drives the overlay table for all five tabs. Owns error-row expansion state and
 /// auto-scroll-to-newest behavior (scroll to last row unless the user scrolled up).

@@ -1,5 +1,5 @@
 import UIKit
-import StreamProbe
+import StreamProbeCore
 
 /// The draggable overlay panel: rounded navy background, header, and a collapsible body.
 /// Body is a vertical stack (portrait) or horizontal split (landscape).

@@ -1,5 +1,5 @@
 import Foundation
-import StreamProbe
+import StreamProbeCore
 
 /// Swift port of the internal Kotlin `OverlayFormatters` + `DrmFormatters`
 /// (those are `internal` in commonMain and not visible to Swift).

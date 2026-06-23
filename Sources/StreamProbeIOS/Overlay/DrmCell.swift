@@ -1,5 +1,5 @@
 import UIKit
-import StreamProbe
+import StreamProbeCore
 
 /// DRM tab row: #N · dot · scheme badge · event label · latency (KeysLoaded only) · timestamp.
 final class DrmCell: UITableViewCell {
