@@ -8,6 +8,7 @@ on:
 jobs:
   validate:
     name: Dry-Run Validation
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/release/') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -33,6 +34,7 @@ jobs:
 
   publish:
     name: Publish to Maven Central
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/release/') }}
     needs: validate
     permissions:
       contents: read

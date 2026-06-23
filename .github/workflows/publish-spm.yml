@@ -1,0 +1,89 @@
+name: Publish iOS SPM Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "iOS release version; must equal IOS_VERSION_NAME (e.g. 0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Build XCFramework & Draft Release
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Assert version matches IOS_VERSION_NAME
+        run: |
+          EXPECTED=$(grep '^IOS_VERSION_NAME=' gradle.properties | cut -d'=' -f2)
+          if [ "${{ github.event.inputs.version }}" != "$EXPECTED" ]; then
+            echo "::error::Input version '${{ github.event.inputs.version }}' != IOS_VERSION_NAME '$EXPECTED'"
+            exit 1
+          fi
+          echo "VERSION=$EXPECTED" >> "$GITHUB_ENV"
+
+      - name: Build & zip Release XCFramework
+        run: ./gradlew :sdk:zipReleaseXCFramework --no-daemon --stacktrace
+
+      - name: Compute checksum
+        id: checksum
+        run: |
+          ZIP=sdk/build/XCFrameworks/release/StreamProbeCore.xcframework.zip
+          CHECKSUM=$(swift package compute-checksum "$ZIP")
+          echo "value=$CHECKSUM" >> "$GITHUB_OUTPUT"
+          echo "Checksum: $CHECKSUM"
+
+      - name: Write url + checksum into Package.swift
+        env:
+          CHECKSUM: ${{ steps.checksum.outputs.value }}
+        run: |
+          URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/StreamProbeCore.xcframework.zip"
+          python3 - "$URL" "$CHECKSUM" <<'PY'
+          import re, sys
+          url, checksum = sys.argv[1], sys.argv[2]
+          s = open("Package.swift").read()
+          s = re.sub(r'(url:\s*")[^"]*(")', lambda m: m.group(1) + url + m.group(2), s, count=1)
+          s = re.sub(r'(checksum:\s*")[^"]*(")', lambda m: m.group(1) + checksum + m.group(2), s, count=1)
+          open("Package.swift", "w").write(s)
+          PY
+          echo "---- Package.swift ----"; cat Package.swift
+
+      - name: Verify Package.swift parses
+        run: swift package dump-package > /dev/null
+
+      - name: Commit Package.swift
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Package.swift
+          git commit -m "release(spm): v${VERSION}"
+          git push origin "HEAD:${{ github.ref_name }}"
+
+      - name: Create and push tag
+        run: |
+          git tag -a "v${VERSION}" -m "iOS SPM release v${VERSION}"
+          git push origin "v${VERSION}"
+
+      - name: Create draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${VERSION}" \
+            sdk/build/XCFrameworks/release/StreamProbeCore.xcframework.zip \
+            --draft \
+            --title "iOS v${VERSION}" \
+            --notes "StreamProbe iOS SPM release v${VERSION}. Install: https://github.com/${{ github.repository }}.git (from: \"${VERSION}\")."
