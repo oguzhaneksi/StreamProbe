@@ -127,4 +127,26 @@ final class PlayerViewModelTests: XCTestCase {
         XCTAssertEqual(vm.positionText, "00:00")
         XCTAssertEqual(vm.remainingText, "-00:00")
     }
+
+    func test_seekForward_live_nilRange_seeksByStep() {
+        attachLive()
+        engine.currentTimeSubject.send(50) // no seekableRange sent -> nil
+        vm.seekForward()
+        XCTAssertEqual(engine.seekTargets.last, 60) // 50 + 10, no upper bound to clamp to
+    }
+
+    func test_seekBack_live_nilRange_clampsToZero() {
+        attachLive()
+        engine.currentTimeSubject.send(5) // no seekableRange sent -> nil
+        vm.seekBack()
+        XCTAssertEqual(engine.seekTargets.last, 0) // max(0, 5 - 10)
+    }
+
+    func test_commitScrub_live_nilRange_treatsLowerBoundAsZero() {
+        attachLive()
+        engine.currentTimeSubject.send(50) // no seekableRange sent -> nil
+        vm.beginScrub()
+        vm.commitScrub(to: 30) // lower defaults to 0 -> absolute 30
+        XCTAssertEqual(engine.seekTargets.last, 30)
+    }
 }
