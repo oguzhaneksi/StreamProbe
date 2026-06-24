@@ -72,4 +72,59 @@ final class PlayerViewModelTests: XCTestCase {
         vm.teardown()
         XCTAssertEqual(engine.teardownCount, 1)
     }
+
+    private func attachLive() {
+        vm.attach(streamURL: URL(string: "https://example.com/live.m3u8")!,
+                  autoPlay: false, isLive: true)
+    }
+
+    func test_attach_setsIsLive() {
+        attachLive()
+        XCTAssertTrue(vm.isLive)
+    }
+
+    func test_seekForward_live_clampsToSeekableRange() {
+        attachLive()
+        engine.seekableRangeSubject.send(100...200)
+        engine.currentTimeSubject.send(195)
+        vm.seekForward()
+        XCTAssertEqual(engine.seekTargets.last, 200) // 195 + 10 clamped to upper bound
+    }
+
+    func test_seekBack_live_clampsToSeekableRange() {
+        attachLive()
+        engine.seekableRangeSubject.send(100...200)
+        engine.currentTimeSubject.send(105)
+        vm.seekBack()
+        XCTAssertEqual(engine.seekTargets.last, 100) // 105 - 10 clamped to lower bound
+    }
+
+    func test_positionText_live_showsDVROffset() {
+        attachLive()
+        engine.seekableRangeSubject.send(100...200)
+        engine.currentTimeSubject.send(165) // 65s into the DVR window
+        XCTAssertEqual(vm.positionText, "01:05")
+    }
+
+    func test_remainingText_live_showsTimeToLiveEdge() {
+        attachLive()
+        engine.seekableRangeSubject.send(100...200)
+        engine.currentTimeSubject.send(140) // 60s behind the live edge
+        XCTAssertEqual(vm.remainingText, "-01:00")
+    }
+
+    func test_commitScrub_live_translatesDvrRelativeToAbsolute() {
+        attachLive()
+        engine.seekableRangeSubject.send(100...200)
+        vm.beginScrub()
+        vm.commitScrub(to: 30) // 30s into DVR window -> absolute 130
+        XCTAssertEqual(engine.seekTargets.last, 130)
+    }
+
+    func test_live_nilSeekableRange_formattersFallBack() {
+        attachLive()
+        engine.currentTimeSubject.send(50) // no seekableRange sent -> nil
+        XCTAssertEqual(vm.positionText, "00:00")
+        XCTAssertEqual(vm.remainingText, "-00:00")
+    }
 }
