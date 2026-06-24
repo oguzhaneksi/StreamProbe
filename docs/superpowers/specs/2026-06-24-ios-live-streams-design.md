@@ -90,7 +90,7 @@ private func updateSeekableRange() {
 | `attach(streamURL:autoPlay:isLive:)` | New `isLive` parameter (default `false`) |
 | `seekForward()` | When live, clamps within `seekableRange` instead of `0...duration` |
 | `seekBack()` | Same |
-| `commitScrub(to:)` | Receives a DVR-relative value (0-based) when live; translates to absolute time as `seekableRange.lowerBound + dvrRelativeSeconds` before calling `engine.seek(to:)` |
+| `commitScrub(to:)` | Receives a DVR-relative value (0-based) when live; translates to absolute time as `(seekableRange?.lowerBound ?? 0) + dvrRelativeSeconds` before calling `engine.seek(to:)` |
 | `positionText` | When live: `MM:SS` from DVR start (`currentTime − seekableRange.lowerBound`) |
 | `remainingText` | When live: `"−MM:SS"` behind live edge (`seekableRange.upperBound − currentTime`) |
 
@@ -103,6 +103,20 @@ private func updateSeekableRange() {
 - VOD: `currentTime`
 
 `seekForward()` / `seekBack()` for live operate on **absolute** time: `engine.seek(to: min(seekableRange.upperBound, currentTime + seekStep))` and `engine.seek(to: max(seekableRange.lowerBound, currentTime - seekStep))`. These do not go through the DVR-relative coordinate space.
+
+### Nil-while-live handling (initial load / paused before first observer tick)
+
+A live stream sets `isLive == true` immediately, but `seekableRange` stays `nil` until the periodic time observer first fires — and that observer only ticks during playback. So with `autoPlay == false` the range is `nil` until the user hits play. Every live-path formula must therefore tolerate a `nil` range:
+
+- `positionText` — when `isLive && seekableRange == nil`: `"00:00"`
+- `remainingText` — when `isLive && seekableRange == nil`: `"−00:00"`
+- `scrubValue` — already `?? 0` (degenerate at 0)
+- `scrubUpperBound` — already `?? 1` (degenerate `0...1`)
+- `commitScrub` / `seekForward` / `seekBack` — when `seekableRange == nil`, fall back to absolute clamping against `currentTime` (no DVR translation); a seek issued before the range is known is a no-op-equivalent and harmless.
+
+### Begin-scrub coordinate space
+
+`ScrubberView`'s `onEditingChanged(editing: true)` must seed its local `dragValue` from `viewModel.scrubValue` (DVR-relative for live, absolute for VOD) — **not** `viewModel.currentTime`. Seeding from `currentTime` would offset the live thumb by `seekableRange.lowerBound` on drag-begin. `commitScrub` then performs the inverse translation back to absolute time (above).
 
 ---
 
@@ -135,7 +149,21 @@ All branching is inline `if viewModel.isLive` — no new view types.
 
 **Buffering spinner:** unchanged (shown for both).
 
-**`ScrubberView`** receives `upperBound: Double` and `value: Binding<Double>` from `PlayerControlsView` so the scrubber can work in both absolute (VOD) and DVR-relative (live) coordinate spaces without knowing which it is.
+**`ScrubberView`** is made coordinate-space-agnostic so it works for both absolute (VOD) and DVR-relative (live) spaces without knowing which it is. Its full new interface:
+
+```swift
+private struct ScrubberView: View {
+    @ObservedObject var viewModel: PlayerViewModel
+    let upperBound: Double            // viewModel.scrubUpperBound, passed by parent
+    @State private var dragValue: Double = 0
+    // ...
+    // Slider get: viewModel.scrubState == .scrubbing ? dragValue : viewModel.scrubValue
+    // onEditingChanged(true):  dragValue = viewModel.scrubValue; viewModel.beginScrub()
+    // onEditingChanged(false): viewModel.commitScrub(to: dragValue)
+}
+```
+
+The scrub-gating state machine (`beginScrub` / `commitScrub` / `scrubState`) stays in `PlayerViewModel` exactly as today; only the read source changes from `currentTime` to `scrubValue` and the bound from `duration` to `upperBound`. The buffered-fill capsule (driven by `bufferedFraction`) is unchanged — for live it renders at width 0 since `bufferedFraction` stays 0.
 
 ---
 
@@ -160,6 +188,7 @@ All use `MockPlayerEngine` (no network):
 - `test_seekBack_live_clampsToSeekableRange()` — seek back from DVR start stays at lower bound
 - `test_positionText_live_showsDVROffset()` — correct `MM:SS` from DVR start
 - `test_remainingText_live_showsTimeToLiveEdge()` — correct `"−MM:SS"` format
+- `test_live_nilSeekableRange_formattersFallBack()` — with `isLive == true` and no seekable range, `positionText == "00:00"` and `remainingText == "−00:00"`
 
 ### UI tests
 
@@ -174,3 +203,4 @@ No additions. The existing `DemoFlowUITests` taps the first row and plays; live 
 - FairPlay DRM live streams are out of scope.
 - DVR window size is not displayed; the scrubber length implicitly represents it.
 - The "● LIVE" badge is not tappable (informational only).
+- **Known limitation:** `addPeriodicTimeObserver` does not tick while paused, so the live/DVR window stops sliding when a live stream is paused and resumes refreshing on play. Acceptable for a demo; not worked around.
