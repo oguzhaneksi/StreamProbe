@@ -9,12 +9,16 @@ final class MockPlayerEngine: PlayerEngine {
     let isPlayingSubject = CurrentValueSubject<Bool, Never>(false)
     let isBufferingSubject = CurrentValueSubject<Bool, Never>(false)
     let bufferedFractionSubject = CurrentValueSubject<Double, Never>(0)
+    let seekableRangeSubject = CurrentValueSubject<ClosedRange<TimeInterval>?, Never>(nil)
 
     var currentTimePublisher: AnyPublisher<TimeInterval, Never> { currentTimeSubject.eraseToAnyPublisher() }
     var durationPublisher: AnyPublisher<TimeInterval, Never> { durationSubject.eraseToAnyPublisher() }
     var isPlayingPublisher: AnyPublisher<Bool, Never> { isPlayingSubject.eraseToAnyPublisher() }
     var isBufferingPublisher: AnyPublisher<Bool, Never> { isBufferingSubject.eraseToAnyPublisher() }
     var bufferedFractionPublisher: AnyPublisher<Double, Never> { bufferedFractionSubject.eraseToAnyPublisher() }
+    var seekableRangePublisher: AnyPublisher<ClosedRange<TimeInterval>?, Never> {
+        seekableRangeSubject.eraseToAnyPublisher()
+    }
 
     var avPlayer: AVPlayer? { nil }
 
