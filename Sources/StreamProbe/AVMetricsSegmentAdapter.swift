@@ -10,8 +10,9 @@ import StreamProbeCore
 /// map is left empty so `cdnInfo` degrades to UNKNOWN rather than guessing.
 enum AVMetricsSegmentAdapter {
     /// Whether AVFoundation's HLS stack populates `URLSessionTaskTransactionMetrics.response` with
-    /// usable headers for media-segment transactions. Set from the Task 1 device PoC (see spec).
-    static var cdnHeadersAvailable = true
+    /// usable headers for media-segment transactions. Resolved `true` by device verification
+    /// (2026-06-24, iOS 18): real CDN response headers are present for media segments.
+    static let cdnHeadersAvailable = true
 
     @available(iOS 18.0, *)
     static func segmentMetric(from event: AVMetricHLSMediaSegmentRequestEvent, nowMs: Int64) -> SegmentMetric {
@@ -70,7 +71,7 @@ enum AVMetricsSegmentAdapter {
         guard let http = response as? HTTPURLResponse else { return [:] }
         var out: [String: String] = [:]
         for (key, value) in http.allHeaderFields {
-            if let key = key as? String { out[key] = String(describing: value) }
+            if let key = key as? String { out[key] = (value as? String) ?? String(describing: value) }
         }
         return out
     }
