@@ -28,12 +28,16 @@ struct PlayerControlsView: View {
                 Spacer()
             }
 
-            // Center transport row.
+            // Center transport row. Seek ±10s is hidden for live (no meaning at a live edge).
             HStack(spacing: 28) {
-                transportButton("gobackward.10", id: A11y.Player.seekBack, action: viewModel.seekBack)
+                if !viewModel.isLive {
+                    transportButton("gobackward.10", id: A11y.Player.seekBack, action: viewModel.seekBack)
+                }
                 transportButton(viewModel.isPlaying ? "pause.fill" : "play.fill",
                                 id: A11y.Player.playPause, size: 34, action: viewModel.togglePlayPause)
-                transportButton("goforward.10", id: A11y.Player.seekForward, action: viewModel.seekForward)
+                if !viewModel.isLive {
+                    transportButton("goforward.10", id: A11y.Player.seekForward, action: viewModel.seekForward)
+                }
             }
 
             if viewModel.isBuffering {
@@ -46,8 +50,12 @@ struct PlayerControlsView: View {
                 VStack(spacing: 6) {
                     ScrubberView(viewModel: viewModel)
                     HStack {
-                        Text(viewModel.positionText)
-                            .accessibilityIdentifier(A11y.Player.positionLabel)
+                        if viewModel.isLive {
+                            liveBadge.accessibilityIdentifier(A11y.Player.positionLabel)
+                        } else {
+                            Text(viewModel.positionText)
+                                .accessibilityIdentifier(A11y.Player.positionLabel)
+                        }
                         Spacer()
                         Text(viewModel.remainingText)
                             .accessibilityIdentifier(A11y.Player.durationLabel)
@@ -62,6 +70,16 @@ struct PlayerControlsView: View {
                 )
             }
         }
+    }
+
+    private var liveBadge: some View {
+        HStack(spacing: 4) {
+            Circle().fill(Color.red).frame(width: 7, height: 7)
+            Text("LIVE").font(.caption.weight(.bold)).foregroundColor(.white)
+        }
+        .padding(.horizontal, 8).padding(.vertical, 3)
+        .background(Color.red.opacity(0.25))
+        .clipShape(Capsule())
     }
 
     private func transportButton(_ systemName: String, id: String, size: CGFloat = 26,
@@ -85,7 +103,7 @@ private struct ScrubberView: View {
     @State private var dragValue: Double = 0
 
     var body: some View {
-        let upperBound = max(viewModel.duration, 1)
+        let upperBound = max(viewModel.scrubUpperBound, 1)
         return ZStack(alignment: .leading) {
             GeometryReader { geo in
                 Capsule().fill(Color.white.opacity(0.25))
@@ -96,13 +114,13 @@ private struct ScrubberView: View {
 
             Slider(
                 value: Binding(
-                    get: { viewModel.scrubState == .scrubbing ? dragValue : viewModel.currentTime },
+                    get: { viewModel.scrubState == .scrubbing ? dragValue : viewModel.scrubValue },
                     set: { dragValue = $0 }
                 ),
                 in: 0...upperBound,
                 onEditingChanged: { editing in
                     if editing {
-                        dragValue = viewModel.currentTime
+                        dragValue = viewModel.scrubValue
                         viewModel.beginScrub()
                     } else {
                         viewModel.commitScrub(to: dragValue)

@@ -48,7 +48,7 @@ struct PlayerScreen: View {
 
     private func start() {
         configureAudioSession()
-        viewModel.attach(streamURL: stream.url, autoPlay: settings.autoPlay)
+        viewModel.attach(streamURL: stream.url, autoPlay: settings.autoPlay, isLive: stream.isLive)
         if let player = viewModel.avPlayer {
             probe.attach(player: player)
             probe.show()
