@@ -16,10 +16,16 @@ enum AVMetricsSegmentAdapter {
     @available(iOS 18.0, *)
     static func segmentMetric(from event: AVMetricHLSMediaSegmentRequestEvent, nowMs: Int64) -> SegmentMetric {
         let resource = event.mediaResourceRequestEvent
-        let txn = resource?.networkTransactionMetrics?.transactionMetrics.last
+        let transactions = resource?.networkTransactionMetrics?.transactionMetrics
+        let txn = transactions?.last
 
-        let totalDurationMs: Int64 = resource
-            .map { Int64($0.responseEndTime.timeIntervalSince($0.requestStartTime) * 1000) } ?? 0
+        // Total segment fetch span: first transaction's fetchStart -> last transaction's responseEnd.
+        // The mediaResourceRequestEvent's own requestStartTime/responseEndTime arrive identical on
+        // device (~0 duration), so the transaction-metric Dates are the source of truth here.
+        let totalDurationMs: Int64 = {
+            guard let start = transactions?.first?.fetchStartDate, let end = txn?.responseEndDate else { return 0 }
+            return Int64(end.timeIntervalSince(start) * 1000)
+        }()
 
         let sizeBytes: Int64 = {
             if let received = txn?.countOfResponseBodyBytesReceived, received > 0 { return received }
