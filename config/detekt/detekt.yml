@@ -33,6 +33,7 @@ complexity:
     thresholdInInterfaces: 15
     thresholdInObjects: 20
     thresholdInEnums: 15
+    excludes: ['**/androidHostTest/**', '**/commonTest/**']
 
 coroutines:
   active: true
@@ -56,6 +57,10 @@ performance:
 
 potential-bugs:
   active: true
+  UnsafeCallOnNullableType:
+    excludes: ['**/androidHostTest/**', '**/commonTest/**']
+  MapGetWithNotNullAssertionOperator:
+    excludes: ['**/androidHostTest/**', '**/commonTest/**']
 
 style:
   active: true

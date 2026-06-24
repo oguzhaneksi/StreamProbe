@@ -6,6 +6,8 @@ This document describes the goals, scope, features, and technical design of Stre
 
 ## 1. Problem Statement
 
+StreamProbe is a **Kotlin Multiplatform** debug SDK targeting **Android (Media3/ExoPlayer)** and **iOS (AVFoundation/`AVPlayer`)**. The problem is framed below in Android terms because that platform shipped first and its instrumentation is the most complete; the iOS implementation tackles the same class of problem from a different observation surface (see §3.11 and §4.5). The portable diagnostics core is shared verbatim between both platforms.
+
 Android streaming apps built on Media3/ExoPlayer routinely run into stream delivery issues that are hard to diagnose from inside the app:
 
 - The player picks the wrong rendition on startup.
@@ -236,6 +238,28 @@ All subtypes carry `id` (monotonic, stable DiffUtil key), `timestampMs`, and `sc
 
 ---
 
+### 3.11 iOS Support & Cross-Platform Parity
+
+StreamProbe is a Kotlin Multiplatform SDK. The diagnostics core — `SessionStore`, all model types, `OverlayPresenter`, formatters, parsers, and registries — lives in `commonMain` and is compiled into both the Android library and a Kotlin **`StreamProbeCore`** binary for iOS. The overlay is rendered natively per platform (Android Views, iOS UIKit) but driven by the same shared `OverlayPresenter`, so layout, chip navigation, expandable rows, drag, auto-scroll, orientation handling, and share are at **feature parity**.
+
+On iOS the player adapter is a native **Swift** layer (`AVPlayerProbe`) that observes AVFoundation — `AVPlayerItem` access-log and error-log notifications, KVO, and `AVAssetVariant` discovery — extracts primitive fields, and feeds them through the Core's pure mapping helpers and a narrow write sink into the same `SessionStore`. The architecture is detailed in §4.5.
+
+**iOS feature deltas.** AVFoundation exposes a coarser surface than Media3's analytics/HTTP hooks, so some features differ on iOS:
+
+| Feature | Android | iOS |
+|---|---|---|
+| Track enumeration (video / audio / subtitle) | ✅ `player.currentTracks` | ✅ `AVAssetVariant` + media selection |
+| Active track + switch timeline | ✅ per-format callbacks | ✅ derived from access log / variant changes |
+| Segment metrics | ✅ true per-segment (`onLoadCompleted`) | ⚠️ **aggregate** roll-ups from the access log, badged **`AGG`** |
+| CDN cache headers (hit/miss) | ✅ HTTP response headers | ❌ not exposed by `AVPlayer` |
+| TTFB estimate (`~NNms`) | ✅ `DataSource.Factory` wrapper | ❌ no per-request timing surface |
+| Background error tracking | ✅ load/codec/frames/sink errors | ✅ error-log notifications |
+| DRM monitoring | ✅ Widevine / PlayReady / ClearKey | ❌ FairPlay deferred (see §6) |
+
+Aggregate segment metrics are badged `AGG` so the cardinality difference is honest in the UI rather than implied to be per-segment.
+
+---
+
 ## 4. Technical Design
 
 ### 4.1 Interception Points
@@ -290,18 +314,33 @@ This approach:
 
 A no-op stub artifact may be published alongside the real SDK to simplify Option B. *(To be finalized during M0.)*
 
-### 4.3 Target Platform
+### 4.3 Target Platforms
 
-- **OS**: Android
-- **Language**: Kotlin
-- **Player**: Media3 ExoPlayer
-- **HTTP stack**: OkHttp (built-in adapter), Cronet and HttpEngine (planned adapters)
-- **Overlay rendering**: `Activity.addContentView()` — no `SYSTEM_ALERT_WINDOW` permission required
+| | Android | iOS |
+|---|---|---|
+| **OS** | Android 6.0+ (API 23) | iOS 15.0+ |
+| **Core language** | Kotlin (shared `commonMain`) | Kotlin core (`StreamProbeCore` binary) + Swift adapter/UI |
+| **Player** | Media3 ExoPlayer | AVFoundation `AVPlayer` |
+| **HTTP stack** | OkHttp (built-in), Cronet/HttpEngine (planned) | AVFoundation-internal (not directly observable) |
+| **Overlay rendering** | `Activity.addContentView()` — no `SYSTEM_ALERT_WINDOW` permission | Separate root `UIWindow` at `.alert + 1` (hit-test passthrough) |
 
 ### 4.4 Distribution
 
-- **Current**: Maven Central — `io.github.oguzhaneksi:streamprobe:0.3.2`.
+- **Android**: Maven Central — `io.github.oguzhaneksi:streamprobe` (version from `VERSION_NAME` in `gradle.properties`), published via `vanniktech/maven-publish` on `release/v*` tags.
+- **iOS**: Swift Package Manager — a checked-in `Package.swift` at the repo root exposing a `StreamProbe` product. A binary target (`StreamProbeCore` XCFramework, hosted as a GitHub Release zip) plus a Swift source target. Versioned independently via `IOS_VERSION_NAME` (starting at `0.1.0`) on plain `vX.Y.Z` tags, which SPM recognizes and Maven's `release/v*` tags do not collide with.
 - **Future**: A no-op stub artifact (`streamprobe-noop`) to simplify release-build exclusion without `BuildConfig` guards.
+
+### 4.5 Kotlin Multiplatform Architecture
+
+The `sdk/` module is a single KMP module (`kotlin("multiplatform")` + `com.android.kotlin.multiplatform.library`) with Android and iOS (`iosArm64`, `iosSimulatorArm64`, `iosX64`) targets.
+
+- **`commonMain`** — the portable, shared brain: models + enums, `SessionStore`, `NetworkTimingRegistry`, `CdnHeaderParser`, the overlay formatters, and the `presenter/` package (`OverlayPresenter` → `StateFlow<OverlayViewState>`). No `java.`/`android.` imports. `displayLanguage(tag)` is an `expect fun` with platform `actual`s. Locked by `OverlayPresenterTest` (commonTest, run under both Android and iOS test tasks).
+- **`androidMain`** — Media3 adapters (`PlayerInterceptor`, `DrmSessionTracker`), the overlay Views, and a plain `StreamProbe` class with the existing public API. **Byte-identical** to the pre-migration public surface.
+- **`iosMain`** — iOS-only Kotlin exported to the framework: the `NSLocale`-backed `displayLanguage` actual (the only remaining Kotlin/Native cinterop), pure primitive-typed mapping helpers consumed by the Swift layer, a `ProbeCore` holder (bundles the `internal` `SessionStore`, the public `OverlayPresenter`, and the show/hide coroutine lifecycle), and a narrow `DiagnosticsSink` write interface. Because all source sets compile into one module, `iosMain` calls `SessionStore`'s `internal` writes directly and re-exposes only a narrow `public` surface.
+
+**iOS two-layer packaging.** The Kotlin core compiles to a static **`StreamProbeCore`** XCFramework (the binary SPM target). A native **Swift `StreamProbe`** layer (`Sources/StreamProbe/`) owns all AVFoundation I/O (`AVPlayerProbe`) and the overlay UI (UIKit), writes diagnostics through the Core sink, and observes `core.presenter.viewState`. [SKIE](https://skie.touchlab.co/) bridges Kotlin `StateFlow` → Swift `AsyncSequence` and sealed interfaces (`OverlayRow`, `TrackSwitchEvent`, `DrmSessionEvent`, `ViewMode`) → exhaustive Swift enums. Consumers `import StreamProbe`; the Core types are re-exported via `@_exported`. Only the AVFoundation **observation + field extraction** is Swift — the store, presenter, and mapping math stay in Kotlin.
+
+> The earlier Kotlin/Native `AVPlayerProbe` (Phase 3 feasibility proof) and the `expect/actual StreamProbe` **class** were removed in favour of this two-layer split; this also eliminated the project's only expect/actual class and dropped the Beta `-Xexpect-actual-classes` compiler flag (`displayLanguage` remains a stable `expect fun`).
 
 ---
 
@@ -331,3 +370,5 @@ The following are intentionally left open and will be resolved as the milestones
 - Overlay interaction model beyond drag (resize, minimize, snap-to-edge).
 - Export format for session data (JSON dump, shareable file) — planned post-M5.
 - Auto-detection heuristic for the active network stack vs. explicit adapter selection by the host app (relevant once `NetworkInspector` adapters are built).
+- **FairPlay DRM on iOS** — DRM lifecycle monitoring is Android-only today (Widevine/PlayReady/ClearKey via Media3's `DrmSessionManager`). iOS FairPlay support is planned for evaluation in a **future phase**; it is gated on external FairPlay license/key-server infrastructure needed to meaningfully observe and verify the session lifecycle. Open: which AVFoundation surface (`AVContentKeySession` delegate callbacks) yields a parity timeline, and how to test it without production key infra.
+- **iOS per-segment metrics** — whether AVFoundation can be coaxed into finer-grained-than-access-log segment timing (e.g. via a custom `AVAssetResourceLoaderDelegate`) to narrow the gap with Android's true per-segment data, or whether the `AGG` roll-up remains the honest ceiling.

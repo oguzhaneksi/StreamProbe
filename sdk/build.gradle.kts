@@ -1,9 +1,17 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+
+version = project.property("VERSION_NAME") as String
+group = "io.github.oguzhaneksi"
+
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.vanniktech.mavenPublish)
     alias(libs.plugins.jetbrains.dokka)
     alias(libs.plugins.ktlint)
     alias(libs.plugins.detekt)
+    alias(libs.plugins.touchlab.skie)
 }
 
 detekt {
@@ -11,62 +19,68 @@ detekt {
     buildUponDefaultConfig = true
 }
 
-android {
-    namespace = "com.streamprobe.sdk"
-    compileSdk {
-        version =
-            release(36) {
-                minorApiLevel = 1
-            }
-    }
-
-    defaultConfig {
+kotlin {
+    android {
+        namespace = "com.streamprobe.sdk"
+        compileSdk = 37
         minSdk = 23
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        consumerProguardFiles("consumer-rules.pro")
-    }
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_11)
+        }
 
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
-            )
+        withHostTest {
+            isIncludeAndroidResources = true
         }
     }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-    testOptions {
-        unitTests.isIncludeAndroidResources = true
-    }
-}
 
-dependencies {
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.exoplayer.hls)
-    implementation(libs.androidx.media3.exoplayer.dash)
-    implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.androidx.recyclerview)
-    implementation(libs.androidx.appcompat)
+    val xcf = XCFramework("StreamProbeCore")
+    listOf(
+        iosArm64(),
+        iosSimulatorArm64(),
+        iosX64(),
+    ).forEach { target ->
+        target.binaries.framework {
+            baseName = "StreamProbeCore"
+            isStatic = true
+            xcf.add(this)
+        }
+    }
 
-    testImplementation(libs.junit)
-    testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.mockito.core)
-    testImplementation(libs.robolectric)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+    sourceSets {
+        commonMain.dependencies {
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.atomicfu)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+        }
+        androidMain.dependencies {
+            implementation(libs.androidx.core.ktx)
+            implementation(libs.androidx.media3.exoplayer)
+            implementation(libs.androidx.media3.exoplayer.hls)
+            implementation(libs.androidx.media3.exoplayer.dash)
+            implementation(libs.kotlinx.coroutines.android)
+            implementation(libs.androidx.recyclerview)
+            implementation(libs.androidx.appcompat)
+        }
+        val androidHostTest by getting {
+            dependencies {
+                implementation(libs.junit)
+                implementation(libs.kotlinx.coroutines.test)
+                implementation(libs.mockito.core)
+                implementation(libs.robolectric)
+            }
+        }
+    }
 }
 
 mavenPublishing {
     coordinates(
         groupId = "io.github.oguzhaneksi",
         artifactId = "streamprobe",
-        version = project.property("VERSION_NAME") as String,
     )
 
     pom {
@@ -97,9 +111,24 @@ mavenPublishing {
         }
     }
 
-    // Configure publishing to Maven Central Portal
     publishToMavenCentral()
-
-    // Enable GPG signing for all publications
     signAllPublications()
+}
+
+tasks.register<Exec>("zipReleaseXCFramework") {
+    group = "build"
+    description = "Zips the Release StreamProbeCore XCFramework and prints its SwiftPM checksum."
+    dependsOn("assembleStreamProbeCoreReleaseXCFramework")
+    workingDir =
+        layout.buildDirectory
+            .dir("XCFrameworks/release")
+            .get()
+            .asFile
+    commandLine(
+        "bash",
+        "-c",
+        "rm -f StreamProbeCore.xcframework.zip && " +
+            "ditto -c -k --keepParent StreamProbeCore.xcframework StreamProbeCore.xcframework.zip && " +
+            "printf 'CHECKSUM ' && swift package compute-checksum StreamProbeCore.xcframework.zip",
+    )
 }

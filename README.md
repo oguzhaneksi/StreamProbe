@@ -1,78 +1,105 @@
 # StreamProbe
 
-A debug SDK for Android apps that inspects HLS and DASH streaming traffic in real time on top of Media3/ExoPlayer, surfacing manifest contents, segment metrics, CDN headers, and ABR decisions through an in-app overlay.
+A **Kotlin Multiplatform** debug SDK for **Android and iOS** apps that inspects HLS and DASH streaming in real time — on top of Media3/ExoPlayer on Android and AVFoundation/`AVPlayer` on iOS — surfacing track variants, segment metrics, CDN headers, ABR/track switches, DRM lifecycle, and playback errors through an in-app **draggable overlay on both platforms**.
 
 https://github.com/user-attachments/assets/471e76d8-6653-4116-ae1d-0e1f3f023234
 
-> ⚠️ **Development-only tool.** StreamProbe is designed for debug builds and should be omitted from release builds by gating it behind `BuildConfig.DEBUG` or a similar host-managed mechanism. It is not an analytics, QoE, or production monitoring product.
+> ⚠️ **Development-only tool.** StreamProbe is designed for debug builds and should be omitted from release builds by gating it behind a host-managed mechanism (`BuildConfig.DEBUG` on Android, a `#if DEBUG` compilation condition on iOS). It is not an analytics, QoE, or production monitoring product.
 
 ---
 
 ## Requirements
 
 Before you begin, ensure your project meets the following requirements:
+
+**Android**
 - **Minimum SDK**: Android 6.0 (API level 23) or higher.
 - **Media3/ExoPlayer**: Version `1.10.0` or higher.
 - **Kotlin**: Version `1.9.0`+ (currently built against `2.3.20`).
+
+**iOS**
+- **Minimum deployment target**: iOS 15.0 or higher.
+- **Player**: AVFoundation `AVPlayer`.
+- **Distribution**: Swift Package Manager (Xcode 15+ / Swift 5.9+).
 
 ---
 
 ## Why This Exists
 
-When something goes wrong with stream delivery in an Android app — the wrong rendition gets picked, an unexpected ABR switch happens, segment latency spikes, or a CDN cache miss slips through — the developer's options today are all awkward:
+When something goes wrong with stream delivery — the wrong rendition gets picked, an unexpected ABR switch happens, segment latency spikes, or a CDN cache miss slips through — the developer's options today are all awkward, and the problem looks the same whether the app runs on Android/ExoPlayer or iOS/AVPlayer:
 
-- **Charles Proxy**: wire the device through a proxy, install an SSL cert, filter traffic by hand.
-- **`adb logcat`**: sift through raw ExoPlayer logs looking for the relevant lines.
+- **A proxy** (Charles, Proxyman): wire the device through a proxy, install an SSL cert, filter traffic by hand.
+- **Platform logs**: sift through raw player logs — `adb logcat` (ExoPlayer) on Android, Console.app / `os_log` and `AVPlayerItemAccessLog` dumps on iOS — looking for the relevant lines.
 - **Manual manifest inspection**: copy the URL into a browser and read the `.m3u8` / MPD by eye.
 - Usually, all three at once.
 
-Each round of this takes 15–30 minutes, depends on a tethered device, requires external tools, and can't be handed off to a teammate. StreamProbe pulls the whole workflow into the app itself: the moment the SDK is attached, everything is captured automatically and readable through an on-screen overlay.
+Each round of this takes 15–30 minutes, depends on a tethered device, requires external tools, and can't be handed off to a teammate. StreamProbe pulls the whole workflow into the app itself: the moment the SDK is attached, everything is captured automatically and readable through an on-screen overlay — on **both** platforms.
 
-ExoPlayer's built-in `EventLogger` and `DebugTextViewHelper` only surface player events — they don't touch manifest contents, CDN headers, or segment timing. StreamProbe closes that gap.
+The platforms' own debug helpers don't close this gap. ExoPlayer's `EventLogger` / `DebugTextViewHelper` and iOS's `AVPlayerItemAccessLog` / `AVPlayerItemErrorLog` only surface player-level events and aggregate playback stats — they don't touch manifest contents, CDN headers, or per-segment timing. StreamProbe sits one layer below the player events and one above the raw transport to fill it.
 
 ---
 
 ## High-Level Architecture
 
+StreamProbe is built around a single **shared diagnostics core** (Kotlin `commonMain`) that both platforms feed and read from. Each platform contributes only a thin **observation adapter** — which maps native player events into SDK models — and a **native overlay renderer**. Everything in between is shared verbatim.
+
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                      Android App (debug)                    │
-│                                                             │
-│   ┌──────────────────┐          ┌────────────────────┐      │
-│   │  Media3 /        │          │  Debug Overlay UI  │      │
-│   │  ExoPlayer       │◄─────────┤  (draggable panel) │      │
-│   └────────┬─────────┘          └──────────▲─────────┘      │
-│            │                               │                │
-│            │ attach(player)                │ reads          │
-│            ▼                               │                │
-│   ┌─────────────────────────────────────┐  │                │
-│   │         StreamProbe Core            │──┘                │
-│   │                                     │                   │
-│   │  ┌──────────────────────────────┐   │                   │
-│   │  │  AnalyticsListener (Media3)  │   │                   │
-│   │  │  onTracksChanged             │   │                   │
-│   │  │  onLoadCompleted             │   │                   │
-│   │  │  onVideoInputFormatChanged   │   │                   │
-│   │  │  onDownstreamFormatChanged   │   │                   │
-│   │  └──────────────┬───────────────┘   │                   │
-│   └─────────────────┼─────────────────  ┘                   │
-│                     │                                       │
-│                     ▼                                       │
-│       track snapshot · segment metrics · switch events      │
-└─────────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-                   HLS / DASH origin
-                        + CDN
+        Android (debug)                            iOS (debug)
+┌────────────────────────────┐          ┌────────────────────────────┐
+│  Media3 / ExoPlayer        │          │  AVFoundation / AVPlayer    │
+│  AnalyticsListener         │          │  AVPlayerProbe (Swift):     │
+│  (PlayerInterceptor):      │          │  access/error-log + KVO +   │
+│  maps events → SDK models  │          │  AVAssetVariant discovery   │
+└──────────────┬─────────────┘          └──────────────┬─────────────┘
+               │  diagnostics                          │  diagnostics
+               └──────────────────┬───────────────────┘  (via Core sink)
+                                  ▼
+   ┌──────────────────────────────────────────────────────────┐
+   │           StreamProbe shared core  (commonMain)            │
+   │                                                            │
+   │   SessionStore      — in-memory StateFlow session store    │
+   │   OverlayPresenter  → StateFlow<OverlayViewState>          │
+   │   models · formatters · parsers · timing registries        │
+   └────────────────────────────┬───────────────────────────────┘
+                                │  view state (reads)
+               ┌────────────────┴───────────────────┐
+               ▼                                     ▼
+   ┌────────────────────────┐            ┌────────────────────────┐
+   │  Debug Overlay — Android│            │  Debug Overlay — iOS    │
+   │  Views (addContentView) │            │  UIKit (own UIWindow)   │
+   └────────────────────────┘            └────────────────────────┘
+                                │
+                                ▼
+                       HLS / DASH origin + CDN
 ```
 
-A single `AnalyticsListener` wired to the player feeds an in-memory session store that the overlay reads from:
+### Shared core
+
+A single in-memory `SessionStore` (`StateFlow`-based) holds the captured session; `OverlayPresenter` projects it into a render-ready `OverlayViewState`. Both live in `commonMain` and are **identical across platforms** — only the adapter that fills the store and the renderer that draws the overlay differ. StreamProbe is distributed as a standard dependency; host apps guard `attach()` / `show()` behind a debug flag (`BuildConfig.DEBUG` on Android, `#if DEBUG` on iOS) for zero overhead in release builds.
+
+### Android adapter
+
+A single Media3 `AnalyticsListener` (`PlayerInterceptor`) wired to the player feeds the shared store:
 
 - **Track snapshot** — built from `player.currentTracks` on `onTracksChanged`; all video variants, audio renditions, and subtitle tracks are enumerated into a protocol-agnostic `TracksSnapshot` (works identically for HLS and DASH). Each track carries an `isSelected` flag that drives the active-dot indicator in the overlay without secondary comparison.
 - **Segment metrics and CDN headers** — captured on `onLoadCompleted`; per-segment download duration, size, throughput, and HTTP response headers (including cache hit/miss status) are stored for the session.
 - **Track switch events** — `VideoSwitch` events are emitted from `onVideoInputFormatChanged` (the decoder-level format change is the authoritative signal); audio and subtitle switch events are emitted from `onDownstreamFormatChanged`. Every video quality change, audio rendition switch, and subtitle selection (including disable) is recorded as a `TrackSwitchEvent` (`VideoSwitch` / `AudioSwitch` / `SubtitleSwitch`) with the previous/new track, buffer state at switch time, and the reason Media3 reports (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`). Events are kept in a capped chronological list and displayed in the overlay's Switches tab.
 
-StreamProbe is distributed as a standard `implementation` dependency. Host apps guard the `attach()` calls behind `BuildConfig.DEBUG` to ensure zero runtime overhead in release builds.
+### iOS adapter
+
+On iOS the adapter is a native **Swift `AVPlayerProbe`** that observes AVFoundation — `AVPlayerItem` access/error-log notifications, KVO, and `AVAssetVariant` discovery — extracts primitive fields, and writes them into the shared store through the Core's pure mappers and a narrow write sink. iOS ships as a **two-layer package**: a Kotlin **`StreamProbeCore`** binary (the shared core, compiled to a static XCFramework) plus the Swift **`StreamProbe`** layer that owns all AVFoundation I/O and renders the same overlay in UIKit. [SKIE](https://skie.touchlab.co/) bridges the Kotlin `StateFlow`/sealed types to idiomatic Swift `AsyncSequence`/enums.
+
+```text
+iOS data flow
+  AVPlayer ─ NSNotificationCenter / KVO / AVAssetVariant   (Swift: AVPlayerProbe)
+     → extract primitive fields (Swift)
+     → StreamProbeCore pure mappers + write sink (Kotlin)  → SessionStore
+     → OverlayPresenter (Kotlin)                           → StateFlow<OverlayViewState>
+     ─ (SKIE AsyncSequence) ─→ OverlayHostViewController (Swift / UIKit)
+     → StreamProbeOverlayWindow (separate UIWindow at .alert+1)
+```
+
+Consumers `import StreamProbe` and get the Swift entry point plus (via `@_exported`) the shared Core types. The overlay ships **inside the package**, so iOS consumers get the full draggable panel out of the box — at parity with Android. Because AVFoundation exposes a coarser surface than Media3, a few features differ on iOS; see [Known Limitations](#known-limitations).
 
 ---
 
@@ -87,15 +114,35 @@ dependencies {
 }
 ```
 
+### iOS (Swift Package Manager)
+
+Add StreamProbe via Xcode's **File ▸ Add Package Dependencies…** or in your `Package.swift`:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/oguzhaneksi/StreamProbe.git", from: "0.1.0")
+],
+targets: [
+    .target(
+        name: "YourApp",
+        dependencies: [.product(name: "StreamProbe", package: "StreamProbe")]
+    )
+]
+```
+
+Then `import StreamProbe` — you get the Swift entry point plus (via `@_exported`) the Core types. iOS is versioned independently of the Android (Maven Central) release.
+
 *Note: Even though it is an `implementation` dependency, we recommend gating the SDK activation behind debug checks in the usage step to ensure it remains a development-only tool without compilation errors in release builds.*
 
 ---
 
 ## Usage
 
+### Android
+
 Integrating StreamProbe into your existing Media3/ExoPlayer setup requires only a few lines of code.
 
-### 1. Initialize and Attach to the Player
+#### 1. Initialize and Attach to the Player
 
 Create an instance of `StreamProbe` and attach it right after building your player:
 
@@ -110,7 +157,7 @@ if (BuildConfig.DEBUG) {
 }
 ```
 
-### 1b. Enable TTFB Measurement (Optional)
+#### 1b. Enable TTFB Measurement (Optional)
 
 To capture per-segment TTFB estimates in the Segments tab, wrap your `DataSource.Factory` before passing it to `DefaultMediaSourceFactory`. This must be the outermost wrapper:
 
@@ -125,7 +172,7 @@ if (BuildConfig.DEBUG) {
 
 Gate this behind `BuildConfig.DEBUG` in release-bound hosts.
 
-### 2. Show the Overlay in your Activity
+#### 2. Show the Overlay in your Activity
 
 In your Activity's `onCreate()`, call `show(activity)` to attach the draggable debug overlay to the view hierarchy. `show()` requires a `ComponentActivity` (which covers `AppCompatActivity` and Jetpack Compose's `ComponentActivity`):
 
@@ -145,7 +192,7 @@ class MainActivity : ComponentActivity() {
 ```
 *Note: The overlay is lifecycle-aware and will automatically clean itself up when the Activity is destroyed. You don't need any special system overlay permissions; it runs entirely within your app's window.*
 
-### 3. Cleanup
+#### 3. Cleanup
 
 When your player is released, don't forget to detach the probe to avoid memory leaks:
 
@@ -156,9 +203,50 @@ if (BuildConfig.DEBUG) {
 player.release()
 ```
 
+### iOS
+
+The iOS API mirrors Android. Create a `StreamProbe`, attach it to your `AVPlayer`, install the built-in overlay window, and detach when you tear the player down. Gate everything behind `#if DEBUG`.
+
+```swift
+import StreamProbe
+import AVFoundation
+
+final class PlayerViewController: UIViewController {
+    private let probe = StreamProbe()
+    private var overlayWindow: UIWindow?   // must be retained
+    private var player: AVPlayer!
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        player = AVPlayer(url: streamURL)
+
+        #if DEBUG
+        probe.attach(player: player)   // starts AVFoundation observation
+        probe.show()                   // starts live overlay updates
+        if let scene = view.window?.windowScene {
+            // Retain the returned window — a detached UIWindow with no strong
+            // reference is silently deallocated.
+            overlayWindow = probe.makeOverlayWindow(windowScene: scene)
+        }
+        #endif
+    }
+
+    deinit {
+        #if DEBUG
+        probe.detach()                 // stops observation, clears the session
+        overlayWindow = nil
+        #endif
+    }
+}
+```
+
+`show()` / `hide()` toggle the live data feed; the overlay window's `isHidden` controls UI visibility independently. To drive a custom renderer instead of the built-in window, observe `probe.overlayPresenter.viewState` (a SKIE `AsyncSequence`) directly. Call all methods from the main thread.
+
 ---
 
 ## Debug Overlay Details
+
+The overlay is rendered natively on each platform (Android Views, iOS UIKit) but driven by the same shared `OverlayPresenter`, so layout and behaviour are at parity. The sections below describe the full feature set; see [Known Limitations](#known-limitations) for the iOS-specific deltas (aggregate segment metrics, no per-segment CDN headers/TTFB, and DRM not yet supported on iOS).
 
 Once attached, the StreamProbe overlay appears as a draggable panel. It displays the **currently active video track**, **active audio track**, **active subtitle track**, **DRM status** (scheme · state · license latency, hidden for clear streams), the **latest segment latency**, and the **CDN Cache state** (Hit/Miss) at the top.
 
@@ -232,15 +320,34 @@ Coarse milestones. Each will be broken down into a TODO checklist as work begins
 - **M7 — Audio & Subtitle Tracks** ✅: Audio/subtitle rendition enumeration (HLS muxed sources included) + active audio/subtitle overlay; ABR switch events expanded to sealed `TrackSwitchEvent` covering video, audio and subtitle switches.
 - **M8 — DRM Monitoring** ✅: DRM session lifecycle tracking (Widevine, PlayReady, ClearKey) via a dedicated `DrmSessionTracker` analytics listener. Captures session acquire/release events, license key load latency, and DRM manager errors. A live **DRM** summary row appears in the overlay header; a **DRM** chip reveals a chronological DRM event timeline. DRM errors are dual-surfaced in both the DRM tab and the Errors tab.
 - **M9 — TTFB & Advanced Network Metrics (baseline)** ✅: Best-effort TTFB capture via a `DataSource.Factory` wrapper (`StreamProbe.wrapDataSourceFactory`). The `open()`-duration proxy approximates TTFB and is correlated to each media segment by request URI + byte position; shown in the Segments tab as `~NNms`. Per-phase DNS/connect/TLS breakdown and `NetworkInspector`/OkHttp/Cronet/HttpEngine adapters are deferred.
+
+- **Kotlin Multiplatform + iOS** ✅: Migrated the SDK to Kotlin Multiplatform — the pure core (`SessionStore`, models, `OverlayPresenter`, formatters, parsers, registries) moved to `commonMain` and is shared verbatim with Android. Added iOS targets and a native Swift `AVPlayer` adapter that renders the full draggable overlay in UIKit (orientation-aware layout, drag, expandable rows, auto-scroll, share — at parity with Android). iOS ships as a two-layer Swift Package: a Kotlin `StreamProbeCore` binary XCFramework + a Swift `StreamProbe` layer, bridged by SKIE, distributed via SPM (versioned independently of Android, starting at `0.1.0`). Android's published public API and Maven Central flow are unchanged.
 - **M10 — SSAI & Timeline Metadata** *(Planned)*: Listening to `onMetadata` for SCTE-35 and ID3 tags to visually distinguish Server-Side Ad Insertion (SSAI) ad breaks from main content.
 - **M11 — Advanced Network Metrics (per-phase)** *(Planned)*: True per-phase DNS/connect/TLS breakdown via a `NetworkInspector` abstraction supporting OkHttp, Cronet, and HttpEngine adapters.
+- **M12 — QoS Stall Diagnosis** *(Planned)*: Treat playback stalls as a **QoS** signal, not a QoE one — when playback rebuffers, classify the *root cause* from the delivery layer rather than just recording that a stall happened. Each stall is diagnosed as `SEGMENT_LOAD_FAILURE` (a segment/manifest fetch failed just before the stall), `BANDWIDTH_STARVATION` (measured throughput below the selected rendition bitrate), `THROUGHPUT_HEALTHY` (network fine → cause is upstream: manifest discontinuity / buffer policy), or `UNKNOWN`, and surfaced in the **Errors** view as a `STALL` entry carrying the verdict plus the throughput-vs-selected evidence. Stall detection is wired on both the Android (`STATE_BUFFERING` after `STATE_READY`, seek-suppressed) and iOS (`AVPlayerItemPlaybackStalledNotification`) players, sharing a single cross-platform classifier. Also signals segment-cardinality honestly: iOS roll-up access-log metrics are badged `AGG` to distinguish them from Android's true per-segment data.
 
 ---
 
 ## Known Limitations
 
+### General
+
 - **Multi-period DASH:** ExoPlayer merges tracks from all Periods into a single `Tracks` object. If the same representation appears in multiple Periods (e.g., around ad boundaries), it may be listed more than once. Period-aware grouping is a planned future enhancement.
 - **Audio-Only Streams:** StreamProbe currently focuses heavily on video variant and segment analysis. Audio-only HLS/DASH streams are not officially supported yet and may yield incomplete track or ABR logs.
+
+### iOS
+
+The Android implementation hooks Media3 at the analytics/HTTP layer; the iOS implementation observes AVFoundation, which exposes a coarser surface. As a result some features differ on iOS:
+
+- **Segment metrics are aggregate, not per-segment.** AVFoundation does not expose individual segment downloads. iOS derives segment metrics from `AVPlayerItem` access-log events, which are rolling roll-ups over the session. These are badged **`AGG`** in the overlay to distinguish them from Android's true per-segment data.
+- **No per-segment CDN headers or TTFB.** `AVPlayer` does not surface HTTP response headers or per-request `open()` timing, so the CDN cache hit/miss indicator and the TTFB estimate (`~NNms`) are **Android-only**.
+- **DRM monitoring is Android-only.** The DRM lifecycle timeline (Widevine / PlayReady / ClearKey) relies on Media3's `DrmSessionManager` callbacks. iOS uses **FairPlay**, which has no equivalent observation surface today — see below.
+- **No item-change tracking.** The iOS probe scopes its observers to the player's `currentItem`. `AVQueuePlayer` item transitions (advancing to the next queued item) are not yet tracked.
+- **Simulator TLS.** Live HTTPS playback fails inside the sandboxed iOS Simulator (its network daemon can't complete TLS handshakes). This is a Simulator limitation, not an SDK defect — verify live behaviour on a real device.
+
+### FairPlay DRM (iOS)
+
+FairPlay DRM monitoring on iOS is **not yet supported** and is planned for evaluation in a **future phase**. It is gated on external FairPlay license/key-server infrastructure, which is required to meaningfully observe and verify the session lifecycle. Until then, DRM diagnostics are available on Android only.
 
 ---
 
@@ -252,14 +359,21 @@ If you are using R8 in full-mode and notice issues, please open an issue with th
 
 ---
 
-## Demo App
+## Demo Apps
 
-The repository includes a demo application (`app/` module) that shows a complete, real-world integration:
+The repository includes a demo application for each platform that shows a complete, real-world integration.
+
+**Android (`app/` module):**
 - Streams are selected from a pre-populated list (HLS and DASH sources).
 - The `StreamProbe` instance lives in a `ViewModel`, with `attach()` called after the player is built and `show()` called from `Activity.onCreate()`.
 - `detach()` is called in `ViewModel.onCleared()`, ensuring the session is torn down when the player is released.
 
 Clone the repository and open it in Android Studio to run the demo directly.
+
+**iOS (`iosApp/` — SwiftUI):**
+- An HLS stream catalog with a fullscreen `AVPlayer` screen and a settings screen (overlay toggle, auto-play, loop).
+- Consumes the `StreamProbe` Swift package as a local SPM dependency and installs the overlay window via `makeOverlayWindow(windowScene:)`.
+- The Xcode project is generated by [XcodeGen](https://github.com/yonaskolb/XcodeGen). Run `./gradlew :sdk:assembleStreamProbeCoreDebugXCFramework` and regenerate the project with `iosApp/generate.sh` before opening in Xcode.
 
 ---
 

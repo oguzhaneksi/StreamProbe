@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="sdk-0.5.0">
+    <output-path>$PROJECT_DIR$/sdk/build/libs</output-path>
+    <root id="archive" name="sdk-0.5.0.jar">
+      <element id="module-output" name="StreamProbe.sdk.androidMain" />
+    </root>
+  </artifact>
+</component>
