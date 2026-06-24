@@ -10,7 +10,9 @@ import StreamProbeCore
 /// sole writer on iOS, so its local copy is authoritative.
 ///
 /// Not thread-safe: all callbacks arrive on the main queue (notification observers use `.main`; the
-/// variants-load completion hops to main). Holds the player weakly — it observes, it does not own.
+/// variants-load completion hops to main). The iOS 18 AVMetrics consumer task runs off the main thread
+/// between awaits, but all `sink` access remains pinned to `MainActor`. Holds the player weakly — it
+/// observes, it does not own.
 final class AVPlayerProbe {
     private let sink: DiagnosticsSink
     private weak var player: AVPlayer?
@@ -26,6 +28,8 @@ final class AVPlayerProbe {
     private var hasSelectedAudio = false
 
     private var epochOffsetMs: Int64 = 0
+    private var metricsTask: Task<Void, Never>?
+    private var isAVMetricsActive = false
 
     private let variantsKey = "variants"
     private let droppedFrameThreshold = 3
@@ -40,6 +44,7 @@ final class AVPlayerProbe {
         active = true
         epochOffsetMs = Int64(Date().timeIntervalSince1970 * 1000) - Int64(CACurrentMediaTime() * 1000)
         registerLogObservers()
+        startMetricsConsumer()
         guard let asset = player.currentItem?.asset as? AVURLAsset else { return }
         asset.loadValuesAsynchronously(forKeys: [variantsKey]) { [weak self] in
             DispatchQueue.main.async {
@@ -60,6 +65,9 @@ final class AVPlayerProbe {
         let center = NotificationCenter.default
         observers.forEach { center.removeObserver($0) }
         observers.removeAll()
+        metricsTask?.cancel()
+        metricsTask = nil
+        isAVMetricsActive = false
         player = nil
         finalizedAccessEntries = 0
         processedErrorEntries = 0
@@ -85,6 +93,25 @@ final class AVPlayerProbe {
             guard let self, self.active else { return }
             self.onNewAccessLogEntry(flushAll: true)
         })
+    }
+
+    private func startMetricsConsumer() {
+        guard #available(iOS 18.0, *), let item = player?.currentItem else { return }
+        isAVMetricsActive = true
+        metricsTask = Task { [weak self] in
+            do {
+                for try await event in item.metrics(forType: AVMetricHLSMediaSegmentRequestEvent.self) {
+                    await MainActor.run { [weak self] in
+                        guard let self, self.active else { return }
+                        self.sink.addSegmentMetric(metric: AVMetricsSegmentAdapter.segmentMetric(from: event, nowMs: self.nowMs()))
+                    }
+                }
+            } catch is CancellationError {
+                // Expected teardown path: detach() cancelled the task.
+            } catch {
+                // AVFoundation metrics stream error; swallowed so the debug probe never crashes the host app.
+            }
+        }
     }
 
     private func publishTracks(_ asset: AVURLAsset) {
@@ -118,13 +145,15 @@ final class AVPlayerProbe {
 
     private func processAccessEntry(_ event: AVPlayerItemAccessLogEvent) {
         let requestTimestampMs = event.playbackStartDate.map { Int64($0.timeIntervalSince1970 * 1000) } ?? nowMs()
-        sink.addSegmentMetric(metric: AVAccessLogMappersKt.accessLogSegmentMetric(
-            nowMs: requestTimestampMs,
-            uri: event.uri,
-            sizeBytes: event.numberOfBytesTransferred,
-            observedBitrate: event.observedBitrate,
-            transferDurationSeconds: event.transferDuration
-        ))
+        if !isAVMetricsActive {
+            sink.addSegmentMetric(metric: AVAccessLogMappersKt.accessLogSegmentMetric(
+                nowMs: requestTimestampMs,
+                uri: event.uri,
+                sizeBytes: event.numberOfBytesTransferred,
+                observedBitrate: event.observedBitrate,
+                transferDurationSeconds: event.transferDuration
+            ))
+        }
         emitBitrateSwitch(nowMs: requestTimestampMs, indicatedBitrate: event.indicatedBitrate)
         if event.numberOfDroppedVideoFrames >= droppedFrameThreshold {
             sink.addPlaybackError(event: AVAccessLogMappersKt.droppedFramesError(
