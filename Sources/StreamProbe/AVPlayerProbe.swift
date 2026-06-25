@@ -10,7 +10,10 @@ import StreamProbeCore
 /// sole writer on iOS, so its local copy is authoritative.
 ///
 /// Not thread-safe: all callbacks arrive on the main queue (notification observers use `.main`; the
-/// variants-load completion hops to main). Holds the player weakly — it observes, it does not own.
+/// variants-load completion hops to main). The iOS 18 AVMetrics consumer task runs off the main thread
+/// between awaits, but all `sink` access remains pinned to `MainActor`. Holds the player weakly, but on
+/// iOS 18+ the AVMetrics consumer `Task` retains the current `AVPlayerItem` until `detach()` cancels it,
+/// so the host must `detach()` before releasing the player.
 final class AVPlayerProbe {
     private let sink: DiagnosticsSink
     private weak var player: AVPlayer?
@@ -26,6 +29,7 @@ final class AVPlayerProbe {
     private var hasSelectedAudio = false
 
     private var epochOffsetMs: Int64 = 0
+    private var metricsTask: Task<Void, Never>?
 
     private let variantsKey = "variants"
     private let droppedFrameThreshold = 3
@@ -35,11 +39,15 @@ final class AVPlayerProbe {
     }
 
     func attach(player: AVPlayer) {
+        // Re-attaching the same player instance would duplicate observers and the metrics consumer; no-op.
+        // (Item swaps on the same player are not re-observed — item-change tracking is not yet supported.)
+        if active, self.player === player { return }
         detach()
         self.player = player
         active = true
         epochOffsetMs = Int64(Date().timeIntervalSince1970 * 1000) - Int64(CACurrentMediaTime() * 1000)
         registerLogObservers()
+        startMetricsConsumer()
         guard let asset = player.currentItem?.asset as? AVURLAsset else { return }
         asset.loadValuesAsynchronously(forKeys: [variantsKey]) { [weak self] in
             DispatchQueue.main.async {
@@ -60,6 +68,8 @@ final class AVPlayerProbe {
         let center = NotificationCenter.default
         observers.forEach { center.removeObserver($0) }
         observers.removeAll()
+        metricsTask?.cancel()
+        metricsTask = nil
         player = nil
         finalizedAccessEntries = 0
         processedErrorEntries = 0
@@ -85,6 +95,26 @@ final class AVPlayerProbe {
             guard let self, self.active else { return }
             self.onNewAccessLogEntry(flushAll: true)
         })
+    }
+
+    private func startMetricsConsumer() {
+        guard #available(iOS 18.0, *), let item = player?.currentItem else { return }
+        metricsTask = Task { [weak self] in
+            do {
+                for try await event in item.metrics(forType: AVMetricHLSMediaSegmentRequestEvent.self) {
+                    await MainActor.run { [weak self] in
+                        guard let self, self.active else { return }
+                        self.sink.addSegmentMetric(metric: AVMetricsSegmentAdapter.segmentMetric(from: event, nowMs: self.nowMs()))
+                    }
+                }
+            } catch is CancellationError {
+                // Expected teardown path: detach() cancelled the task.
+            } catch {
+                // AVFoundation metrics stream error; swallowed so the debug probe never crashes the host app.
+                // TODO(future release): surface/handle this instead of going silent — on iOS 18+ there is no
+                // access-log fallback for segment metrics, so a dead stream means no per-segment data at all.
+            }
+        }
     }
 
     private func publishTracks(_ asset: AVURLAsset) {
@@ -118,13 +148,18 @@ final class AVPlayerProbe {
 
     private func processAccessEntry(_ event: AVPlayerItemAccessLogEvent) {
         let requestTimestampMs = event.playbackStartDate.map { Int64($0.timeIntervalSince1970 * 1000) } ?? nowMs()
-        sink.addSegmentMetric(metric: AVAccessLogMappersKt.accessLogSegmentMetric(
-            nowMs: requestTimestampMs,
-            uri: event.uri,
-            sizeBytes: event.numberOfBytesTransferred,
-            observedBitrate: event.observedBitrate,
-            transferDurationSeconds: event.transferDuration
-        ))
+        // Segment metrics split by OS version: below iOS 18 the access log is the only source; on iOS 18+
+        // the AVMetrics consumer (startMetricsConsumer) owns per-segment metrics, so this path stays silent
+        // there. Bitrate-switch / dropped-frames / audio-refresh below still run on every OS version.
+        if #unavailable(iOS 18.0) {
+            sink.addSegmentMetric(metric: AVAccessLogMappersKt.accessLogSegmentMetric(
+                nowMs: requestTimestampMs,
+                uri: event.uri,
+                sizeBytes: event.numberOfBytesTransferred,
+                observedBitrate: event.observedBitrate,
+                transferDurationSeconds: event.transferDuration
+            ))
+        }
         emitBitrateSwitch(nowMs: requestTimestampMs, indicatedBitrate: event.indicatedBitrate)
         if event.numberOfDroppedVideoFrames >= droppedFrameThreshold {
             sink.addPlaybackError(event: AVAccessLogMappersKt.droppedFramesError(
