@@ -250,13 +250,13 @@ On iOS the player adapter is a native **Swift** layer (`AVPlayerProbe`) that obs
 |---|---|---|
 | Track enumeration (video / audio / subtitle) | ✅ `player.currentTracks` | ✅ `AVAssetVariant` + media selection |
 | Active track + switch timeline | ✅ per-format callbacks | ✅ derived from access log / variant changes |
-| Segment metrics | ✅ true per-segment (`onLoadCompleted`) | ⚠️ **aggregate** roll-ups from the access log, badged **`AGG`** |
-| CDN cache headers (hit/miss) | ✅ HTTP response headers | ❌ not exposed by `AVPlayer` |
-| TTFB estimate (`~NNms`) | ✅ `DataSource.Factory` wrapper | ❌ no per-request timing surface |
+| Segment metrics | ✅ true per-segment (`onLoadCompleted`) | ✅ **iOS 18+** true per-segment (AVMetrics); ⚠️ **aggregate** access-log roll-ups below |
+| CDN cache headers (hit/miss) | ✅ HTTP response headers | ✅ **iOS 18+** (AVMetrics transaction headers); ❌ below |
+| TTFB / network timing | ✅ `DataSource.Factory` wrapper (`~NNms` estimate) | ✅ **iOS 18+** measured (AVMetrics transaction timing); ❌ below |
 | Background error tracking | ✅ load/codec/frames/sink errors | ✅ error-log notifications |
 | DRM monitoring | ✅ Widevine / PlayReady / ClearKey | ❌ FairPlay deferred (see §6) |
 
-Aggregate segment metrics are badged `AGG` so the cardinality difference is honest in the UI rather than implied to be per-segment.
+On **iOS 18+** the per-segment surface is reached through AVFoundation's `AVMetricHLSMediaSegmentRequestEvent` stream, which carries true per-segment timing plus the final transaction's response headers — so segment metrics, CDN cache hit/miss, and measured network timing reach Android parity. On **iOS 17 and earlier** AVFoundation exposes only `AVPlayerItem` access-log roll-ups (rolling session aggregates with no headers or per-request timing); those rows are honest session aggregates rather than individual segment downloads. The iOS 18 TTFB is `isEstimated = false` (measured), so it renders without the `~` that marks Android's `open()`-duration estimate.
 
 ---
 
@@ -321,7 +321,7 @@ A no-op stub artifact may be published alongside the real SDK to simplify Option
 | **OS** | Android 6.0+ (API 23) | iOS 15.0+ |
 | **Core language** | Kotlin (shared `commonMain`) | Kotlin core (`StreamProbeCore` binary) + Swift adapter/UI |
 | **Player** | Media3 ExoPlayer | AVFoundation `AVPlayer` |
-| **HTTP stack** | OkHttp (built-in), Cronet/HttpEngine (planned) | AVFoundation-internal (not directly observable) |
+| **HTTP stack** | OkHttp (built-in), Cronet/HttpEngine (planned) | AVFoundation-internal; per-segment timing/headers observable via AVMetrics on iOS 18+, opaque below |
 | **Overlay rendering** | `Activity.addContentView()` — no `SYSTEM_ALERT_WINDOW` permission | Separate root `UIWindow` at `.alert + 1` (hit-test passthrough) |
 
 ### 4.4 Distribution
@@ -339,6 +339,10 @@ The `sdk/` module is a single KMP module (`kotlin("multiplatform")` + `com.andro
 - **`iosMain`** — iOS-only Kotlin exported to the framework: the `NSLocale`-backed `displayLanguage` actual (the only remaining Kotlin/Native cinterop), pure primitive-typed mapping helpers consumed by the Swift layer, a `ProbeCore` holder (bundles the `internal` `SessionStore`, the public `OverlayPresenter`, and the show/hide coroutine lifecycle), and a narrow `DiagnosticsSink` write interface. Because all source sets compile into one module, `iosMain` calls `SessionStore`'s `internal` writes directly and re-exposes only a narrow `public` surface.
 
 **iOS two-layer packaging.** The Kotlin core compiles to a static **`StreamProbeCore`** XCFramework (the binary SPM target). A native **Swift `StreamProbe`** layer (`Sources/StreamProbe/`) owns all AVFoundation I/O (`AVPlayerProbe`) and the overlay UI (UIKit), writes diagnostics through the Core sink, and observes `core.presenter.viewState`. [SKIE](https://skie.touchlab.co/) bridges Kotlin `StateFlow` → Swift `AsyncSequence` and sealed interfaces (`OverlayRow`, `TrackSwitchEvent`, `DrmSessionEvent`, `ViewMode`) → exhaustive Swift enums. Consumers `import StreamProbe`; the Core types are re-exported via `@_exported`. Only the AVFoundation **observation + field extraction** is Swift — the store, presenter, and mapping math stay in Kotlin.
+
+**iOS 18 AVMetrics per-segment path.** On iOS 18+, `AVPlayerProbe` starts a consumer `Task` over `item.metrics(forType: AVMetricHLSMediaSegmentRequestEvent.self)` (an `AsyncSequence`). The Swift `AVMetricsSegmentAdapter` reduces each event's `URLSessionTaskTransactionMetrics` into plain primitives — total fetch span (first transaction `fetchStart` → last `responseEnd`), summed body bytes, per-phase `Date` deltas (TTFB/DNS/connect/TLS), and the final transaction's response headers — preferring `.networkLoad` transactions and falling back to the full set for fully cache-served segments. Those primitives are handed to the common Kotlin `avMetricsSegmentMetric` mapper (`AVMetricsSegmentMapperKt`), which runs `CdnHeaderParser` and builds the same `SegmentMetric` the access-log path produces, with `networkTiming.isEstimated = false`. The mapper takes plain Kotlin parameters (no AVFoundation/AVMetrics types) so it is unit-tested hermetically (`AVMetricsSegmentMapperTest`). The consumer `Task` retains the current `AVPlayerItem` until `detach()` cancels it, and all `sink` writes hop back to `MainActor`; the host must `detach()` before releasing the player. Stream errors on the metrics sequence are swallowed so the debug probe never crashes the host (there is no access-log fallback for segment metrics on iOS 18+).
+
+**Access-log handling (pre-iOS 18 and live tails).** The access-log observer processes **bitrate switches and dropped-frame bursts immediately for every entry, including the live tail** — those fields stabilise as soon as the entry is created, so deferring them added visible overlay lag on live streams. Only **segment metrics** are deferred one entry (because AVFoundation keeps accumulating bytes/duration/observed-bitrate into the last entry), and only on iOS 17 and earlier; the deferred final entry is flushed on natural end-of-playback and on `detach()`. On iOS 18+ the access log no longer emits segment metrics at all — that path is owned by the AVMetrics consumer above.
 
 > The earlier Kotlin/Native `AVPlayerProbe` (Phase 3 feasibility proof) and the `expect/actual StreamProbe` **class** were removed in favour of this two-layer split; this also eliminated the project's only expect/actual class and dropped the Beta `-Xexpect-actual-classes` compiler flag (`displayLanguage` remains a stable `expect fun`).
 
@@ -371,4 +375,4 @@ The following are intentionally left open and will be resolved as the milestones
 - Export format for session data (JSON dump, shareable file) — planned post-M5.
 - Auto-detection heuristic for the active network stack vs. explicit adapter selection by the host app (relevant once `NetworkInspector` adapters are built).
 - **FairPlay DRM on iOS** — DRM lifecycle monitoring is Android-only today (Widevine/PlayReady/ClearKey via Media3's `DrmSessionManager`). iOS FairPlay support is planned for evaluation in a **future phase**; it is gated on external FairPlay license/key-server infrastructure needed to meaningfully observe and verify the session lifecycle. Open: which AVFoundation surface (`AVContentKeySession` delegate callbacks) yields a parity timeline, and how to test it without production key infra.
-- **iOS per-segment metrics** — whether AVFoundation can be coaxed into finer-grained-than-access-log segment timing (e.g. via a custom `AVAssetResourceLoaderDelegate`) to narrow the gap with Android's true per-segment data, or whether the `AGG` roll-up remains the honest ceiling.
+- **iOS per-segment metrics (pre-iOS 18)** — **resolved on iOS 18+** via the `AVMetricHLSMediaSegmentRequestEvent` metrics stream, which yields true per-segment timing, headers, and network phases (see §3.11, §4.5). Still open for **iOS 17 and earlier**, where no comparable surface exists: whether AVFoundation can be coaxed into finer-grained-than-access-log timing (e.g. via a custom `AVAssetResourceLoaderDelegate`), or whether the access-log roll-up remains the honest ceiling there.
