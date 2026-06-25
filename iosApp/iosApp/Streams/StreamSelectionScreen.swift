@@ -39,20 +39,28 @@ struct StreamSelectionScreen: View {
     }
 }
 
-/// One stream row: title + an HLS type badge (all entries are HLS in this demo).
+/// One stream row: title + a type badge — green "HLS" for VOD, red "● LIVE" for live.
 private struct StreamRow: View {
     let stream: Stream
     var body: some View {
         HStack {
             Text(stream.title).foregroundColor(.white).fontWeight(.medium)
             Spacer()
-            Text("HLS")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(Color(red: 0.19, green: 0.82, blue: 0.35))
-                .padding(.horizontal, 10).padding(.vertical, 4)
-                .background(Color(red: 0.19, green: 0.82, blue: 0.35).opacity(0.2))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+            if stream.isLive {
+                badge(text: "● LIVE", color: .red)
+            } else {
+                badge(text: "HLS", color: Color(red: 0.19, green: 0.82, blue: 0.35))
+            }
         }
         .padding(.vertical, 6)
+    }
+
+    private func badge(text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundColor(color)
+            .padding(.horizontal, 10).padding(.vertical, 4)
+            .background(color.opacity(0.2))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }

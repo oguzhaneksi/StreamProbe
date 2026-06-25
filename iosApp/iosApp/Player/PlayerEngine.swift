@@ -10,6 +10,9 @@ protocol PlayerEngine: AnyObject {
     var isPlayingPublisher: AnyPublisher<Bool, Never> { get }
     var isBufferingPublisher: AnyPublisher<Bool, Never> { get }
     var bufferedFractionPublisher: AnyPublisher<Double, Never> { get }
+    /// The DVR/seekable window as `start...end` (absolute presentation seconds), or `nil` when no
+    /// seekable range is available yet (VOD before ready, or live with no DVR window).
+    var seekableRangePublisher: AnyPublisher<ClosedRange<TimeInterval>?, Never> { get }
 
     /// The real AVPlayer when available (for `StreamProbe.attach(player:)`); `nil` for test doubles.
     var avPlayer: AVPlayer? { get }
@@ -41,12 +44,16 @@ final class AVPlayerEngine: PlayerEngine {
     private let isPlayingSubject = CurrentValueSubject<Bool, Never>(false)
     private let isBufferingSubject = CurrentValueSubject<Bool, Never>(false)
     private let bufferedFractionSubject = CurrentValueSubject<Double, Never>(0)
+    private let seekableRangeSubject = CurrentValueSubject<ClosedRange<TimeInterval>?, Never>(nil)
 
     var currentTimePublisher: AnyPublisher<TimeInterval, Never> { currentTimeSubject.eraseToAnyPublisher() }
     var durationPublisher: AnyPublisher<TimeInterval, Never> { durationSubject.eraseToAnyPublisher() }
     var isPlayingPublisher: AnyPublisher<Bool, Never> { isPlayingSubject.eraseToAnyPublisher() }
     var isBufferingPublisher: AnyPublisher<Bool, Never> { isBufferingSubject.eraseToAnyPublisher() }
     var bufferedFractionPublisher: AnyPublisher<Double, Never> { bufferedFractionSubject.eraseToAnyPublisher() }
+    var seekableRangePublisher: AnyPublisher<ClosedRange<TimeInterval>?, Never> {
+        seekableRangeSubject.eraseToAnyPublisher()
+    }
 
     var avPlayer: AVPlayer? { player }
 
@@ -56,6 +63,7 @@ final class AVPlayerEngine: PlayerEngine {
             guard let self else { return }
             self.currentTimeSubject.send(time.seconds.isFinite ? time.seconds : 0)
             self.updateBufferedFraction()
+            self.updateSeekableRange()
         }
 
         player.publisher(for: \.timeControlStatus)
@@ -72,6 +80,7 @@ final class AVPlayerEngine: PlayerEngine {
         itemCancellables.removeAll()
         // Reset duration immediately so the new item doesn't briefly publish the previous value.
         durationSubject.send(0)
+        seekableRangeSubject.send(nil)
 
         let item = AVPlayerItem(url: url)
 
@@ -123,6 +132,21 @@ final class AVPlayerEngine: PlayerEngine {
         // Guard NaN: indefinite ranges produce NaN here; `clampedUnit()` does not catch it.
         guard bufferedEnd.isFinite else { return }
         bufferedFractionSubject.send((bufferedEnd / item.duration.seconds).clampedUnit())
+    }
+
+    private func updateSeekableRange() {
+        guard let item = player.currentItem,
+              let range = item.seekableTimeRanges.last?.timeRangeValue else {
+            seekableRangeSubject.send(nil)
+            return
+        }
+        let start = range.start.seconds
+        let end = CMTimeRangeGetEnd(range).seconds
+        guard start.isFinite, end.isFinite, end > start else {
+            seekableRangeSubject.send(nil)
+            return
+        }
+        seekableRangeSubject.send(start...end)
     }
 }
 

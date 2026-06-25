@@ -23,6 +23,7 @@ targets:
         SWIFT_VERSION: 5.0
         IPHONEOS_DEPLOYMENT_TARGET: 15.0
         INFOPLIST_FILE: iosApp/Resources/Info.plist
+        DEVELOPMENT_TEAM: 9CL8652LHK
     dependencies:
       - package: StreamProbe
         product: StreamProbe

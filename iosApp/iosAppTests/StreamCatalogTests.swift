@@ -25,4 +25,18 @@ final class StreamCatalogTests: XCTestCase {
         let titles = demoStreams.map(\.title)
         XCTAssertEqual(titles.count, Set(titles).count, "stream titles must be unique")
     }
+
+    func test_atLeastOneLiveStream_exists() {
+        XCTAssertTrue(demoStreams.contains { $0.isLive }, "catalog must contain a live stream")
+    }
+
+    func test_vodStreams_areNotLive() {
+        let vod = demoStreams.filter { !$0.isLive }
+        XCTAssertEqual(vod.count, 5, "the 5 original VOD entries must remain non-live")
+    }
+
+    func test_allStreams_haveUniqueIds() {
+        let ids = demoStreams.map(\.id)
+        XCTAssertEqual(ids.count, Set(ids).count, "stream ids must be unique")
+    }
 }

@@ -20,7 +20,8 @@ final class AVPlayerProbe {
     private var active = false
     private var observers: [NSObjectProtocol] = []
 
-    private var finalizedAccessEntries = 0
+    private var processedEventEntries = 0
+    private var finalizedSegmentEntries = 0
     private var processedErrorEntries = 0
     private var lastIndicatedBitrate = -1.0
 
@@ -61,9 +62,10 @@ final class AVPlayerProbe {
     }
 
     func detach() {
-        // Flush finalized entries before teardown (manual-stop case; natural end is handled by the
+        // Flush pending entries before teardown (manual-stop case; natural end is handled by the
         // DidPlayToEndTime observer).
-        onNewAccessLogEntry(flushAll: true)
+        onNewAccessLogEntry()
+        flushLastSegmentEntry()
         active = false
         let center = NotificationCenter.default
         observers.forEach { center.removeObserver($0) }
@@ -71,7 +73,8 @@ final class AVPlayerProbe {
         metricsTask?.cancel()
         metricsTask = nil
         player = nil
-        finalizedAccessEntries = 0
+        processedEventEntries = 0
+        finalizedSegmentEntries = 0
         processedErrorEntries = 0
         lastIndicatedBitrate = -1.0
         currentSnapshot = nil
@@ -85,7 +88,7 @@ final class AVPlayerProbe {
         let item = player?.currentItem
         observers.append(center.addObserver(forName: .AVPlayerItemNewAccessLogEntry, object: item, queue: .main) { [weak self] _ in
             guard let self, self.active else { return }
-            self.onNewAccessLogEntry(flushAll: false)
+            self.onNewAccessLogEntry()
         })
         observers.append(center.addObserver(forName: .AVPlayerItemNewErrorLogEntry, object: item, queue: .main) { [weak self] _ in
             guard let self, self.active else { return }
@@ -93,7 +96,8 @@ final class AVPlayerProbe {
         })
         observers.append(center.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in
             guard let self, self.active else { return }
-            self.onNewAccessLogEntry(flushAll: true)
+            self.onNewAccessLogEntry()
+            self.flushLastSegmentEntry()
         })
     }
 
@@ -136,37 +140,53 @@ final class AVPlayerProbe {
         sink.updateActiveSubtitleTrack(info: subtitleTracks.first { $0.isSelected })
     }
 
-    private func onNewAccessLogEntry(flushAll: Bool) {
+    private func onNewAccessLogEntry() {
         guard let events = player?.currentItem?.accessLog()?.events else { return }
-        let finalized = flushAll ? events.count : events.count - 1
-        while finalizedAccessEntries < finalized {
-            processAccessEntry(events[finalizedAccessEntries])
-            finalizedAccessEntries += 1
+        // Bitrate switches and dropped frames: process every entry immediately, including the live tail.
+        // These fields stabilise as soon as the entry is created, so waiting adds visible overlay lag.
+        while processedEventEntries < events.count {
+            let event = events[processedEventEntries]
+            let tsMs = event.playbackStartDate.map { Int64($0.timeIntervalSince1970 * 1000) } ?? nowMs()
+            emitBitrateSwitch(nowMs: tsMs, indicatedBitrate: event.indicatedBitrate)
+            if event.numberOfDroppedVideoFrames >= droppedFrameThreshold {
+                sink.addPlaybackError(event: AVAccessLogMappersKt.droppedFramesError(
+                    nowMs: tsMs,
+                    droppedFrames: Int64(event.numberOfDroppedVideoFrames)
+                ))
+            }
+            processedEventEntries += 1
+        }
+        // Segment metrics (pre-iOS 18 only): defer the last entry because AVFoundation is still
+        // accumulating bytes, transfer duration, and observed bitrate into it. Each new entry
+        // supersedes the previous tail, making it safe to emit.
+        if #unavailable(iOS 18.0) {
+            while finalizedSegmentEntries < max(0, events.count - 1) {
+                emitSegmentMetric(events[finalizedSegmentEntries])
+                finalizedSegmentEntries += 1
+            }
         }
         if !hasSelectedAudio { refreshAudioSelection() }
     }
 
-    private func processAccessEntry(_ event: AVPlayerItemAccessLogEvent) {
-        let requestTimestampMs = event.playbackStartDate.map { Int64($0.timeIntervalSince1970 * 1000) } ?? nowMs()
-        // Segment metrics split by OS version: below iOS 18 the access log is the only source; on iOS 18+
-        // the AVMetrics consumer (startMetricsConsumer) owns per-segment metrics, so this path stays silent
-        // there. Bitrate-switch / dropped-frames / audio-refresh below still run on every OS version.
-        if #unavailable(iOS 18.0) {
-            sink.addSegmentMetric(metric: AVAccessLogMappersKt.accessLogSegmentMetric(
-                nowMs: requestTimestampMs,
-                uri: event.uri,
-                sizeBytes: event.numberOfBytesTransferred,
-                observedBitrate: event.observedBitrate,
-                transferDurationSeconds: event.transferDuration
-            ))
-        }
-        emitBitrateSwitch(nowMs: requestTimestampMs, indicatedBitrate: event.indicatedBitrate)
-        if event.numberOfDroppedVideoFrames >= droppedFrameThreshold {
-            sink.addPlaybackError(event: AVAccessLogMappersKt.droppedFramesError(
-                nowMs: requestTimestampMs,
-                droppedFrames: Int64(event.numberOfDroppedVideoFrames)
-            ))
-        }
+    // Emits the deferred last segment-metric entry. Called on natural end-of-playback and on detach
+    // so the final segment is never silently dropped.
+    private func flushLastSegmentEntry() {
+        guard #unavailable(iOS 18.0),
+              let events = player?.currentItem?.accessLog()?.events,
+              finalizedSegmentEntries < events.count else { return }
+        emitSegmentMetric(events[finalizedSegmentEntries])
+        finalizedSegmentEntries += 1
+    }
+
+    private func emitSegmentMetric(_ event: AVPlayerItemAccessLogEvent) {
+        let tsMs = event.playbackStartDate.map { Int64($0.timeIntervalSince1970 * 1000) } ?? nowMs()
+        sink.addSegmentMetric(metric: AVAccessLogMappersKt.accessLogSegmentMetric(
+            nowMs: tsMs,
+            uri: event.uri,
+            sizeBytes: event.numberOfBytesTransferred,
+            observedBitrate: event.observedBitrate,
+            transferDurationSeconds: event.transferDuration
+        ))
     }
 
     private func emitBitrateSwitch(nowMs: Int64, indicatedBitrate: Double) {
