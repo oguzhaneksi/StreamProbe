@@ -37,6 +37,15 @@ enum OverlayTheme {
     static let white40  = UIColor.white.withAlphaComponent(0.40)
 
     // ── Dot factories (mirror OverlayDrawables.kt) ────────────────
+    static func trackBadge(_ trackType: SegmentTrackType) -> UIColor {
+        switch trackType {
+        case .video:   return vidBlue
+        case .audio:   return audGreen
+        case .text:    return subPurple
+        case .unknown: return inactiveDot
+        }
+    }
+
     static func cacheDot(_ status: CacheStatus) -> UIColor {
         switch status {
         case .hit:     return activeGreen

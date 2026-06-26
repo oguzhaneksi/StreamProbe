@@ -32,6 +32,29 @@ enum OverlayFormattersSwift {
     }
 
     // ── Segment ───────────────────────────────────────────────────
+    /// Single-letter badge for a segment's track type, or nil when it should not be shown (UNKNOWN).
+    static func segmentTrackBadge(_ trackType: SegmentTrackType) -> String? {
+        switch trackType {
+        case .video: return "V"
+        case .audio: return "A"
+        case .text:  return "T"
+        case .unknown: return nil
+        }
+    }
+
+    /// Query-string-safe file extension from a segment URI, or nil when there is none.
+    /// Mirrors `OverlayFormatters.segmentExtension` in commonMain.
+    static func segmentExtension(_ uri: String) -> String? {
+        let maxExtLen = 5
+        let beforeQuery = uri.split(separator: "?", maxSplits: 1).first.map(String.init) ?? uri
+        let beforeFragment = beforeQuery.split(separator: "#", maxSplits: 1).first.map(String.init) ?? beforeQuery
+        let lastSegment = beforeFragment.split(separator: "/").last.map(String.init) ?? beforeFragment
+        guard lastSegment.contains(".") else { return nil }
+        guard let ext = lastSegment.split(separator: ".").last.map(String.init),
+              !ext.isEmpty, ext.count <= maxExtLen else { return nil }
+        return ext
+    }
+
     static func formatSegmentDetails(_ metric: SegmentMetric) -> String {
         var parts = ["Size: \(formatBytes(metric.sizeBytes))",
                      "TP: \(formatThroughput(metric.throughputBytesPerSec))"]
