@@ -7,6 +7,7 @@ import androidx.core.graphics.toColorInt
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.DrmSessionEvent
 import com.streamprobe.sdk.model.ErrorCategory
+import com.streamprobe.sdk.model.SegmentTrackType
 import kotlin.math.roundToInt
 
 /**
@@ -119,6 +120,21 @@ internal object OverlayDrawables {
         GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor("#FF453A".toColorInt())
+        }
+
+    /** Rounded color-coded pill for a segment's track-type badge (V / A / T). */
+    fun trackBadge(trackType: SegmentTrackType): GradientDrawable =
+        GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 6f
+            setColor(
+                when (trackType) {
+                    SegmentTrackType.VIDEO -> "#4FC3F7".toColorInt()
+                    SegmentTrackType.AUDIO -> "#A5D6A7".toColorInt()
+                    SegmentTrackType.TEXT -> "#CE93D8".toColorInt()
+                    SegmentTrackType.UNKNOWN -> "#555555".toColorInt()
+                },
+            )
         }
 }
 
