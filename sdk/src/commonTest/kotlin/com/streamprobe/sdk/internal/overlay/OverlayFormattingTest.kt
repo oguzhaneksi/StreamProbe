@@ -1,5 +1,6 @@
 package com.streamprobe.sdk.internal.overlay
 
+import com.streamprobe.sdk.internal.overlay.CdnFormatters
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.CacheStatus
@@ -127,26 +128,26 @@ class OverlayFormattingTest {
 
     @Test
     fun `formatCdnStatus with HIT shows indicator`() {
-        val result = OverlayFormatters.formatCdnStatus(makeCdnInfo(status = CacheStatus.HIT))
+        val result = CdnFormatters.formatCdnStatus(makeCdnInfo(status = CacheStatus.HIT))
         assertTrue(result.contains("HIT"), "Expected 'HIT' in: $result")
     }
 
     @Test
     fun `formatCdnStatus with MISS shows indicator`() {
-        val result = OverlayFormatters.formatCdnStatus(makeCdnInfo(status = CacheStatus.MISS))
+        val result = CdnFormatters.formatCdnStatus(makeCdnInfo(status = CacheStatus.MISS))
         assertTrue(result.contains("MISS"), "Expected 'MISS' in: $result")
     }
 
     @Test
     fun `formatCdnStatus with null returns placeholder`() {
-        val result = OverlayFormatters.formatCdnStatus(null)
+        val result = CdnFormatters.formatCdnStatus(null)
         assertEquals("\u2014", result)
     }
 
     @Test
     fun `formatCdnStatus with known provider prepends provider tag`() {
         val result =
-            OverlayFormatters.formatCdnStatus(
+            CdnFormatters.formatCdnStatus(
                 makeCdnInfo(status = CacheStatus.HIT, cdnProvider = CdnProvider.CLOUDFLARE),
             )
         assertTrue(result.startsWith("[CLOUDFLARE]"), "Expected '[CLOUDFLARE]' prefix in: $result")
@@ -156,7 +157,7 @@ class OverlayFormattingTest {
     @Test
     fun `formatCdnStatus with UNKNOWN provider omits provider tag`() {
         val result =
-            OverlayFormatters.formatCdnStatus(
+            CdnFormatters.formatCdnStatus(
                 makeCdnInfo(status = CacheStatus.HIT, cdnProvider = CdnProvider.UNKNOWN),
             )
         assertTrue(!result.startsWith("["), "Expected no brackets in: $result")
@@ -165,7 +166,7 @@ class OverlayFormattingTest {
     @Test
     fun `formatCdnStatus with null provider omits provider tag`() {
         val result =
-            OverlayFormatters.formatCdnStatus(
+            CdnFormatters.formatCdnStatus(
                 makeCdnInfo(status = CacheStatus.MISS, cdnProvider = null),
             )
         assertTrue(!result.startsWith("["), "Expected no brackets in: $result")
@@ -180,7 +181,7 @@ class OverlayFormattingTest {
             CdnProvider.AKAMAI to "[AKAMAI]",
         ).forEach { (provider, expectedTag) ->
             val result =
-                OverlayFormatters.formatCdnStatus(
+                CdnFormatters.formatCdnStatus(
                     makeCdnInfo(status = CacheStatus.HIT, cdnProvider = provider),
                 )
             assertTrue(result.startsWith(expectedTag), "Expected '$expectedTag' in: $result")

@@ -1,6 +1,7 @@
 package com.streamprobe.sdk.internal.presenter
 
 import com.streamprobe.sdk.internal.SessionStore
+import com.streamprobe.sdk.internal.overlay.CdnFormatters
 import com.streamprobe.sdk.internal.overlay.DrmFormatters
 import com.streamprobe.sdk.internal.overlay.OverlayFormatters
 import com.streamprobe.sdk.model.TrackListInfo
@@ -123,7 +124,7 @@ public class OverlayPresenter internal constructor(
                     activeAudioText = OverlayFormatters.formatActiveAudio(sessionStore.activeAudioTrack.value),
                     activeSubtitleText = OverlayFormatters.formatActiveSubtitle(sessionStore.activeSubtitleTrack.value),
                     latestSegmentText = OverlayFormatters.formatSegmentMetric(latestSegment),
-                    cdnStatusText = OverlayFormatters.formatCdnStatus(latestSegment?.cdnInfo),
+                    cdnStatusText = CdnFormatters.formatCdnStatus(latestSegment?.cdnInfo),
                     drmVisible = drmEvents.isNotEmpty(),
                     drmStatusText = DrmFormatters.formatDrmStatus(sessionStore.currentDrmState.value),
                 ),

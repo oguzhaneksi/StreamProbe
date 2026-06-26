@@ -33,7 +33,7 @@ complexity:
     thresholdInInterfaces: 15
     thresholdInObjects: 20
     thresholdInEnums: 15
-    excludes: ['**/androidHostTest/**', '**/commonTest/**', '**/OverlayFormatters.kt']
+    excludes: ['**/androidHostTest/**', '**/commonTest/**']
 
 coroutines:
   active: true

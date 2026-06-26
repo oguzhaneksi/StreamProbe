@@ -2,9 +2,6 @@ package com.streamprobe.sdk.internal.overlay
 
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
-import com.streamprobe.sdk.model.CacheStatus
-import com.streamprobe.sdk.model.CdnHeaderInfo
-import com.streamprobe.sdk.model.CdnProvider
 import com.streamprobe.sdk.model.ErrorCategory
 import com.streamprobe.sdk.model.NetworkTiming
 import com.streamprobe.sdk.model.PlaybackErrorEvent
@@ -60,40 +57,6 @@ internal object OverlayFormatters {
             add("TP: ${formatThroughput(metric.throughputBytesPerSec)}")
             metric.networkTiming?.let { add("TTFB: ${formatTtfb(it)}") }
         }.joinToString("  ·  ")
-
-    fun formatCdnStatus(cdnInfo: CdnHeaderInfo?): String {
-        if (cdnInfo == null) return "—"
-        val providerPrefix =
-            when (cdnInfo.cdnProvider) {
-                CdnProvider.CLOUDFLARE -> "[CLOUDFLARE]"
-                CdnProvider.CLOUDFRONT -> "[CLOUDFRONT]"
-                CdnProvider.FASTLY -> "[FASTLY]"
-                CdnProvider.AKAMAI -> "[AKAMAI]"
-                CdnProvider.UNKNOWN, null -> null
-            }
-        val indicator = formatCacheIndicator(cdnInfo.cacheStatus)
-        val headerSnippet =
-            when {
-                cdnInfo.xCache != null -> "X-Cache: ${cdnInfo.xCache}"
-                cdnInfo.cdnSpecificHeaders.isNotEmpty() -> {
-                    val (k, v) = cdnInfo.cdnSpecificHeaders.entries.first()
-                    "${k.uppercase()}: $v"
-                }
-                cdnInfo.cacheControl != null -> "Cache-Control: ${cdnInfo.cacheControl}"
-                else -> null
-            }
-        val statusPart = if (headerSnippet != null) "$indicator  ·  $headerSnippet" else indicator
-        return if (providerPrefix != null) "$providerPrefix  $statusPart" else statusPart
-    }
-
-    private fun formatCacheIndicator(status: CacheStatus): String =
-        when (status) {
-            CacheStatus.HIT -> "● HIT"
-            CacheStatus.MISS -> "○ MISS"
-            CacheStatus.STALE -> "◔ STALE"
-            CacheStatus.BYPASS -> "□ BYPASS"
-            CacheStatus.UNKNOWN -> "◌ UNKNOWN"
-        }
 
     fun formatBytes(
         value: Long,
