@@ -21,7 +21,11 @@ only `dataType` is read (to filter non-media loads).
 ## Goal
 
 Classify each captured segment as **VIDEO / AUDIO / TEXT / UNKNOWN** and surface it in
-the overlay as a compact, color-coded badge next to the segment index.
+the overlay as a compact, color-coded badge next to the segment index. Alongside the
+badge, show the segment's **file extension** (e.g. `ts`, `aac`, `m4s`) derived from the
+URI — unlike `trackType`, the extension is available on **both platforms** because it
+comes from `SegmentMetric.uri`, which Android and iOS both populate. It therefore gives
+iOS a useful hint even while iOS `trackType` stays `UNKNOWN`.
 
 ## Non-goals (YAGNI)
 
@@ -84,7 +88,7 @@ No change. Neither `accessLogSegmentMetric` nor `avMetricsSegmentMetric` sets
 No change. `OverlayViewState.segments` already carries the raw
 `List<SegmentMetric>`, so `trackType` flows through automatically.
 
-### 5. Badge label (`commonMain` formatter — shared, testable)
+### 5. Badge label + extension (`commonMain` formatters — shared, testable)
 
 ```kotlin
 fun segmentTrackBadge(trackType: SegmentTrackType): String? = when (trackType) {
@@ -93,11 +97,24 @@ fun segmentTrackBadge(trackType: SegmentTrackType): String? = when (trackType) {
     SegmentTrackType.TEXT  -> "T"
     SegmentTrackType.UNKNOWN -> null
 }
+
+// Query-string-safe extension from the URI; null when there is no real extension.
+fun segmentExtension(uri: String): String? {
+    val path = uri.substringBefore('?').substringBefore('#').substringAfterLast('/')
+    if (!path.contains('.')) return null
+    val ext = path.substringAfterLast('.')
+    return ext.takeIf { it.isNotBlank() && it.length <= MAX_EXT_LEN }
+}
 ```
 
-Added to `OverlayFormatters`. Both platforms call it so the label is consistent and
-locked by `commonTest`. Color mapping stays platform-side (no shared color type in
-common).
+Both added to `OverlayFormatters` so they are consistent across platforms and locked by
+`commonTest`. `segmentExtension` strips query (`?`) and fragment (`#`) before reading
+the last path segment, returns `null` when there is no `.` (extensionless / byte-range
+URIs), and guards against absurdly long "extensions" via a small `MAX_EXT_LEN` constant
+(e.g. 5) so a stray dot in a path doesn't yield a giant label. Color mapping for the badge stays
+platform-side (no shared color type in common); the extension renders as neutral
+secondary text on both platforms. The extension is platform-independent — it works on
+iOS too, since it derives only from the captured `uri`.
 
 ### 6. Android UI (`SegmentTimelineItemView`)
 
@@ -105,17 +122,23 @@ common).
 - New color-coded pill drawable in `OverlayDrawables` (distinct colors for V/A/T).
 - `bind()` shows the badge using `OverlayFormatters.segmentTrackBadge(metric.trackType)`;
   hidden (`GONE`) when the label is `null` (UNKNOWN).
+- Next to the badge, a neutral/dimmed extension label from
+  `OverlayFormatters.segmentExtension(metric.uri)`; hidden (`GONE`) when `null`.
 
 ### 7. iOS UI (Swift segment cell)
 
 - Add the equivalent badge component next to the index in the segment cell.
-- Driven by the same `segmentTrackBadge` value; hidden for `UNKNOWN`, so iOS visuals
-  are unchanged until iOS gains real track types.
+- Driven by the same `segmentTrackBadge` value; hidden for `UNKNOWN`, so the badge stays
+  invisible until iOS gains real track types.
+- The dimmed extension label (same `segmentExtension`) **does** render on iOS whenever
+  the URI carries one, so iOS still shows `ts`/`aac`/`m4s` next to the (hidden) badge.
 
 ### 8. Tests
 
 - `commonTest`: `segmentTrackBadge` mapping for all four enum values; `SegmentMetric`
-  default `trackType == UNKNOWN`.
+  default `trackType == UNKNOWN`. `segmentExtension` cases: plain (`…/seg3.ts` → `ts`),
+  query string (`…/seg3.ts?token=x` → `ts`), fragment, extensionless (`…/segment` →
+  `null`), and `(unknown)` URI → `null`.
 - `androidHostTest` (`PlayerInterceptorTest`): video/audio/text loads map to the
   correct `trackType` on the produced `SegmentMetric`; the `segmentTrackTypeOf` helper
   for unknown/default ints → `UNKNOWN`.
@@ -127,4 +150,8 @@ ExoPlayer onLoadCompleted(mediaLoadData.trackType)
   → segmentTrackTypeOf(int) → SegmentMetric.trackType
   → SessionStore → OverlayPresenter (raw segments) → OverlayViewState.segments
   → SegmentTimelineItemView badge  (label via OverlayFormatters.segmentTrackBadge)
+                          + extension (via OverlayFormatters.segmentExtension(uri))
 ```
+
+The extension path needs no new model field — it is derived on render from the
+existing `SegmentMetric.uri`, identically on Android and iOS.
