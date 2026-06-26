@@ -1,6 +1,5 @@
 package com.streamprobe.sdk.internal.overlay
 
-import com.streamprobe.sdk.internal.overlay.CdnFormatters
 import com.streamprobe.sdk.model.ActiveTrackInfo
 import com.streamprobe.sdk.model.AudioTrackInfo
 import com.streamprobe.sdk.model.CacheStatus

@@ -15,7 +15,7 @@ import com.streamprobe.sdk.model.SegmentMetric
  * Programmatic view for a single row in the segment timeline list.
  *
  * Two-row layout:
- * - Row 1: segment index, download duration, cache status dot
+ * - Row 1: segment index, track-type badge, file extension, download duration, cache status dot
  * - Row 2 (dimmed): size, throughput, TTFB (when available)
  */
 internal class SegmentTimelineItemView(

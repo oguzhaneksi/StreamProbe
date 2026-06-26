@@ -18,8 +18,9 @@ import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
 /**
- * Pure formatting functions for segment and CDN data displayed in the overlay.
+ * Pure formatting functions for segment and track data displayed in the overlay.
  * These are extracted from [OverlayManager] so they can be unit-tested without Robolectric.
+ * CDN/cache-status formatting lives in [CdnFormatters].
  */
 internal object OverlayFormatters {
     /** Upper bound on a plausible file extension length; longer strings are treated as "no extension". */

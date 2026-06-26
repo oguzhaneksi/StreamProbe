@@ -43,6 +43,8 @@ enum OverlayFormattersSwift {
     }
 
     /// Query-string-safe file extension from a segment URI, or nil when there is none.
+    /// Strips `?query` and `#fragment`, reads the last path segment, and rejects extensions
+    /// longer than `maxExtLen` or empty (e.g. a trailing dot yields nil, matching Kotlin).
     /// Mirrors `OverlayFormatters.segmentExtension` in commonMain.
     static func segmentExtension(_ uri: String) -> String? {
         let maxExtLen = 5
@@ -50,7 +52,9 @@ enum OverlayFormattersSwift {
         let beforeFragment = beforeQuery.split(separator: "#", maxSplits: 1).first.map(String.init) ?? beforeQuery
         let lastSegment = beforeFragment.split(separator: "/").last.map(String.init) ?? beforeFragment
         guard lastSegment.contains(".") else { return nil }
-        guard let ext = lastSegment.split(separator: ".").last.map(String.init),
+        // Use omittingEmptySubsequences: false so a trailing dot ("file.") produces an empty
+        // last element, which the !ext.isEmpty guard then rejects — matching Kotlin's behaviour.
+        guard let ext = lastSegment.split(separator: ".", omittingEmptySubsequences: false).last.map(String.init),
               !ext.isEmpty, ext.count <= maxExtLen else { return nil }
         return ext
     }
