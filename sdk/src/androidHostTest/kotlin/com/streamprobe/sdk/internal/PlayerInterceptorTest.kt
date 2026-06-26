@@ -13,6 +13,7 @@ import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
 import com.streamprobe.sdk.model.CacheStatus
+import com.streamprobe.sdk.model.SegmentTrackType
 import com.streamprobe.sdk.model.SwitchReason
 import com.streamprobe.sdk.model.TrackSwitchEvent
 import kotlinx.coroutines.flow.first
@@ -572,6 +573,72 @@ class PlayerInterceptorTest {
             val events = sessionStore.trackSwitchEvents.first()
             assertEquals(1, events.size)
             assertEquals(1080, (events[0] as TrackSwitchEvent.VideoSwitch).newTrack.height)
+        }
+
+    // ── SegmentTrackType mapping tests ────────────────────────────────────────
+
+    @Test
+    fun `segmentTrackTypeOf maps media3 ints to enum`() {
+        assertEquals(SegmentTrackType.VIDEO, segmentTrackTypeOf(C.TRACK_TYPE_VIDEO))
+        assertEquals(SegmentTrackType.AUDIO, segmentTrackTypeOf(C.TRACK_TYPE_AUDIO))
+        assertEquals(SegmentTrackType.TEXT, segmentTrackTypeOf(C.TRACK_TYPE_TEXT))
+        assertEquals(SegmentTrackType.UNKNOWN, segmentTrackTypeOf(C.TRACK_TYPE_UNKNOWN))
+        assertEquals(SegmentTrackType.UNKNOWN, segmentTrackTypeOf(C.TRACK_TYPE_METADATA))
+    }
+
+    @Test
+    fun `onLoadCompleted sets video track type on segment metric`() =
+        runTest {
+            val loadEventInfo = makeLoadEventInfo()
+            val mediaLoadData =
+                MediaLoadData(
+                    C.DATA_TYPE_MEDIA,
+                    C.TRACK_TYPE_VIDEO,
+                    null,
+                    C.SELECTION_REASON_UNKNOWN,
+                    null,
+                    C.TIME_UNSET,
+                    C.TIME_UNSET,
+                )
+
+            interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+            val metric = sessionStore.segmentMetrics.first().first()
+            assertEquals(SegmentTrackType.VIDEO, metric.trackType)
+        }
+
+    @Test
+    fun `onLoadCompleted sets audio track type on segment metric`() =
+        runTest {
+            val loadEventInfo = makeLoadEventInfo()
+            val mediaLoadData =
+                MediaLoadData(
+                    C.DATA_TYPE_MEDIA,
+                    C.TRACK_TYPE_AUDIO,
+                    null,
+                    C.SELECTION_REASON_UNKNOWN,
+                    null,
+                    C.TIME_UNSET,
+                    C.TIME_UNSET,
+                )
+
+            interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+            val metric = sessionStore.segmentMetrics.first().first()
+            assertEquals(SegmentTrackType.AUDIO, metric.trackType)
+        }
+
+    @Test
+    fun `onLoadCompleted defaults to UNKNOWN for single-arg MediaLoadData`() =
+        runTest {
+            val loadEventInfo = makeLoadEventInfo()
+            // MediaLoadData(int) sets trackType = TRACK_TYPE_UNKNOWN internally.
+            val mediaLoadData = MediaLoadData(C.DATA_TYPE_MEDIA)
+
+            interceptor.onLoadCompleted(makeEventTime(), loadEventInfo, mediaLoadData)
+
+            val metric = sessionStore.segmentMetrics.first().first()
+            assertEquals(SegmentTrackType.UNKNOWN, metric.trackType)
         }
 
     private fun makeSingleVideoTrackGroup(format: Format): Tracks {
