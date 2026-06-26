@@ -9,12 +9,14 @@ import com.streamprobe.sdk.model.ErrorCategory
 import com.streamprobe.sdk.model.NetworkTiming
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
+import com.streamprobe.sdk.model.SegmentTrackType
 import com.streamprobe.sdk.model.SubtitleKind
 import com.streamprobe.sdk.model.SubtitleTrackInfo
 import com.streamprobe.sdk.model.SwitchReason
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class OverlayFormattingTest {
@@ -461,5 +463,43 @@ class OverlayFormattingTest {
                 makeSubtitle(language = null, label = null, mimeType = null),
             )
         assertEquals("Unknown", result)
+    }
+
+    @Test
+    fun `segmentTrackBadge maps each track type`() {
+        assertEquals("V", OverlayFormatters.segmentTrackBadge(SegmentTrackType.VIDEO))
+        assertEquals("A", OverlayFormatters.segmentTrackBadge(SegmentTrackType.AUDIO))
+        assertEquals("T", OverlayFormatters.segmentTrackBadge(SegmentTrackType.TEXT))
+        assertNull(OverlayFormatters.segmentTrackBadge(SegmentTrackType.UNKNOWN))
+    }
+
+    @Test
+    fun `segmentExtension reads a plain uri`() {
+        assertEquals("ts", OverlayFormatters.segmentExtension("https://host/path/seg3.ts"))
+    }
+
+    @Test
+    fun `segmentExtension strips query string`() {
+        assertEquals("ts", OverlayFormatters.segmentExtension("https://host/path/seg3.ts?token=abc"))
+    }
+
+    @Test
+    fun `segmentExtension strips fragment`() {
+        assertEquals("m4s", OverlayFormatters.segmentExtension("https://host/path/seg3.m4s#frag"))
+    }
+
+    @Test
+    fun `segmentExtension returns null for extensionless path`() {
+        assertNull(OverlayFormatters.segmentExtension("https://host/path/segment"))
+    }
+
+    @Test
+    fun `segmentExtension returns null for unknown uri`() {
+        assertNull(OverlayFormatters.segmentExtension("(unknown)"))
+    }
+
+    @Test
+    fun `segmentExtension returns null for overlong extension`() {
+        assertNull(OverlayFormatters.segmentExtension("https://host/path/file.megabyte"))
     }
 }

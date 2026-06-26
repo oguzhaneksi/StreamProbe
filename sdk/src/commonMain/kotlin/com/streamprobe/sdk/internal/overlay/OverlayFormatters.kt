@@ -9,6 +9,7 @@ import com.streamprobe.sdk.model.ErrorCategory
 import com.streamprobe.sdk.model.NetworkTiming
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
+import com.streamprobe.sdk.model.SegmentTrackType
 import com.streamprobe.sdk.model.SubtitleKind
 import com.streamprobe.sdk.model.SubtitleTrackInfo
 import com.streamprobe.sdk.model.SwitchReason
@@ -24,6 +25,30 @@ import kotlin.time.Instant
  * These are extracted from [OverlayManager] so they can be unit-tested without Robolectric.
  */
 internal object OverlayFormatters {
+    /** Upper bound on a plausible file extension length; longer strings are treated as "no extension". */
+    private const val MAX_EXT_LEN = 5
+
+    /** Single-letter badge for a segment's track type, or null when it should not be shown (UNKNOWN). */
+    fun segmentTrackBadge(trackType: SegmentTrackType): String? =
+        when (trackType) {
+            SegmentTrackType.VIDEO -> "V"
+            SegmentTrackType.AUDIO -> "A"
+            SegmentTrackType.TEXT -> "T"
+            SegmentTrackType.UNKNOWN -> null
+        }
+
+    /**
+     * Query-string-safe file extension from a segment URI, or null when there is none.
+     * Strips `?query` and `#fragment`, reads the last path segment, and rejects
+     * extensions longer than [MAX_EXT_LEN] so a stray dot in a path can't yield a giant label.
+     */
+    fun segmentExtension(uri: String): String? {
+        val path = uri.substringBefore('?').substringBefore('#').substringAfterLast('/')
+        if (!path.contains('.')) return null
+        val ext = path.substringAfterLast('.')
+        return ext.takeIf { it.isNotBlank() && it.length <= MAX_EXT_LEN }
+    }
+
     fun formatSegmentMetric(metric: SegmentMetric?): String {
         if (metric == null) return "—"
         return "DL: ${metric.totalDurationMs}ms\n${formatSegmentDetails(metric)}"
