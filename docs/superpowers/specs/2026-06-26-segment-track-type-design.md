@@ -30,9 +30,12 @@ iOS a useful hint even while iOS `trackType` stays `UNKNOWN`.
 ## Non-goals (YAGNI)
 
 - Filtering the timeline by track type (no filter UI / presenter filter state).
-- Adding track type to the header "latest segment" text.
 - iOS heuristic inference from URI extension (`.aac`/`.ts`/`.vtt`) — unreliable for
   fMP4/CMAF; explicitly out of scope.
+
+> **Follow-up (2026-06-27):** the original "don't touch the latest-segment text" non-goal
+> was reversed on review — the track type + extension now appear there too (see §9). The
+> extension label's contrast was also raised from 40% to 70% white (see §6/§7).
 
 ## Platform asymmetry (key decision)
 
@@ -155,3 +158,24 @@ ExoPlayer onLoadCompleted(mediaLoadData.trackType)
 
 The extension path needs no new model field — it is derived on render from the
 existing `SegmentMetric.uri`, identically on Android and iOS.
+
+### 9. Latest-segment stat line (`commonMain` — shared, testable)
+
+`OverlayFormatters.formatSegmentMetric` (the source of `OverlayViewState.latestSegmentText`,
+rendered by Android `latestSegmentView` and iOS `StatsView`) now appends the track type and
+extension to its first line, so the single highlighted "latest" segment shows the same
+classification as the timeline rows. Because this is a plain (uncolored) `TextView`/`UILabel`,
+the **full word** (`VIDEO`/`AUDIO`/`TEXT`) is used rather than the color-dependent single-letter
+`segmentTrackBadge` (the mapping is inlined in `formatSegmentMetric` to keep `OverlayFormatters`
+under the detekt `TooManyFunctions` limit). Both the word and the extension are omitted when
+absent (UNKNOWN track type / extensionless URI), so the line degrades to `DL: 200ms` exactly as
+before:
+
+```
+DL: 320ms  ·  VIDEO  ·  ts     (Android: real track type + extension)
+DL: 110ms  ·  aac              (iOS: UNKNOWN track type, extension only)
+DL: 320ms                      (no track type, no extension)
+```
+
+One shared formatter change covers both platforms — iOS needs no Swift change because it renders
+the bridged `latestSegmentText` directly. Locked by `OverlayFormattingTest` (`commonTest`).

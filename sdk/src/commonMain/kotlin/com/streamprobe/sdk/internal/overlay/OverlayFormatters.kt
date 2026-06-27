@@ -49,7 +49,22 @@ internal object OverlayFormatters {
 
     fun formatSegmentMetric(metric: SegmentMetric?): String {
         if (metric == null) return "—"
-        return "DL: ${metric.totalDurationMs}ms\n${formatSegmentDetails(metric)}"
+        // Full track-type word (the single-letter [segmentTrackBadge] relies on color to be legible,
+        // but this stat line is plain uncolored text); null for UNKNOWN so the tag is omitted.
+        val trackLabel =
+            when (metric.trackType) {
+                SegmentTrackType.VIDEO -> "VIDEO"
+                SegmentTrackType.AUDIO -> "AUDIO"
+                SegmentTrackType.TEXT -> "TEXT"
+                SegmentTrackType.UNKNOWN -> null
+            }
+        val tags = listOfNotNull(trackLabel, segmentExtension(metric.uri))
+        val firstLine =
+            buildString {
+                append("DL: ${metric.totalDurationMs}ms")
+                if (tags.isNotEmpty()) append("  ·  ${tags.joinToString("  ·  ")}")
+            }
+        return "$firstLine\n${formatSegmentDetails(metric)}"
     }
 
     fun formatSegmentDetails(metric: SegmentMetric): String =

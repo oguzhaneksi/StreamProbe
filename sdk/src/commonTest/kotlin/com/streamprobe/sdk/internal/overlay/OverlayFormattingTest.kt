@@ -41,14 +41,17 @@ class OverlayFormattingTest {
         throughputBytesPerSec: Long = 2_500_000L,
         cdnInfo: CdnHeaderInfo = makeCdnInfo(),
         networkTiming: NetworkTiming? = null,
+        uri: String = "https://example.com/seg.ts",
+        trackType: SegmentTrackType = SegmentTrackType.UNKNOWN,
     ) = SegmentMetric(
         requestTimestampMs = 1_000L,
         totalDurationMs = totalDurationMs,
         sizeBytes = sizeBytes,
         throughputBytesPerSec = throughputBytesPerSec,
-        uri = "https://example.com/seg.ts",
+        uri = uri,
         cdnInfo = cdnInfo,
         networkTiming = networkTiming,
+        trackType = trackType,
     )
 
     @Test
@@ -471,6 +474,33 @@ class OverlayFormattingTest {
         assertEquals("A", OverlayFormatters.segmentTrackBadge(SegmentTrackType.AUDIO))
         assertEquals("T", OverlayFormatters.segmentTrackBadge(SegmentTrackType.TEXT))
         assertNull(OverlayFormatters.segmentTrackBadge(SegmentTrackType.UNKNOWN))
+    }
+
+    @Test
+    fun `formatSegmentMetric first line includes track label and extension`() {
+        val result =
+            OverlayFormatters.formatSegmentMetric(
+                makeMetric(uri = "https://host/path/seg7.aac", trackType = SegmentTrackType.AUDIO),
+            )
+        assertEquals("DL: 200ms  ·  AUDIO  ·  aac", result.lines().first())
+    }
+
+    @Test
+    fun `formatSegmentMetric first line omits track label for UNKNOWN but keeps extension`() {
+        val result =
+            OverlayFormatters.formatSegmentMetric(
+                makeMetric(uri = "https://host/path/seg7.ts", trackType = SegmentTrackType.UNKNOWN),
+            )
+        assertEquals("DL: 200ms  ·  ts", result.lines().first())
+    }
+
+    @Test
+    fun `formatSegmentMetric first line is plain DL when no track type or extension`() {
+        val result =
+            OverlayFormatters.formatSegmentMetric(
+                makeMetric(uri = "https://host/path/segment", trackType = SegmentTrackType.UNKNOWN),
+            )
+        assertEquals("DL: 200ms", result.lines().first())
     }
 
     @Test

@@ -32,6 +32,7 @@ enum OverlayTheme {
     // ── Text alphas (white) ───────────────────────────────────────
     static let white100 = UIColor.white
     static let white80  = UIColor.white.withAlphaComponent(0.80)
+    static let white70  = UIColor.white.withAlphaComponent(0.70)
     static let white60  = UIColor.white.withAlphaComponent(0.60)
     static let white50  = UIColor.white.withAlphaComponent(0.50)
     static let white40  = UIColor.white.withAlphaComponent(0.40)

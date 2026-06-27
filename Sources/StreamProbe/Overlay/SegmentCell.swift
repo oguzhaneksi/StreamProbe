@@ -32,7 +32,7 @@ final class SegmentCell: UITableViewCell {
         trackBadgeLabel.heightAnchor.constraint(equalToConstant: 14).isActive = true
 
         extensionLabel.font = .systemFont(ofSize: 9)
-        extensionLabel.textColor = OverlayTheme.white40
+        extensionLabel.textColor = OverlayTheme.white70
         extensionLabel.setContentHuggingPriority(.required, for: .horizontal)
 
         durationLabel.font = .systemFont(ofSize: 12, weight: .medium)

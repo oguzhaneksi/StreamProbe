@@ -70,7 +70,7 @@ internal class SegmentTimelineItemView(
 
         extensionView =
             TextView(context).apply {
-                setTextColor("#66FFFFFF".toColorInt())
+                setTextColor("#B3FFFFFF".toColorInt())
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f)
             }
         row1.addView(
