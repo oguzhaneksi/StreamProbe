@@ -66,26 +66,14 @@ schemes:
       # This must be a scheme build pre-action, NOT a target build-phase script: Xcode copies
       # the SPM binaryTarget (Package.swift -> sdk/build/XCFrameworks/debug/...) into the build
       # products before target phases run, so a build-phase rebuild lands one build late.
-      # The guard makes the common case (no Kotlin change) instant: Gradle (≈15s of startup +
-      # configuration even when up-to-date) only runs when a .kt under the iOS-relevant source
-      # sets is newer than the STAMP, or the framework/stamp is missing. The stamp (not the
-      # framework binary) is the reference because Gradle's up-to-date check is content-based:
-      # a touched-but-unchanged .kt won't advance the framework's mtime, which would wedge an
-      # mtime guard into rebuilding forever. Touching the stamp only on success advances it
-      # every real run. `settingsTarget` makes $SRCROOT available to the script.
+      # The heavy lifting lives in iosApp/scripts/rebuild-streamprobe-core.sh (guard + Gradle +
+      # error-surfacing dialog) — keeping it out of the scheme's XML-encoded scriptText makes it
+      # readable and testable. `settingsTarget` provides build settings to the action's env.
       preActions:
         - name: "Rebuild StreamProbeCore XCFramework (Gradle)"
           settingsTarget: iosApp
           script: |
-            cd "$SRCROOT/.."
-            XCF="sdk/build/XCFrameworks/debug/StreamProbeCore.xcframework/ios-arm64_x86_64-simulator/StreamProbeCore.framework/StreamProbeCore"
-            STAMP="sdk/build/.streamprobe-xcf.stamp"
-            if [ ! -f "$XCF" ] || [ ! -f "$STAMP" ] || [ -n "$(find sdk/src/commonMain sdk/src/iosMain -name '*.kt' -newer "$STAMP" 2>/dev/null | head -1)" ]; then
-              echo "StreamProbeCore: Kotlin changed (or framework missing) -> rebuilding debug XCFramework…"
-              ./gradlew :sdk:assembleStreamProbeCoreDebugXCFramework && mkdir -p "$(dirname "$STAMP")" && touch "$STAMP"
-            else
-              echo "StreamProbeCore: debug XCFramework up-to-date -> skipping Gradle."
-            fi
+            "$SRCROOT/scripts/rebuild-streamprobe-core.sh"
       targets:
         iosApp: all
     test:
