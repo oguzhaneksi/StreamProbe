@@ -6,6 +6,24 @@
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
       runPostActionsOnFailure = "NO">
+      <PreActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Rebuild StreamProbeCore XCFramework (Gradle)"
+               scriptText = "cd &quot;$SRCROOT/..&quot;&#10;XCF=&quot;sdk/build/XCFrameworks/debug/StreamProbeCore.xcframework/ios-arm64_x86_64-simulator/StreamProbeCore.framework/StreamProbeCore&quot;&#10;STAMP=&quot;sdk/build/.streamprobe-xcf.stamp&quot;&#10;if [ ! -f &quot;$XCF&quot; ] || [ ! -f &quot;$STAMP&quot; ] || [ -n &quot;$(find sdk/src/commonMain sdk/src/iosMain -name &apos;*.kt&apos; -newer &quot;$STAMP&quot; 2&gt;/dev/null | head -1)&quot; ]; then&#10;  echo &quot;StreamProbeCore: Kotlin changed (or framework missing) -&gt; rebuilding debug XCFramework…&quot;&#10;  ./gradlew :sdk:assembleStreamProbeCoreDebugXCFramework &amp;&amp; mkdir -p &quot;$(dirname &quot;$STAMP&quot;)&quot; &amp;&amp; touch &quot;$STAMP&quot;&#10;else&#10;  echo &quot;StreamProbeCore: debug XCFramework up-to-date -&gt; skipping Gradle.&quot;&#10;fi&#10;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "78B53CC79860CBFC2F5543C6"
+                     BuildableName = "iosApp.app"
+                     BlueprintName = "iosApp"
+                     ReferencedContainer = "container:iosApp.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PreActions>
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"

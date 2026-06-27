@@ -24,7 +24,9 @@ Three top-level modules:
 # Build SDK AAR
 ./gradlew :sdk:assembleAndroidMain
 
-# Build iOS debug XCFramework (consumed by iosApp via project.yml)
+# Build the iOS XCFramework consumed by iosApp for local dev (Package.swift's local binaryTarget
+# reads the debug/ path; the iosApp Xcode scheme rebuilds this automatically via a build
+# pre-action, so this is rarely run by hand. The released zip is built Release by publish-spm.yml.)
 ./gradlew :sdk:assembleStreamProbeCoreDebugXCFramework
 
 # Run SDK unit tests (Robolectric, pinned via robolectric.properties)
@@ -124,7 +126,12 @@ Android demo (MVVM + Compose) that attaches the SDK to an `ExoPlayer`. See the s
 
 ### `iosApp/`
 
-Swift/UIKit iOS demo (XcodeGen project). **Rebuild `:sdk:assembleStreamProbeCoreDebugXCFramework` before opening in Xcode**; the programmatic overlay lives in `iosApp/iosApp/Overlay/`.
+Swift/UIKit iOS demo (XcodeGen project). The iosApp consumes the SDK as the local SPM package at the repo root (`Package.swift`), whose `StreamProbeCore` **binaryTarget** reads the **debug** XCFramework at `sdk/build/XCFrameworks/debug/` (debug links far faster than release; the released zip is Release). The iosApp Xcode scheme runs a **build pre-action** that rebuilds `:sdk:assembleStreamProbeCoreDebugXCFramework` before each build, so Kotlin core changes propagate on a normal Build/Run — no manual rebuild needed. Notes:
+- It **must** be a scheme pre-action, not a target build-phase script: Xcode copies the SPM binary into the build products *before* target phases run, so a build-phase rebuild would land one build late.
+- The pre-action is **guarded by a stamp** (`sdk/build/.streamprobe-xcf.stamp`): Gradle only runs when a `.kt` under `commonMain`/`iosMain` is newer than the stamp (or the framework/stamp is missing). So a normal Run with no Kotlin change skips Gradle and is instant; only a real Kotlin change triggers a (silent, ~30 s debug) rebuild — don't cancel that build.
+- Local resolution requires `STREAMPROBE_LOCAL` in Xcode's environment (e.g. `launchctl setenv STREAMPROBE_LOCAL 1`); otherwise `Package.swift` falls back to the released zip. After changing the `Package.swift` binary-target path, run **File ▸ Packages ▸ Reset Package Caches** so Xcode re-resolves.
+
+The programmatic overlay lives in `iosApp/iosApp/Overlay/`.
 
 ## Publishing
 

@@ -10,7 +10,10 @@ let useLocalBinary = ProcessInfo.processInfo.environment["STREAMPROBE_LOCAL"] !=
 let coreBinaryTarget: Target = useLocalBinary
     ? .binaryTarget(
         name: "StreamProbeCore",
-        path: "sdk/build/XCFrameworks/release/StreamProbeCore.xcframework"
+        // Local dev consumes the *debug* XCFramework: Kotlin/Native debug links far faster than
+        // release, which matters because the iosApp scheme rebuilds it on every build. The
+        // released zip (remote branch below) is always built Release by publish-spm.yml.
+        path: "sdk/build/XCFrameworks/debug/StreamProbeCore.xcframework"
     )
     : .binaryTarget(
         name: "StreamProbeCore",
