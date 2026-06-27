@@ -83,6 +83,6 @@ class DrmFormattingTest {
 
     @Test
     fun `formatErrorCategory for DRM_ERROR returns DRM`() {
-        assertEquals("DRM", OverlayFormatters.formatErrorCategory(ErrorCategory.DRM_ERROR))
+        assertEquals("DRM", ErrorFormatters.formatErrorCategory(ErrorCategory.DRM_ERROR))
     }
 }

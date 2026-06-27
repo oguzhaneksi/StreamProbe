@@ -125,7 +125,7 @@ internal class SegmentTimelineItemView(
     ) {
         indexView.text = "#${index + 1}"
 
-        val badge = OverlayFormatters.segmentTrackBadge(metric.trackType)
+        val badge = SegmentFormatters.segmentTrackBadge(metric.trackType)
         if (badge != null) {
             badgeView.text = badge
             badgeView.background = OverlayDrawables.trackBadge(metric.trackType)
@@ -134,7 +134,7 @@ internal class SegmentTimelineItemView(
             badgeView.visibility = View.GONE
         }
 
-        val extension = OverlayFormatters.segmentExtension(metric.uri)
+        val extension = SegmentFormatters.segmentExtension(metric.uri)
         if (extension != null) {
             extensionView.text = extension
             extensionView.visibility = View.VISIBLE
@@ -144,7 +144,7 @@ internal class SegmentTimelineItemView(
 
         durationView.text = "DL: ${metric.totalDurationMs}ms"
         cacheDot.background = OverlayDrawables.cacheDot(metric.cdnInfo.cacheStatus)
-        secondaryView.text = OverlayFormatters.formatSegmentDetails(metric)
+        secondaryView.text = SegmentFormatters.formatSegmentDetails(metric)
     }
 
     private fun dp(value: Float) = context.dp(value)

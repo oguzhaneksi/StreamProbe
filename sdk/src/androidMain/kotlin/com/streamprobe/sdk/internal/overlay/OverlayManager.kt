@@ -245,7 +245,7 @@ internal class OverlayManager(
         val activity = currentActivity ?: return
         val errors = sessionStore.playbackErrors.value
         val text =
-            OverlayFormatters.formatErrorsForExport(
+            ErrorFormatters.formatErrorsForExport(
                 errors = errors,
                 baseTimestampMs = errors.firstOrNull()?.timestampMs ?: 0L,
             )

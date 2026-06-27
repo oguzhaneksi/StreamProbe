@@ -27,6 +27,7 @@ cd "$REPO_ROOT" || exit 1
 
 XCF="sdk/build/XCFrameworks/debug/StreamProbeCore.xcframework/ios-arm64_x86_64-simulator/StreamProbeCore.framework/StreamProbeCore"
 STAMP="sdk/build/.streamprobe-xcf.stamp"
+STAMP_PENDING="${STAMP}.pending"
 
 needs_rebuild() {
   [ ! -f "$XCF" ] && return 0
@@ -42,10 +43,16 @@ fi
 echo "StreamProbeCore: Kotlin changed (or framework missing) -> rebuilding debug XCFramework…"
 osascript -e 'display notification "Rebuilding StreamProbeCore (Kotlin changed)…" with title "StreamProbe"' >/dev/null 2>&1 || true
 
+# Snapshot the stamp time BEFORE Gradle runs: a .kt edited DURING the (~30 s) build must still
+# be newer than the eventual stamp so the next build rebuilds. Touching the stamp only after the
+# build would make that mid-build edit older than the stamp and silently skip it forever.
+# `mv` preserves the pending stamp's pre-build mtime when promoting it on success.
+mkdir -p "$(dirname "$STAMP")" && touch "$STAMP_PENDING"
+
 LOG="$(mktemp -t streamprobe-xcf)"
 if ./gradlew :sdk:assembleStreamProbeCoreDebugXCFramework --console=plain > "$LOG" 2>&1; then
   cat "$LOG"
-  mkdir -p "$(dirname "$STAMP")" && touch "$STAMP"
+  mv -f "$STAMP_PENDING" "$STAMP"
   rm -f "$LOG"
   echo "StreamProbeCore: rebuild succeeded."
   exit 0
@@ -75,6 +82,6 @@ if [ -z "${CI:-}" ]; then
     "$ERRFILE" >/dev/null 2>&1 || true
 fi
 
-rm -f "$LOG" "$ERRFILE"
+rm -f "$LOG" "$ERRFILE" "$STAMP_PENDING"
 echo "error: StreamProbeCore Gradle build failed — see the Kotlin errors above (and the dialog)."
 exit 1

@@ -43,20 +43,35 @@ enum OverlayFormattersSwift {
     }
 
     /// Query-string-safe file extension from a segment URI, or nil when there is none.
-    /// Strips `?query` and `#fragment`, reads the last path segment, and rejects extensions
-    /// longer than `maxExtLen` or empty (e.g. a trailing dot yields nil, matching Kotlin).
-    /// Mirrors `OverlayFormatters.segmentExtension` in commonMain.
+    /// Strips `?query` and `#fragment`, reads the last path segment, and rejects
+    /// extensions longer than `maxExtLen` so a stray dot in a path can't yield a giant label.
+    ///
+    /// Mirrors `SegmentFormatters.segmentExtension` in commonMain *exactly* — it replicates
+    /// Kotlin's `substringBefore`/`substringAfterLast`/`isNotBlank`, not Swift `split`, because
+    /// `split` collapses empty subsequences and would diverge on inputs like `host/seg.ts/`,
+    /// `?seg.ts`, or a whitespace-only extension. Locked by `OverlayFormattersSwiftTests`.
     static func segmentExtension(_ uri: String) -> String? {
         let maxExtLen = 5
-        let beforeQuery = uri.split(separator: "?", maxSplits: 1).first.map(String.init) ?? uri
-        let beforeFragment = beforeQuery.split(separator: "#", maxSplits: 1).first.map(String.init) ?? beforeQuery
-        let lastSegment = beforeFragment.split(separator: "/").last.map(String.init) ?? beforeFragment
-        guard lastSegment.contains(".") else { return nil }
-        // Use omittingEmptySubsequences: false so a trailing dot ("file.") produces an empty
-        // last element, which the !ext.isEmpty guard then rejects — matching Kotlin's behaviour.
-        guard let ext = lastSegment.split(separator: ".", omittingEmptySubsequences: false).last.map(String.init),
-              !ext.isEmpty, ext.count <= maxExtLen else { return nil }
+        let path = substringAfterLast(substringBefore(substringBefore(uri, "?"), "#"), "/")
+        guard path.contains(".") else { return nil }
+        let ext = substringAfterLast(path, ".")
+        let isBlank = ext.allSatisfy { $0.isWhitespace }
+        guard !isBlank, ext.count <= maxExtLen else { return nil }
         return ext
+    }
+
+    /// Part of `s` before the first occurrence of `ch`, or all of `s` when absent
+    /// (Kotlin `String.substringBefore`).
+    private static func substringBefore(_ s: String, _ ch: Character) -> String {
+        guard let idx = s.firstIndex(of: ch) else { return s }
+        return String(s[s.startIndex..<idx])
+    }
+
+    /// Part of `s` after the last occurrence of `ch`, or all of `s` when absent
+    /// (Kotlin `String.substringAfterLast`).
+    private static func substringAfterLast(_ s: String, _ ch: Character) -> String {
+        guard let idx = s.lastIndex(of: ch) else { return s }
+        return String(s[s.index(after: idx)...])
     }
 
     static func formatSegmentDetails(_ metric: SegmentMetric) -> String {

@@ -116,7 +116,7 @@ internal class DrmTimelineItemView(
         dotView.background = OverlayDrawables.drmEventDot(event)
         schemeView.text = DrmFormatters.formatDrmSchemeBadge(event.scheme)
         labelView.text = DrmFormatters.formatDrmEventLabel(event)
-        timestampView.text = OverlayFormatters.formatRelativeTimestamp(event.timestampMs, baseTimestampMs)
+        timestampView.text = TimeFormatters.formatRelativeTimestamp(event.timestampMs, baseTimestampMs)
 
         if (event is DrmSessionEvent.KeysLoaded) {
             latencyView.text = "${event.licenseLatencyMs}ms"

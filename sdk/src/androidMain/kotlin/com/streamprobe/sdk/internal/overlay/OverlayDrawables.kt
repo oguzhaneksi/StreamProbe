@@ -122,19 +122,26 @@ internal object OverlayDrawables {
             setColor("#FF453A".toColorInt())
         }
 
-    /** Rounded color-coded pill for a segment's track-type badge (V / A / T). */
+    // The 3+1 track-badge pills are immutable and re-bound on every RecyclerView scroll, so they
+    // are built once and cached by track type instead of allocated per bind(). Access is confined
+    // to the overlay's Main.immediate render path, so the plain map needs no synchronization.
+    private val trackBadgeCache = HashMap<SegmentTrackType, GradientDrawable>()
+
+    /** Rounded color-coded pill for a segment's track-type badge (V / A / T), cached by track type. */
     fun trackBadge(trackType: SegmentTrackType): GradientDrawable =
-        GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 6f
-            setColor(
-                when (trackType) {
-                    SegmentTrackType.VIDEO -> "#4FC3F7".toColorInt()
-                    SegmentTrackType.AUDIO -> "#A5D6A7".toColorInt()
-                    SegmentTrackType.TEXT -> "#CE93D8".toColorInt()
-                    SegmentTrackType.UNKNOWN -> "#555555".toColorInt()
-                },
-            )
+        trackBadgeCache.getOrPut(trackType) {
+            GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 6f
+                setColor(
+                    when (trackType) {
+                        SegmentTrackType.VIDEO -> TrackColors.VIDEO
+                        SegmentTrackType.AUDIO -> TrackColors.AUDIO
+                        SegmentTrackType.TEXT -> TrackColors.TEXT
+                        SegmentTrackType.UNKNOWN -> TrackColors.UNKNOWN
+                    },
+                )
+            }
         }
 }
 

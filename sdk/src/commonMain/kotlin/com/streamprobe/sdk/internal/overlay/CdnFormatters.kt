@@ -6,8 +6,8 @@ import com.streamprobe.sdk.model.CdnProvider
 
 /**
  * Formatting functions for CDN and cache-status data displayed in the overlay.
- * Extracted from [OverlayFormatters] to keep that object under the detekt
- * `TooManyFunctions` threshold while grouping the CDN-specific logic here.
+ * Split out of the former monolithic `OverlayFormatters` to group the CDN-specific
+ * logic here and keep each formatter object under the detekt `TooManyFunctions` threshold.
  */
 internal object CdnFormatters {
     fun formatCdnStatus(cdnInfo: CdnHeaderInfo?): String {

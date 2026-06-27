@@ -166,15 +166,15 @@ internal class ErrorTimelineItemView(
     ) {
         indexView.text = "#${index + 1}"
         dotView.background = OverlayDrawables.errorCategoryDot(event.category)
-        categoryView.text = OverlayFormatters.formatErrorCategory(event.category)
+        categoryView.text = ErrorFormatters.formatErrorCategory(event.category)
         messageView.text = event.message
-        timestampView.text = OverlayFormatters.formatRelativeTimestamp(event.timestampMs, baseTimestampMs)
+        timestampView.text = TimeFormatters.formatRelativeTimestamp(event.timestampMs, baseTimestampMs)
         chevronView.text = if (expanded) "▴" else "▾"
         detailContainer.visibility = if (expanded) VISIBLE else GONE
         if (expanded) {
             fullMessageView.text = event.message
             detailView.text = event.detail.orEmpty()
-            absoluteTimestampView.text = OverlayFormatters.formatAbsoluteTimestamp(event.timestampMs)
+            absoluteTimestampView.text = TimeFormatters.formatAbsoluteTimestamp(event.timestampMs)
         }
         setOnClickListener { onToggle() }
     }

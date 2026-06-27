@@ -34,5 +34,15 @@ let package = Package(
             dependencies: ["StreamProbeCore"],
             path: "Sources/StreamProbe"
         ),
+        // Unit tests for the pure Swift formatters that mirror commonMain (segmentExtension etc.).
+        // The binaryTarget is iOS-only, so run on a simulator destination, e.g.:
+        //   STREAMPROBE_LOCAL=1 xcodebuild test -scheme StreamProbe-Package \
+        //     -destination 'platform=iOS Simulator,name=iPhone 16'
+        // after building :sdk:assembleStreamProbeCoreDebugXCFramework.
+        .testTarget(
+            name: "StreamProbeTests",
+            dependencies: ["StreamProbe"],
+            path: "Tests/StreamProbeTests"
+        ),
     ]
 )

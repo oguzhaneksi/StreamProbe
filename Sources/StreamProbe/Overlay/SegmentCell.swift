@@ -28,8 +28,15 @@ final class SegmentCell: UITableViewCell {
         trackBadgeLabel.layer.cornerRadius = 4
         trackBadgeLabel.layer.masksToBounds = true
         trackBadgeLabel.translatesAutoresizingMaskIntoConstraints = false
-        trackBadgeLabel.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        trackBadgeLabel.heightAnchor.constraint(equalToConstant: 14).isActive = true
+        // Below required priority: when the badge is UNKNOWN (always, on iOS today) it is hidden,
+        // and UIStackView pins a hidden arranged subview's width to 0 at required priority — a
+        // required 16pt width here would conflict and spam "unable to satisfy constraints" per row.
+        let badgeWidth = trackBadgeLabel.widthAnchor.constraint(equalToConstant: 16)
+        let badgeHeight = trackBadgeLabel.heightAnchor.constraint(equalToConstant: 14)
+        badgeWidth.priority = .defaultHigh
+        badgeHeight.priority = .defaultHigh
+        badgeWidth.isActive = true
+        badgeHeight.isActive = true
 
         extensionLabel.font = .systemFont(ofSize: 9)
         extensionLabel.textColor = OverlayTheme.white70
