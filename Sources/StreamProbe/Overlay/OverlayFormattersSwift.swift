@@ -32,6 +32,48 @@ enum OverlayFormattersSwift {
     }
 
     // ── Segment ───────────────────────────────────────────────────
+    /// Single-letter badge for a segment's track type, or nil when it should not be shown (UNKNOWN).
+    static func segmentTrackBadge(_ trackType: SegmentTrackType) -> String? {
+        switch trackType {
+        case .video: return "V"
+        case .audio: return "A"
+        case .text:  return "T"
+        case .unknown: return nil
+        }
+    }
+
+    /// Query-string-safe file extension from a segment URI, or nil when there is none.
+    /// Strips `?query` and `#fragment`, reads the last path segment, and rejects
+    /// extensions longer than `maxExtLen` so a stray dot in a path can't yield a giant label.
+    ///
+    /// Mirrors `SegmentFormatters.segmentExtension` in commonMain *exactly* — it replicates
+    /// Kotlin's `substringBefore`/`substringAfterLast`/`isNotBlank`, not Swift `split`, because
+    /// `split` collapses empty subsequences and would diverge on inputs like `host/seg.ts/`,
+    /// `?seg.ts`, or a whitespace-only extension. Locked by `OverlayFormattersSwiftTests`.
+    static func segmentExtension(_ uri: String) -> String? {
+        let maxExtLen = 5
+        let path = substringAfterLast(substringBefore(substringBefore(uri, "?"), "#"), "/")
+        guard path.contains(".") else { return nil }
+        let ext = substringAfterLast(path, ".")
+        let isBlank = ext.allSatisfy { $0.isWhitespace }
+        guard !isBlank, ext.count <= maxExtLen else { return nil }
+        return ext
+    }
+
+    /// Part of `s` before the first occurrence of `ch`, or all of `s` when absent
+    /// (Kotlin `String.substringBefore`).
+    private static func substringBefore(_ s: String, _ ch: Character) -> String {
+        guard let idx = s.firstIndex(of: ch) else { return s }
+        return String(s[s.startIndex..<idx])
+    }
+
+    /// Part of `s` after the last occurrence of `ch`, or all of `s` when absent
+    /// (Kotlin `String.substringAfterLast`).
+    private static func substringAfterLast(_ s: String, _ ch: Character) -> String {
+        guard let idx = s.lastIndex(of: ch) else { return s }
+        return String(s[s.index(after: idx)...])
+    }
+
     static func formatSegmentDetails(_ metric: SegmentMetric) -> String {
         var parts = ["Size: \(formatBytes(metric.sizeBytes))",
                      "TP: \(formatThroughput(metric.throughputBytesPerSec))"]

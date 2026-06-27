@@ -1,8 +1,10 @@
 package com.streamprobe.sdk.internal.presenter
 
 import com.streamprobe.sdk.internal.SessionStore
+import com.streamprobe.sdk.internal.overlay.CdnFormatters
 import com.streamprobe.sdk.internal.overlay.DrmFormatters
-import com.streamprobe.sdk.internal.overlay.OverlayFormatters
+import com.streamprobe.sdk.internal.overlay.SegmentFormatters
+import com.streamprobe.sdk.internal.overlay.TrackFormatters
 import com.streamprobe.sdk.model.TrackListInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -119,11 +121,11 @@ public class OverlayPresenter internal constructor(
             isCollapsed = isCollapsed,
             stats =
                 OverlayStatsState(
-                    activeTrackText = OverlayFormatters.formatActiveTrack(sessionStore.activeTrack.value),
-                    activeAudioText = OverlayFormatters.formatActiveAudio(sessionStore.activeAudioTrack.value),
-                    activeSubtitleText = OverlayFormatters.formatActiveSubtitle(sessionStore.activeSubtitleTrack.value),
-                    latestSegmentText = OverlayFormatters.formatSegmentMetric(latestSegment),
-                    cdnStatusText = OverlayFormatters.formatCdnStatus(latestSegment?.cdnInfo),
+                    activeTrackText = TrackFormatters.formatActiveTrack(sessionStore.activeTrack.value),
+                    activeAudioText = TrackFormatters.formatActiveAudio(sessionStore.activeAudioTrack.value),
+                    activeSubtitleText = TrackFormatters.formatActiveSubtitle(sessionStore.activeSubtitleTrack.value),
+                    latestSegmentText = SegmentFormatters.formatSegmentMetric(latestSegment),
+                    cdnStatusText = CdnFormatters.formatCdnStatus(latestSegment?.cdnInfo),
                     drmVisible = drmEvents.isNotEmpty(),
                     drmStatusText = DrmFormatters.formatDrmStatus(sessionStore.currentDrmState.value),
                 ),

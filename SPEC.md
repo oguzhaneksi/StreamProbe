@@ -72,6 +72,9 @@ Each segment request is recorded with:
 - Total download duration
 - Segment size in bytes
 - Computed throughput (bytes / total duration)
+- **Track type** (`SegmentTrackType`: `VIDEO` / `AUDIO` / `TEXT` / `UNKNOWN`) — the media kind of the segment, carried on the shared `SegmentMetric`. Android sets it from Media3's `MediaLoadData.trackType` (via the pure `segmentTrackTypeOf(Int)` helper); iOS leaves it `UNKNOWN`, since neither the access-log roll-up nor the iOS 18 AVMetrics stream exposes a reliable per-segment media type. The default `UNKNOWN` keeps every existing construction site (both iOS mappers, all tests) compiling unchanged.
+
+The overlay also derives a **file extension** (e.g. `ts`, `aac`, `m4s`) from `SegmentMetric.uri` at render time — no model field is needed and it works identically on both platforms even while iOS `trackType` stays `UNKNOWN`.
 
 These metrics are retained for the session and are the primary input for spotting latency spikes and bandwidth starvation.
 
@@ -105,13 +108,13 @@ At a glance it shows:
 - The currently active video rendition (or a loading state if the manifest is not yet available)
 - The currently active audio rendition (language, codec, channel layout, bitrate)
 - The currently active subtitle/CC track, or `Off` when disabled
-- The most recent segment metrics
+- The most recent segment metrics — including the segment's track-type word (`VIDEO`/`AUDIO`/`TEXT`, omitted when `UNKNOWN`) and file extension when present
 - Current CDN cache hit/miss state
 
 A **filter chip row** inside the panel lets the developer switch between three views:
 
 - **Tracks** (default) — all renditions grouped into `VIDEO`, `AUDIO`, and `SUBTITLES` sections, each with resolution/bitrate/codec or language/codec details and an active-dot indicator.
-- **Segments** — per-segment download duration, size, throughput, and cache-status dot. The segment timeline is shown in the same overlay panel with no Activity transition, so the host player is never backgrounded.
+- **Segments** — per-segment download duration, size, throughput, and cache-status dot. Each row carries a color-coded track-type badge (`V` video / `A` audio / `T` text; hidden for `UNKNOWN`) and the URI-derived file extension next to the segment index. The segment timeline is shown in the same overlay panel with no Activity transition, so the host player is never backgrounded.
 - **Switches** — chronological list of every track switch event (`VID` / `AUD` / `SUB`, colour-coded), showing the from→to track details, buffer duration at the time of the switch, switch reason (`INITIAL`, `ADAPTIVE`, `MANUAL`, `TRICKPLAY`, `UNKNOWN`), and a relative timestamp from the first event. Subtitle disable events appear as `SUB … → Off`.
 
 A fourth view, **Errors**, is reachable via a `⚠ N` header indicator pill (hidden when no errors are present) and is described in §3.8.
@@ -251,6 +254,8 @@ On iOS the player adapter is a native **Swift** layer (`AVPlayerProbe`) that obs
 | Track enumeration (video / audio / subtitle) | ✅ `player.currentTracks` | ✅ `AVAssetVariant` + media selection |
 | Active track + switch timeline | ✅ per-format callbacks | ✅ derived from access log / variant changes |
 | Segment metrics | ✅ true per-segment (`onLoadCompleted`) | ✅ **iOS 18+** true per-segment (AVMetrics); ⚠️ **aggregate** access-log roll-ups below |
+| Segment track type | ✅ `MediaLoadData.trackType` (V/A/T badge) | ❌ `UNKNOWN` (badge hidden) |
+| Segment file extension | ✅ derived from URI | ✅ derived from URI |
 | CDN cache headers (hit/miss) | ✅ HTTP response headers | ✅ **iOS 18+** (AVMetrics transaction headers); ❌ below |
 | TTFB / network timing | ✅ `DataSource.Factory` wrapper (`~NNms` estimate) | ✅ **iOS 18+** measured (AVMetrics transaction timing); ❌ below |
 | Background error tracking | ✅ load/codec/frames/sink errors | ✅ error-log notifications |
@@ -269,7 +274,7 @@ StreamProbe instruments a single layer via a standard Media3 `AnalyticsListener`
 - **`onTracksChanged`** — calls `probeTracks()` which iterates `player.currentTracks` and builds a `TracksSnapshot` containing all video, audio, and subtitle track groups with `isSelected` set per track. The snapshot is pushed to `SessionStore.trackListInfo`. `probeTracks()` also updates `activeAudioTrack` / `activeSubtitleTrack` state flows and emits a `SubtitleSwitch(newTrack = null)` when a previously selected subtitle track is disabled.
 - **`onVideoInputFormatChanged`** — the authoritative source for `VideoSwitch` events. Emits a `TrackSwitchEvent.VideoSwitch` using the selection reason cached by `onDownstreamFormatChanged`, then resets the pending reason to `INITIAL`.
 - **`onDownstreamFormatChanged`** — for `TRACK_TYPE_VIDEO` / `TRACK_TYPE_DEFAULT` (with valid dimensions): caches the selection reason in `pendingVideoSwitchReason` for use in `onVideoInputFormatChanged`. For `TRACK_TYPE_AUDIO` / `TRACK_TYPE_TEXT`: emits `AudioSwitch` / `SubtitleSwitch` events directly. `TRACK_TYPE_DEFAULT` events without valid video dimensions are ignored to avoid overwriting the pending reason with non-video (e.g., muxed audio) events.
-- **`onLoadCompleted`** — captures per-segment download duration, byte count, computed throughput, and HTTP response headers (CDN cache hit/miss). Works regardless of the underlying HTTP stack.
+- **`onLoadCompleted`** — captures per-segment download duration, byte count, computed throughput, HTTP response headers (CDN cache hit/miss), and the segment's track type (mapping `mediaLoadData.trackType` to `SegmentTrackType` via the pure `segmentTrackTypeOf(Int)` helper). Works regardless of the underlying HTTP stack.
 - **`onLoadError`** — captures segment and manifest HTTP errors; cancellations (`wasCanceled=true`) are filtered out.
 - **`onVideoCodecError`** — captures hardware/software codec failures.
 - **`onDroppedVideoFrames`** — captures dropped-frame bursts ≥ 3 frames with dedup logic.

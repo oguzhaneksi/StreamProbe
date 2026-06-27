@@ -90,9 +90,9 @@ internal class RenditionItemView(
         dot.background = if (isActive) OverlayDrawables.dotActive() else OverlayDrawables.dotInactive()
         topLine.text =
             buildString {
-                append(OverlayFormatters.formatResolution(info.width, info.height))
+                append(TrackFormatters.formatResolution(info.width, info.height))
                 append("  \u00b7  ")
-                append(OverlayFormatters.formatBitrate(info.bitrate))
+                append(ByteFormatters.formatBitrate(info.bitrate))
             }
         bottomLine.text = info.codecs.orEmpty()
         bottomLine.isVisible = !info.codecs.isNullOrEmpty()
@@ -127,7 +127,7 @@ internal class RenditionItemView(
                 else -> if (info.channelCount > 0) "${info.channelCount}ch" else null
             }
         if (channels != null) topParts += channels
-        if (info.bitrate > 0) topParts += OverlayFormatters.formatBitrate(info.bitrate)
+        if (info.bitrate > 0) topParts += ByteFormatters.formatBitrate(info.bitrate)
         return topParts.joinToString("  \u00b7  ").ifBlank { "Audio" }
     }
 

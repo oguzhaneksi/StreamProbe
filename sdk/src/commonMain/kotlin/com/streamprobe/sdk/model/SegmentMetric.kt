@@ -18,4 +18,6 @@ data class SegmentMetric(
     val cdnInfo: CdnHeaderInfo,
     /** Network timing (TTFB / transfer split), best-effort. Null when not correlated. */
     val networkTiming: NetworkTiming? = null,
+    /** Media kind of this segment. Android fills it from Media3; iOS defaults to [SegmentTrackType.UNKNOWN]. */
+    val trackType: SegmentTrackType = SegmentTrackType.UNKNOWN,
 )

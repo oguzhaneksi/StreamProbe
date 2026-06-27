@@ -7,6 +7,7 @@ import androidx.core.graphics.toColorInt
 import com.streamprobe.sdk.model.CacheStatus
 import com.streamprobe.sdk.model.DrmSessionEvent
 import com.streamprobe.sdk.model.ErrorCategory
+import com.streamprobe.sdk.model.SegmentTrackType
 import kotlin.math.roundToInt
 
 /**
@@ -119,6 +120,28 @@ internal object OverlayDrawables {
         GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor("#FF453A".toColorInt())
+        }
+
+    // The 3+1 track-badge pills are immutable and re-bound on every RecyclerView scroll, so they
+    // are built once and cached by track type instead of allocated per bind(). Access is confined
+    // to the overlay's Main.immediate render path, so the plain map needs no synchronization.
+    private val trackBadgeCache = HashMap<SegmentTrackType, GradientDrawable>()
+
+    /** Rounded color-coded pill for a segment's track-type badge (V / A / T), cached by track type. */
+    fun trackBadge(trackType: SegmentTrackType): GradientDrawable =
+        trackBadgeCache.getOrPut(trackType) {
+            GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 6f
+                setColor(
+                    when (trackType) {
+                        SegmentTrackType.VIDEO -> TrackColors.VIDEO
+                        SegmentTrackType.AUDIO -> TrackColors.AUDIO
+                        SegmentTrackType.TEXT -> TrackColors.TEXT
+                        SegmentTrackType.UNKNOWN -> TrackColors.UNKNOWN
+                    },
+                )
+            }
         }
 }
 

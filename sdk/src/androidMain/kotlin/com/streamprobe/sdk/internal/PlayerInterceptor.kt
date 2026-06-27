@@ -20,6 +20,7 @@ import com.streamprobe.sdk.model.ErrorDetail
 import com.streamprobe.sdk.model.NetworkTiming
 import com.streamprobe.sdk.model.PlaybackErrorEvent
 import com.streamprobe.sdk.model.SegmentMetric
+import com.streamprobe.sdk.model.SegmentTrackType
 import com.streamprobe.sdk.model.SubtitleTrackInfo
 import com.streamprobe.sdk.model.SwitchReason
 import com.streamprobe.sdk.model.TrackSwitchEvent
@@ -296,6 +297,7 @@ internal class PlayerInterceptor(
                 uri = loadEventInfo.uri.toString(),
                 cdnInfo = cdnInfo,
                 networkTiming = networkTiming,
+                trackType = segmentTrackTypeOf(mediaLoadData.trackType),
             )
         sessionStore.addSegmentMetric(metric)
     }
@@ -408,3 +410,16 @@ internal class PlayerInterceptor(
         internal const val DROPPED_FRAME_THRESHOLD = 3
     }
 }
+
+/**
+ * Maps a Media3 `C.TRACK_TYPE_*` int to a [SegmentTrackType].
+ * Muxed TS (video+audio in one segment) may surface as VIDEO or UNKNOWN; demuxed
+ * renditions (e.g. Apple BipBop) yield clean VIDEO/AUDIO. Anything else is UNKNOWN.
+ */
+internal fun segmentTrackTypeOf(trackType: Int): SegmentTrackType =
+    when (trackType) {
+        C.TRACK_TYPE_VIDEO -> SegmentTrackType.VIDEO
+        C.TRACK_TYPE_AUDIO -> SegmentTrackType.AUDIO
+        C.TRACK_TYPE_TEXT -> SegmentTrackType.TEXT
+        else -> SegmentTrackType.UNKNOWN
+    }

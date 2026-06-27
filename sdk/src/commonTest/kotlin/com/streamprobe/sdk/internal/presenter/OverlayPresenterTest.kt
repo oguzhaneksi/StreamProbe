@@ -93,7 +93,7 @@ class OverlayPresenterTest {
 
             val state = presenter.viewState.value
             assertEquals("1920×1080  ·  5.0 Mbps", state.stats.activeTrackText)
-            assertEquals("DL: 200ms\nSize: 500.0 KB  ·  TP: 2.5 MB/s", state.stats.latestSegmentText)
+            assertEquals("DL: 200ms  ·  ts\nSize: 500.0 KB  ·  TP: 2.5 MB/s", state.stats.latestSegmentText)
             // VIDEO header + 1 variant row.
             assertEquals(2, state.lists.renditionRows.size)
             assertEquals(OverlayRow.SectionHeader("VIDEO"), state.lists.renditionRows[0])

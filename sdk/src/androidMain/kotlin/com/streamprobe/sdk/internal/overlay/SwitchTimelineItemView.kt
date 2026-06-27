@@ -133,9 +133,9 @@ internal class SwitchTimelineItemView(
         baseTimestampMs: Long,
     ) {
         indexView.text = "#${index + 1}"
-        bufferView.text = OverlayFormatters.formatBufferDuration(event.bufferDurationMs)
-        reasonView.text = OverlayFormatters.formatSwitchReason(event.reason)
-        timestampView.text = OverlayFormatters.formatRelativeTimestamp(event.timestampMs, baseTimestampMs)
+        bufferView.text = TimeFormatters.formatBufferDuration(event.bufferDurationMs)
+        reasonView.text = TrackFormatters.formatSwitchReason(event.reason)
+        timestampView.text = TimeFormatters.formatRelativeTimestamp(event.timestampMs, baseTimestampMs)
 
         when (event) {
             is TrackSwitchEvent.VideoSwitch -> bindVideoSwitch(event)
@@ -146,13 +146,13 @@ internal class SwitchTimelineItemView(
 
     private fun bindVideoSwitch(event: TrackSwitchEvent.VideoSwitch) {
         typeView.text = "VID"
-        typeView.setTextColor("#4FC3F7".toColorInt()) // light blue
-        switchView.text = OverlayFormatters.formatAbrSwitch(event.previousTrack, event.newTrack)
+        typeView.setTextColor(TrackColors.VIDEO)
+        switchView.text = TrackFormatters.formatAbrSwitch(event.previousTrack, event.newTrack)
     }
 
     private fun bindAudioSwitch(event: TrackSwitchEvent.AudioSwitch) {
         typeView.text = "AUD"
-        typeView.setTextColor("#A5D6A7".toColorInt()) // light green
+        typeView.setTextColor(TrackColors.AUDIO)
         val prev = event.previousTrack?.let { it.label ?: it.language ?: "?" }
         val next = event.newTrack.label ?: event.newTrack.language ?: "?"
         switchView.text = if (prev != null) "$prev \u2192 $next" else "\u2014 \u2192 $next"
@@ -160,7 +160,7 @@ internal class SwitchTimelineItemView(
 
     private fun bindSubtitleSwitch(event: TrackSwitchEvent.SubtitleSwitch) {
         typeView.text = "SUB"
-        typeView.setTextColor("#CE93D8".toColorInt()) // light purple
+        typeView.setTextColor(TrackColors.TEXT)
         val prev = event.previousTrack?.let { it.label ?: it.language ?: "?" }
         val next = event.newTrack?.let { it.label ?: it.language ?: "?" } ?: "Off"
         switchView.text = if (prev != null) "$prev \u2192 $next" else "\u2014 \u2192 $next"

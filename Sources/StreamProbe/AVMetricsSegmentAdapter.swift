@@ -51,7 +51,7 @@ enum AVMetricsSegmentAdapter {
             requestTimestampMs: nowMs,
             totalDurationMs: totalDurationMs,
             sizeBytes: sizeBytes,
-            uri: event.url?.absoluteString ?? "",
+            uri: resource?.url?.absoluteString ?? "",
             responseHeaders: headers,
             networkTiming: networkTiming
         )
