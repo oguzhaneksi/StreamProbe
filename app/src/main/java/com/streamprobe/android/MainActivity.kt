@@ -1,15 +1,19 @@
 package com.streamprobe.android
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.MimeTypes
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.streamprobe.android.player.FaultMode
 import com.streamprobe.android.ui.PlayerScreen
 import com.streamprobe.android.ui.SettingsScreen
 import com.streamprobe.android.ui.StreamSelectionScreen
@@ -25,7 +29,17 @@ class MainActivity : ComponentActivity() {
                 val playerVm: PlayerViewModel = viewModel(factory = PlayerViewModel.factory(app))
                 val nav = rememberNavController()
 
-                NavHost(navController = nav, startDestination = StreamSelect) {
+                // Fault-deck QA entry point: if launched (debug only) with an
+                // sp_fault_url extra, jump straight into the player with the
+                // requested stream + misconfiguration mode. See tools/fault-deck/.
+                // The stream is set synchronously during first composition so it
+                // is ready before PlayerScreen's lifecycle effect initializes the player.
+                val faultLaunch =
+                    remember {
+                        parseFaultLaunch(intent)?.also { playerVm.selectStream(it.stream, it.mode, it.showOverlay) }
+                    }
+
+                NavHost(navController = nav, startDestination = if (faultLaunch != null) Player else StreamSelect) {
                     composable<StreamSelect> {
                         StreamSelectionScreen(
                             onStreamSelected = {
@@ -55,4 +69,40 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+/** A fault-deck launch request parsed from intent extras. */
+private data class FaultLaunch(
+    val stream: Stream,
+    val mode: FaultMode,
+    val showOverlay: Boolean,
+)
+
+/**
+ * Parses the fault-deck intent extras (`sp_fault_url`, `sp_fault_mode`,
+ * `sp_fault_overlay`, optional `sp_fault_title`). Returns null unless this is a
+ * debug build AND a URL was provided, so release builds and normal launches are
+ * unaffected.
+ *
+ * `sp_fault_overlay` is the benchmark arm: "on" (default) shows the StreamProbe
+ * overlay; "off" is the control arm where the overlay is hidden so observability
+ * with vs without the overlay can be timed.
+ */
+private fun parseFaultLaunch(intent: Intent?): FaultLaunch? {
+    val url =
+        intent
+            ?.takeIf { BuildConfig.DEBUG }
+            ?.getStringExtra("sp_fault_url")
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+    val title = intent.getStringExtra("sp_fault_title") ?: "Fault Deck"
+    val stream =
+        Stream(
+            title = title,
+            url = url,
+            type = StreamType.HLS,
+            mimeType = MimeTypes.APPLICATION_M3U8,
+        )
+    val showOverlay = intent.getStringExtra("sp_fault_overlay")?.lowercase() != "off"
+    return FaultLaunch(stream, FaultMode.fromKey(intent.getStringExtra("sp_fault_mode")), showOverlay)
 }
