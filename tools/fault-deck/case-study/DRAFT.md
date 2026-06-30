@@ -87,13 +87,27 @@ The served manifest lists only 240p and 480p. The 720p and 1080p rungs exist at 
 
 That's the right answer — but getting there meant: knowing to suspect the stream, finding the manifest URL, `curl`-ing it, reading `EXT-X-STREAM-INF` lines, and ideally comparing against an unfiltered reference to be sure rungs are *missing* rather than simply absent.
 
+A competent ExoPlayer dev wouldn't stop at `curl`, though — they'd attach `EventLogger` and read the ladder the player itself parsed. The `Tracks` dump confirms the runtime ladder caps at 480p, and the bandwidth estimate confirms the link is fast — the same two facts, from inside the player:
+
+<!-- CAPTURE (real, do not fabricate): paste raw/manifest_cap-eventlogger.txt here.
+     Produced by: cd case-study && ./capture-eventlogger.sh manifest_cap
+     Keep only the relevant Tracks dump + the bandwidth/estimate line. -->
+```text
+[EventLogger — paste raw/manifest_cap-eventlogger.txt here in Task 9:
+ the Tracks dump showing only 240p + 480p, and the bandwidth estimate line]
+```
+
+So even the *strongest* raw baseline gets the engineer there — the EventLogger ladder and bandwidth estimate already say "cap is in the manifest, fast link." The overlay's win therefore narrows from "invisible state" to **live, visual, on-device, colocated**: the same two numbers without attaching a logger, filtering logcat, or correlating two log lines by hand.
+
+**The QA lens:** none of that is available to a tester. They can't attach EventLogger (no source, no debug build, no adb), can't read the dump if they could. Without the overlay their bug report is *"it's blurry."* With it, it's *"the ladder caps at 480p"* — a report that routes straight to the encoding/packaging team instead of bouncing through networking first.
+
 ### With StreamProbe
 
 ![manifest_cap — Tracks tab caps at 480p, throughput is high](assets/manifest_cap-tracks.png)
 
 The Tracks tab lists the runtime ladder — every rung the player actually knows about: **426×240 and 854×480, and nothing above.** The header shows throughput at **39 MB/s** (`TP: 39.0 MB/s`), so the link is plainly fast. A runtime ladder that stops at 480p next to high throughput points at the manifest, not the network — both facts colocated in the player-visible state, no external lookup required.
 
-**Difference:** several `curl`s plus manifest parsing, versus two colocated numbers the player already holds.
+**Difference (engineer):** EventLogger reconstructs the ladder + bandwidth, but it takes attaching a logger and reading a logcat dump; the overlay shows the same two numbers live, on-device, next to the video. **Difference (QA):** EventLogger isn't an option at all — the overlay is the only thing that turns "blurry" into a correctly-routed ticket.
 
 ---
 
@@ -117,6 +131,20 @@ $ curl -o /dev/null -s -w '%{speed_download} B/s  in %{time_total}s\n' \
 
 Same segment, ~100× slower on the real path — 2 seconds instead of 20 milliseconds. **The link is the bottleneck**, so ABR is correctly sitting below the top rung. Right answer again, but it took knowing which segment to fetch, fetching from two paths, and reasoning about whether the measured rate sustains the target bitrate.
 
+And again, the engineer's real baseline is EventLogger: the full ladder is present in the `Tracks` dump (nothing missing, unlike Case 1), and the per-segment `loadCompleted` lines show each ~2 s chunk crawling in — the same throttle the `curl` timing measured, but read from the player's own load events:
+
+<!-- CAPTURE (real, do not fabricate): paste raw/network_throttle-eventlogger.txt here.
+     Produced by: cd case-study && ./capture-eventlogger.sh network_throttle
+     Keep the Tracks dump (full ladder) + a couple of per-segment loadCompleted lines. -->
+```text
+[EventLogger — paste raw/network_throttle-eventlogger.txt here in Task 9:
+ the full Tracks dump, plus per-segment loadCompleted timing (~2 s/segment)]
+```
+
+So this case, too, is reconstructable from the strongest raw baseline — full ladder, slow segments, link-bound. The overlay's contribution is the same narrowed claim: it surfaces the per-segment download time **live and visual**, colocated with the playback, no logger and no logcat correlation.
+
+**The QA lens:** a tester sees the *exact same blurry video* as Case 1 and has no way to tell the two apart — both are "low quality." EventLogger would separate them, but it's out of reach. With the overlay, their report flips from "blurry" to *"every segment takes ~2 s to load"* — which routes to networking, not encoding. That single distinction is the difference between Case 1 and Case 2 being filed against the right team.
+
 ### With StreamProbe
 
 ![network_throttle — full ladder present, but every segment crawls in](assets/network_throttle-tracks.png)
@@ -125,7 +153,7 @@ Same Tracks tab, opposite story. The full ladder is present — **720p sits in t
 
 > Throughput is the noisier signal here: the player opens parallel connections, so the headline rate wobbles run to run (~0.65–1.3 MB/s). The robust tell is the **download time per segment** — one to two seconds, versus ~20 ms unthrottled — which is precisely what the `curl` timing showed.
 
-**Difference:** two `curl` measurements plus bitrate-vs-rate reasoning, versus a per-segment download time the player surfaces as it plays.
+**Difference (engineer):** EventLogger's `loadCompleted` lines carry the per-segment timing, but you read them in a logcat stream after the fact; the overlay shows it live as each chunk lands. **Difference (QA):** unavailable raw — the overlay is what makes "blurry" into "segments crawl," routed to networking.
 
 ---
 
