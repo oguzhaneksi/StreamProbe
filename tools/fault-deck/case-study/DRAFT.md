@@ -204,18 +204,40 @@ In both, the full ladder is present and the link is fast. The player simply choo
 
 They are **not** identical.
 
-Look at the **720p rung**. Under `constrained` it's **greyed out** — `setMaxVideoSize` removed it from the adaptive pool entirely, so the player can't even consider it (pool = 240p, 480p). Under `bw_misconfig` the **720p rung is green** — it's in the adaptive pool, fully available, the ABR algorithm just won't climb to it (and it sits even lower, at 240p). The overlay colors each rung by whether it's in the player's current selection pool (`Tracks.Group.isTrackSelected`), and that single visual cue separates a *capped* ladder from a *mistuned* climb. The tool distinguishes a case I was sure it couldn't.
+Before crediting that purely to the overlay, hold it to the strongest raw baseline again — attach EventLogger to each card and compare the `Tracks` dumps:
 
-**And the limits that remain** — being equally honest — sit one level deeper. The overlay shows *that* `constrained` narrowed the pool to 480p, but not *why*. And the 1080p rung is greyed in **both** shots for a reason the overlay can't name: here it's HEVC Main10 that this device can't decode (*unsupported*), not a config *deselection*. Same grey dot, two different meanings.
+<!-- CAPTURE (real, do not fabricate): paste both Tracks dumps here.
+     Produced by:
+       cd case-study && ./capture-eventlogger.sh constrained
+       cd case-study && ./capture-eventlogger.sh bw_misconfig
+     CONFIRM IN TASK 9 what the dumps actually show before finalizing the prose
+     below — see the reconciliation note in the plan. Keep each card's Tracks
+     dump showing every rung's [X]/[ ] selection and supported= flag. -->
+```text
+[EventLogger — paste raw/constrained-eventlogger.txt Tracks dump here in Task 9]
+```
+```text
+[EventLogger — paste raw/bw_misconfig-eventlogger.txt Tracks dump here in Task 9]
+```
+
+This is the correction I owe an honest reader: I originally framed the overlay as *uniquely* able to tell these two apart. That overstates it. EventLogger's `Tracks` dump exposes the same per-rung detail the overlay colors — each rung's selection state and its `supported=` flag — so a careful engineer reading the dump can see the difference too. **(Task 9: confirm exactly how the two dumps differ — the selected rung, the per-rung flags — and adjust the next paragraph to match what the capture actually shows. If the dumps do *not* cleanly separate the two, say so plainly; that only sharpens the overlay's real, narrower advantage.)** The distinction is *in the Media3 data*; the overlay's contribution is making it **visual and on-device**, not making it visible at all.
+
+Look at the **720p rung**. Under `constrained` it's **greyed out** — `setMaxVideoSize` removed it from the adaptive pool entirely (pool = 240p, 480p). Under `bw_misconfig` the **720p rung is green** — it's in the adaptive pool, fully available, and the ABR algorithm just won't climb to it (it sits even lower, at 240p). The overlay colors each rung by whether it's in the player's current selection pool (`Tracks.Group.isTrackSelected`), and that single visual cue separates a *capped* ladder from a *mistuned* climb at a glance. The honest update: this distinction is recoverable from EventLogger too (above) — the overlay's edge is that it's **one colored ladder on the device**, not a `Tracks` dump you attach a logger to capture and then read by eye.
+
+**And the limits that remain** — being equally honest — sit one level deeper, and here EventLogger and the overlay share the same blind spot. The 1080p rung is greyed in **both** shots: here it's HEVC Main10 that this device can't decode (*unsupported*), not a config *deselection*. Same grey dot, two meanings. The difference is that **EventLogger already prints `supported=` per rung** — so the raw arm can, in principle, name the 1080p HEVC rung `supported=NO` — while the overlay today cannot, because `VariantInfo` doesn't carry that flag yet. That's not a point *for* the overlay; it's a gap the overlay should close (next).
 
 ### Roadmap: two gaps this surfaced
 
 These aren't footnotes to bury — they're the most credible part of the writeup, because they're the tool's own limits, found by using it on a case it was built for:
 
-1. **Surface `isSupported` on `VariantInfo`.** Today a greyed rung means either "excluded by config" or "undecodable by this hardware," and the overlay can't tell you which. Media3 already exposes `Tracks.Group.isTrackSupported(i)`; plumbing that into `VariantInfo` would let the overlay mark a rung "present but undecodable" and resolve the ambiguity on the 1080p HEVC rung directly.
+1. **Surface `isSupported` on `VariantInfo`.** Today a greyed rung in the overlay means either "excluded by config" or "undecodable by this hardware," and the overlay can't tell you which — but **EventLogger already can**, via the `supported=` flag it prints per track. Media3 exposes `Tracks.Group.isTrackSupported(i)`; plumbing that into `VariantInfo` would let the overlay mark a rung "present but undecodable" and resolve the ambiguity on the 1080p HEVC rung directly. EventLogger proves the data already exists in Media3 — the overlay just isn't reading it yet.
 2. **Expose the relevant `TrackSelectionParameters`.** The overlay reports *that* the selected pool was narrowed but not *why* — a max-size cap, a max-bitrate cap, and a low bandwidth-fraction all look alike from the outside. Surfacing the active constraints would turn "the player selected 480p" into "the player selected 480p *because* of constraint Y," and would have separated `constrained` from `bw_misconfig` by cause, not just by symptom.
 
 Neither is implemented yet. Both are honest gaps in player-visible state, and naming them is the point — a diagnostics tool you can't trust to admit what it *can't* see isn't a diagnostics tool.
+
+One thing **neither** the overlay nor EventLogger surfaces: the *why* behind the cap — a `setMaxVideoSize` versus a low `bandwidthFraction`. That lives in `TrackSelectionParameters` / the track-selector config, and reading it still needs source. The strengthened raw arm narrows the gap but doesn't close it, and neither does the overlay (yet — roadmap item #2).
+
+**The QA lens:** for a tester, all of this — EventLogger dumps, `supported=` flags, source — is unreachable. But even at the overlay's weakest case, the QA value holds: the overlay still gets them to *"the ladder is full, the link is fast, the player won't climb."* That's already a correctly-routed **client-team** ticket — even without the *why* — instead of a "blurry video" complaint misfiled against encoding or networking.
 
 ---
 
