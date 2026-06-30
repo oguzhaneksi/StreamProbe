@@ -6,6 +6,11 @@
 > contrast, are deliberately injected so the ground truth is known: the throttle
 > is a real byte-rate cap, and the CDN case stamps synthetic `MISS` cache headers
 > (there's no real CDN in the loop). That's the test bench, not a sleight of hand.
+> The new EventLogger logcat dumps and the mitmproxy header capture are held to
+> the same standard — every one is a real `adb logcat -s EventLogger` or
+> `mitmdump` capture from the rig, reproducible with the scripts in
+> `tools/fault-deck/` (`capture-eventlogger.sh` and the documented `mitmdump`
+> invocation).
 
 A user reports: *"the video is playing at low quality."*
 
@@ -19,7 +24,14 @@ That one sentence is the entire bug report you get in the real world. And it is 
 
 Same video, same blurry picture. Five different fixes — in five different teams (encoding, networking, CDN, client). Picking the wrong one costs days.
 
-This is a walkthrough of how long it takes to tell these apart **with raw tools** (`curl`, `adb logcat`) versus **with an in-player diagnostics overlay** ([StreamProbe](https://github.com/oguzhaneksi/StreamProbe)). I'll be honest about where the overlay wins big, and equally honest about the one place it still can't tell the whole story.
+This is a walkthrough of how long it takes to tell these apart **with the strongest raw baseline a video engineer actually uses** — not a strawman of `curl` and `adb logcat`, but those *plus* ExoPlayer's own [`EventLogger`](https://developer.android.com/media/media3/exoplayer/debug-logging) (an `AnalyticsListener` that logs the runtime ladder, bandwidth estimate, and per-segment timing) and a proxy (mitmproxy) for real CDN headers — versus **with an in-player diagnostics overlay** ([StreamProbe](https://github.com/oguzhaneksi/StreamProbe)).
+
+I'll make **two claims, at two altitudes**, because the same overlay advantages land very differently depending on who's reading:
+
+- **For the ExoPlayer engineer — the modest, defensible claim.** EventLogger + mitmproxy can reconstruct *most* of the state the overlay shows. The overlay's real advantage is not "raw tools can't see it." It's that the overlay surfaces that state **(a) on-device, (b) live and visual, colocated with the playback it describes, (c) without adb, a debugger, or a logcat firehose, and (d) while prompting which question to ask.** A smaller claim — but one an engineer can't wave away. (This is also the honest answer to the first objection any ExoPlayer dev will raise: *"where's EventLogger?"* It's right here, in the raw arm, and the overlay still wins.)
+- **For QA, triage, and support — where the claim gets its teeth.** For them the raw arm **doesn't exist.** EventLogger needs source access, a wired debug build, a connected device + adb, and the fluency to read a logcat firehose; mitmproxy needs a proxy setup and HTTP/cache-header knowledge. A QA tester has none of these. So the raw arm collapses to *"you can't — escalate to an engineer,"* and the overlay becomes the difference between a useless *"video is low quality"* ticket and one **routed to the right team on the first try**. That *"five different fixes, in five different teams"* line above isn't an engineer story — it's a routing story.
+
+The engineer comparison buys credibility (I didn't cheat the baseline). The QA lens is where the dollars are: a misrouted bug bounces between encoding, networking, CDN, and client teams for days. Both claims run through every case below.
 
 ## The setup
 
@@ -37,11 +49,12 @@ The whole point: in all five cases below, the picture on screen looks the same �
 
 A few words on how this was run, so the comparison is fair rather than rigged:
 
-- **Who:** one engineer familiar with HLS/ABR and comfortable with `curl` and `adb` — so the raw-tools arm is a *competent* baseline, not a strawman who doesn't know where to look.
-- **Tools allowed in the raw arm:** the video itself, `curl`, and `adb logcat`. No source-code access, except for the two configuration faults where reading the player setup is the only raw path that exists.
+- **Who:** one engineer familiar with HLS/ABR, comfortable with `curl`, `adb`, EventLogger, and mitmproxy — so the raw-tools arm is the *strongest in-player baseline*, not a strawman who doesn't know where to look. Crucially, this is the **engineer's** arm: a QA tester or support agent has none of these tools, so for them the raw arm is unavailable and the comparison is "overlay vs escalate."
+- **Tools allowed in the raw arm:** the video itself, `curl`, `adb logcat`, **ExoPlayer's `EventLogger`** (`AnalyticsListener`), and **mitmproxy** for CDN headers. Source-code access only for the two configuration faults, where reading the player setup is the only raw path to the *why*.
 - **Tools in the overlay arm:** the StreamProbe overlay only, attached to the same player playing the same URL.
-- **What was measured:** per fault — the number of distinct tools touched, the number of commands/actions taken, the number of context switches (app ↔ terminal ↔ editor), and an approximate wall-clock time. Time is reported as a range, not a stopwatch figure; it varies too much by operator to quote precisely.
-- **Ground truth:** each fault is an injected condition with a known cause. The cause was revealed only *after* the diagnosis was written down, so the raw-tools arm couldn't shortcut to the answer.
+- **What was measured:** per fault — the number of distinct tools touched, the number of commands/actions, the number of context switches (app ↔ terminal ↔ editor), and an approximate wall-clock time *for the engineer*. Separately, per fault: whether the raw arm is **reachable at all for a QA tester**. Time is a range, not a stopwatch figure; it varies too much by operator.
+- **Ground truth:** each fault is an injected condition with a known cause, revealed only *after* the diagnosis was written down, so the raw arm couldn't shortcut to the answer.
+- **Real captures:** every EventLogger and mitmproxy block below is a real capture from the rig (see the scripts in `tools/fault-deck/`), held to the same no-doctored-numbers promise as the screenshots.
 
 ---
 
