@@ -163,18 +163,19 @@ Same Tracks tab, opposite story. The full ladder is present — **720p sits in t
 
 ### Without the tool
 
-There's nothing to see in the manifest or in throughput, so you have to suspect the CDN and dump response headers:
+There's nothing to see in the manifest or in throughput, and here EventLogger doesn't help either: it logs load timing and the ladder, not cache headers. So the engineer reaches for a proxy. A single `curl -I` is misleading — it's a separate request on a fresh connection with no ABR, so it doesn't represent the player's real segment traffic. mitmproxy does: it sits in front of nginx and captures the cache header on *every* segment the player actually fetches.
 
+<!-- CAPTURE (real, do not fabricate): paste the filtered mitmproxy capture here.
+     Produced by the documented mitmdump invocation in tools/fault-deck/README.md:
+       mitmdump --mode reverse:http://localhost:8080 -p 8081 --flow-detail 2 | tee raw/cdn_miss-proxy.txt
+       SP_PORT=8081 ./capture.sh cdn_miss segments
+     Then: grep -iE 'GET .*\.ts|x-cache|cf-cache' raw/cdn_miss-proxy.txt -->
 ```text
-$ curl -sI http://localhost:8080/cdnmiss/480p/seg_001.ts | grep -iE 'x-cache|cf-cache'
-X-Cache: MISS
-CF-Cache-Status: MISS
-
-$ curl -sI http://localhost:8080/full/480p/seg_001.ts | grep -iE 'x-cache|cf-cache'
-(no cache headers present)
+[mitmproxy — paste the filtered raw/cdn_miss-proxy.txt here in Task 9:
+ several segment GETs, each with X-Cache: MISS / CF-Cache-Status: MISS]
 ```
 
-Every segment is a cache **MISS** — each request goes all the way to origin instead of being served from the edge. Quality is unaffected, but every segment pays origin latency. To get here you had to suspect the CDN at all, know to dump headers, and recognize cache-status header names across vendors.
+Every segment is a cache **MISS** — each goes all the way to origin instead of being served from the edge. Quality is unaffected, but every segment pays origin latency. The proxy gives the engineer the *faithful* picture a `curl -I` can't — but notice what it doesn't give: **the idea to look at the CDN in the first place.** Neither EventLogger nor mitmproxy prompts that hypothesis. You have to already suspect the CDN, set up the proxy, route the device through it, and recognize cache-status header names across vendors. If the hypothesis never occurs, the proxy never gets started.
 
 ### With StreamProbe
 
@@ -182,7 +183,7 @@ Every segment is a cache **MISS** — each request goes all the way to origin in
 
 The header says it outright — **`CDN STATUS: [CLOUDFLARE] ○ MISS · X-Cache: MISS`** — and the Segments tab flags **every segment with a red MISS dot** while throughput stays high (2–6 MB/s per segment). Quality is fine; the cache is the story. The overlay parses the cache headers for you, across vendors, with no guessing which header to look for.
 
-**Difference:** suspecting the CDN and knowing the header names, versus a status line that names the CDN and the cache state for you.
+**Difference (engineer):** mitmproxy gives a faithful per-segment header capture, but only *after* you suspect the CDN, stand up a proxy, and route traffic through it; the overlay's red MISS dot is on-screen the whole time and **prompts the hypothesis you'd otherwise have to think of first.** **Difference (QA):** this is the overlay's strongest case. A tester would never reach a proxy — without the overlay this fault is invisible to triage and gets misrouted as a vague "buffering" complaint that bounces for days. The overlay turns it into *"every segment is a cache MISS,"* routed straight to the CDN team.
 
 ---
 
