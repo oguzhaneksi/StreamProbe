@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+    <!--
+      Cleartext (plain HTTP) is allowed only for the fault-deck local server
+      (tools/fault-deck/). 10.0.2.2 is the host machine from the emulator. Add
+      your host LAN IP here if you test on a physical device. These are local
+      addresses only, so release is unaffected in practice.
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>
