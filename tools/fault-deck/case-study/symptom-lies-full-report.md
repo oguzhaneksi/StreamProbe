@@ -1,17 +1,5 @@
 # The symptom lies: diagnosing five identical-looking streaming faults
 
-> Draft for an external post (Medium / LinkedIn). Source lives in the repo at
-> `tools/fault-deck/case-study/`. Every screenshot and terminal block below is a
-> real, unedited capture from the rig — no doctored numbers. The *faults*, by
-> contrast, are deliberately injected so the ground truth is known: the throttle
-> is a real byte-rate cap, and the CDN case stamps synthetic `MISS` cache headers
-> (there's no real CDN in the loop). That's the test bench, not a sleight of hand.
-> The new EventLogger logcat dumps and the mitmproxy header capture are held to
-> the same standard — every one is a real `adb logcat -s EventLogger` or
-> `mitmdump` capture from the rig, reproducible with the scripts in
-> `tools/fault-deck/` (`capture-eventlogger.sh` and the documented `mitmdump`
-> invocation).
-
 A user reports: *"the video is playing at low quality."*
 
 That one sentence is the entire bug report you get in the real world. And it is almost useless, because at least five completely different root causes produce exactly that symptom:
