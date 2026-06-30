@@ -243,28 +243,30 @@ One thing **neither** the overlay nor EventLogger surfaces: the *why* behind the
 
 ## Scorecard
 
-Time-to-diagnose isn't deterministic — it depends heavily on who's debugging and how well they know HLS internals — so the primary comparison is the number of moving parts each path takes: distinct **tools**, **commands/actions**, and **context switches**. Approximate wall-clock time is a secondary note, quoted for the *competent* operator from the methodology above; an unfamiliar one takes substantially longer or stalls entirely.
+Time-to-diagnose isn't deterministic — it depends heavily on who's debugging and how well they know HLS internals — so the primary comparison is the number of moving parts each path takes: distinct **tools**, **commands/actions**, and **context switches**. With EventLogger and mitmproxy added, the raw arm has *more* tools but is **faster and more faithful** than the curl-only version — that's the point of holding it to the strongest baseline. Approximate wall-clock time is a secondary note, quoted for the *competent engineer*; an unfamiliar one takes substantially longer or stalls. The last column is the one that reframes everything: whether the raw arm exists **for a QA tester at all.**
 
-**Raw tools (`curl`, `adb logcat`, source):**
+**Raw tools (engineer's arm: `curl`, `adb logcat`, EventLogger, mitmproxy, source):**
 
-| Fault | Tools | Commands / actions | Context switches | Approx. time |
-|---|---|---|---|---|
-| `manifest_cap` | `curl` | ~4 — locate manifest URL, `curl` served + reference, diff `EXT-X-STREAM-INF` | 2 (player ↔ terminal) | 2–5 min |
-| `network_throttle` | `curl` | ~4 — confirm manifest, fetch one segment on two paths, compare rate vs target bitrate | 2 (player ↔ terminal) | 3–7 min |
-| `cdn_miss` | `curl` | ~3 — suspect CDN, `curl -I`, match cache-status header names | 2 (player ↔ terminal) | 5–15 min\* |
-| `constrained` vs `bw_misconfig` | IDE / source | ~5 — open project, find player setup, read `TrackSelectionParameters` | 3 (player ↔ editor ↔ docs) | 10–30 min, source required |
+| Fault | Tools | Commands / actions | Context switches | Approx. time (engineer) | Available to QA? |
+|---|---|---|---|---|---|
+| `manifest_cap` | `curl` / EventLogger | ~3 — attach EventLogger, read `Tracks` dump + bandwidth, (or `curl` served vs reference) | 2 (player ↔ terminal) | 1–4 min | **No** — needs source, debug build, adb |
+| `network_throttle` | `curl` / EventLogger | ~3 — read `Tracks` dump (full ladder) + per-segment `loadCompleted` timing | 2 (player ↔ terminal) | 2–5 min | **No** — same |
+| `cdn_miss` | mitmproxy | ~4 — suspect CDN, stand up proxy, route device through it, read per-segment cache headers | 3 (player ↔ proxy ↔ terminal) | 5–15 min\* | **No** — would never reach a proxy |
+| `constrained` vs `bw_misconfig` | EventLogger / IDE | ~5 — EventLogger dumps both, then source for the *why* (`TrackSelectionParameters`) | 3 (player ↔ terminal ↔ editor) | 8–25 min, source required for *why* | **No** — needs source |
 
-\* slow because the operator first has to *suspect* the CDN at all — there's no on-screen prompt to. If that hypothesis never occurs, the bug stays open.
+\* still slow because the operator first has to *suspect* the CDN at all — neither EventLogger nor a proxy prompts that hypothesis. If it never occurs, the bug stays open.
 
 **StreamProbe overlay:**
 
-| Fault | Tools | Commands / actions | Context switches | Approx. time |
-|---|---|---|---|---|
-| all five | overlay | 0–1 — switch to the relevant tab | 0 — diagnosis is in-player | seconds |
+| Fault | Tools | Commands / actions | Context switches | Approx. time | Available to QA? |
+|---|---|---|---|---|---|
+| all five | overlay | 0–1 — switch to the relevant tab | 0 — diagnosis is in-player | seconds | **Yes** — on-device, no adb/debugger/source |
 
-The overlay's advantage isn't raw speed — it's **evidence colocation**. The runtime ladder, the selected pool, per-segment throughput, and cache status all sit in the player-visible state, next to the playback they describe. The raw-tools arm reconstructs that same state from outside the player, one command at a time, and has to know which commands to run before it can even begin — which is exactly where the `cdn_miss` row bleeds time.
+The engineer comparison is now honest and narrow: the raw arm *can* reconstruct most of this state, so the overlay's advantage isn't "raw tools can't see it." It's **evidence colocation without a setup tax** — the runtime ladder, the selected pool, per-segment throughput, and cache status all live in the player-visible state, on-device, next to the playback they describe, with no logger to attach, no logcat to filter, no proxy to stand up, and an on-screen cue (the red MISS dot) that *prompts* the question the raw arm needs you to already be asking.
 
-The honest takeaway isn't "the tool is magic." It's that surfacing the player-visible state ABR actually acts on — the runtime ladder, the selected pool, throughput, cache status — collapses "the video is low quality" from a five-way external investigation into reading state the player already holds. And it stays candid about the one thing that state doesn't yet include: the *why* behind a track-selection decision.
+The QA column is the other half of the story, and it's a different magnitude. For triage, the raw arm isn't slower — it's **absent**. Every "No" above means the same thing: the tester can't run it, so without the overlay the ticket is *"video is low quality,"* and someone downstream guesses which of five teams owns it. The overlay turns each fault into a specific, correctly-routed report — *ladder caps at 480p* (encoding), *segments crawl* (networking), *cache MISS* (CDN), *ladder full but player won't climb* (client). That's where the overlay stops being a convenience and becomes the difference between a bug that's routed in seconds and one that bounces between teams for days.
+
+The honest takeaway is two claims at two altitudes. **For the engineer:** holding the raw arm to its strongest form — EventLogger + mitmproxy, not a `curl` strawman — the overlay's win is real but modest. It surfaces the player-visible state ABR acts on (runtime ladder, selected pool, throughput, cache status) on-device, live, visual, and colocated, with no setup tax and a cue that prompts the right question — and it stays candid about the one thing that state doesn't yet include: the *why* behind a track-selection decision, which still needs source (for now). **For QA, triage, and support:** that same raw arm doesn't exist, so the overlay is the difference between *"video is low quality"* and a ticket routed to the right team on the first try. The engineer claim earns the credibility; the QA claim is where the value compounds — because the real cost of "the symptom lies" isn't one slow diagnosis, it's a misrouted bug ricocheting between encoding, networking, CDN, and client for days before anyone owns it.
 
 ---
 
