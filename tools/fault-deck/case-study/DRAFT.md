@@ -22,14 +22,14 @@ That one sentence is the entire bug report you get in the real world. And it is 
 - the player is hard-capped to a low resolution by its own configuration;
 - the player's ABR is mistuned and refuses to climb even though it could.
 
-Same video, same blurry picture. Five different fixes — in five different teams (encoding, networking, CDN, client). Picking the wrong one costs days.
+Same video, same blurry picture. Five different fixes, owned by four different teams (encoding, networking, CDN, client). Picking the wrong one costs days.
 
-This is a walkthrough of how long it takes to tell these apart **with the strongest raw baseline a video engineer actually uses** — not a strawman of `curl` and `adb logcat`, but those *plus* ExoPlayer's own [`EventLogger`](https://developer.android.com/media/media3/exoplayer/debug-logging) (an `AnalyticsListener` that logs the runtime ladder, bandwidth estimate, and per-segment timing) and a proxy (mitmproxy) for real CDN headers — versus **with an in-player diagnostics overlay** ([StreamProbe](https://github.com/oguzhaneksi/StreamProbe)).
+This is a walkthrough of how long it takes to tell these apart **with the strongest raw baseline a video engineer actually uses** — not a strawman of `curl` and `adb logcat`, but those *plus* ExoPlayer's own [`EventLogger`](https://developer.android.com/media/media3/exoplayer/debug-logging) (an `AnalyticsListener` that logs the runtime ladder and the player's track-selection state) and a proxy (mitmproxy) for real CDN headers — versus **with an in-player diagnostics overlay** ([StreamProbe](https://github.com/oguzhaneksi/StreamProbe)).
 
 I'll make **two claims, at two altitudes**, because the same overlay advantages land very differently depending on who's reading:
 
 - **For the ExoPlayer engineer — the modest, defensible claim.** EventLogger + mitmproxy can reconstruct *most* of the state the overlay shows. The overlay's real advantage is not "raw tools can't see it." It's that the overlay surfaces that state **(a) on-device, (b) live and visual, colocated with the playback it describes, (c) without adb, a debugger, or a logcat firehose, and (d) while prompting which question to ask.** A smaller claim — but one an engineer can't wave away. (This is also the honest answer to the first objection any ExoPlayer dev will raise: *"where's EventLogger?"* It's right here, in the raw arm, and the overlay still wins.)
-- **For QA, triage, and support — where the claim gets its teeth.** For them the raw arm **doesn't exist.** EventLogger needs source access, a wired debug build, a connected device + adb, and the fluency to read a logcat firehose; mitmproxy needs a proxy setup and HTTP/cache-header knowledge. A QA tester has none of these. So the raw arm collapses to *"you can't — escalate to an engineer,"* and the overlay becomes the difference between a useless *"video is low quality"* ticket and one **routed to the right team on the first try**. That *"five different fixes, in five different teams"* line above isn't an engineer story — it's a routing story.
+- **For QA, triage, and support — where the claim gets its teeth.** For them the raw arm **doesn't exist.** EventLogger needs source access, a wired debug build, a connected device + adb, and the fluency to read a logcat firehose; mitmproxy needs a proxy setup and HTTP/cache-header knowledge. A QA tester has none of these. So the raw arm collapses to *"you can't — escalate to an engineer,"* and the overlay becomes the difference between a useless *"video is low quality"* ticket and one **routed to the right team on the first try**. That *"five different fixes, owned by four different teams"* line above isn't an engineer story — it's a routing story.
 
 The engineer comparison buys credibility (I didn't cheat the baseline). The QA lens is where the dollars are: a misrouted bug bounces between encoding, networking, CDN, and client teams for days. Both claims run through every case below.
 
@@ -87,17 +87,19 @@ The served manifest lists only 240p and 480p. The 720p and 1080p rungs exist at 
 
 That's the right answer — but getting there meant: knowing to suspect the stream, finding the manifest URL, `curl`-ing it, reading `EXT-X-STREAM-INF` lines, and ideally comparing against an unfiltered reference to be sure rungs are *missing* rather than simply absent.
 
-A competent ExoPlayer dev wouldn't stop at `curl`, though — they'd attach `EventLogger` and read the ladder the player itself parsed. The `Tracks` dump confirms the runtime ladder caps at 480p, and the bandwidth estimate confirms the link is fast — the same two facts, from inside the player:
+A competent ExoPlayer dev wouldn't stop at `curl`, though — they'd attach `EventLogger` and read the ladder the player itself parsed. The `Tracks` dump confirms the runtime ladder caps at 480p — only two video rungs are present, both `supported=YES`, nothing above 480p — the manifest cap, now from inside the player:
 
-<!-- CAPTURE (real, do not fabricate): paste raw/manifest_cap-eventlogger.txt here.
-     Produced by: cd case-study && ./capture-eventlogger.sh manifest_cap
-     Keep only the relevant Tracks dump + the bandwidth/estimate line. -->
 ```text
-[EventLogger — paste raw/manifest_cap-eventlogger.txt here in Task 9:
- the Tracks dump showing only 240p + 480p, and the bandwidth estimate line]
+$ adb logcat -s EventLogger        # trimmed to the video Tracks group
+D EventLogger: tracks [eventTime=0.36, mediaPos=0.00, window=0, period=0
+D EventLogger:   group [ id=main
+D EventLogger:     [X] Track:0, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=492000, codecs=avc1.4d401e, res=426x240, supported=YES
+D EventLogger:     [X] Track:1, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=1380000, codecs=avc1.4d401f, res=854x480, supported=YES
+D EventLogger:   ]
+D EventLogger: ]
 ```
 
-So even the *strongest* raw baseline gets the engineer there — the EventLogger ladder and bandwidth estimate already say "cap is in the manifest, fast link." The overlay's win therefore narrows from "invisible state" to **live, visual, on-device, colocated**: the same two numbers without attaching a logger, filtering logcat, or correlating two log lines by hand.
+So even the *strongest* raw baseline gets the engineer to the ladder — EventLogger's `Tracks` dump already says "cap is in the manifest." But one honest caveat, because it recurs below: **EventLogger never prints a bandwidth estimate or a throughput number.** The "link is fast" half of the diagnosis still comes from the `curl` timing, not the logger — so the raw arm needs *two* tools for the two facts the overlay shows in one place. The overlay's win therefore narrows from "invisible state" to **live, visual, on-device, colocated**: the runtime ladder *and* the throughput side by side, without attaching a logger, filtering logcat, or running a second tool.
 
 **The QA lens:** none of that is available to a tester. They can't attach EventLogger (no source, no debug build, no adb), can't read the dump if they could. Without the overlay their bug report is *"it's blurry."* With it, it's *"the ladder caps at 480p"* — a report that routes straight to the encoding/packaging team instead of bouncing through networking first.
 
@@ -107,7 +109,7 @@ So even the *strongest* raw baseline gets the engineer there — the EventLogger
 
 The Tracks tab lists the runtime ladder — every rung the player actually knows about: **426×240 and 854×480, and nothing above.** The header shows throughput at **39 MB/s** (`TP: 39.0 MB/s`), so the link is plainly fast. A runtime ladder that stops at 480p next to high throughput points at the manifest, not the network — both facts colocated in the player-visible state, no external lookup required.
 
-**Difference (engineer):** EventLogger reconstructs the ladder + bandwidth, but it takes attaching a logger and reading a logcat dump; the overlay shows the same two numbers live, on-device, next to the video. **Difference (QA):** EventLogger isn't an option at all — the overlay is the only thing that turns "blurry" into a correctly-routed ticket.
+**Difference (engineer):** EventLogger reconstructs the ladder (but not the throughput — that's a separate `curl`), and it takes attaching a logger and reading a logcat dump; the overlay shows the ladder *and* throughput together, live, on-device, next to the video. **Difference (QA):** EventLogger isn't an option at all — the overlay is the only thing that turns "blurry" into a correctly-routed ticket.
 
 ---
 
@@ -131,17 +133,24 @@ $ curl -o /dev/null -s -w '%{speed_download} B/s  in %{time_total}s\n' \
 
 Same segment, ~100× slower on the real path — 2 seconds instead of 20 milliseconds. **The link is the bottleneck**, so ABR is correctly sitting below the top rung. Right answer again, but it took knowing which segment to fetch, fetching from two paths, and reasoning about whether the measured rate sustains the target bitrate.
 
-And again, the engineer's real baseline is EventLogger: the full ladder is present in the `Tracks` dump (nothing missing, unlike Case 1), and the per-segment `loadCompleted` lines show each ~2 s chunk crawling in — the same throttle the `curl` timing measured, but read from the player's own load events:
+And again, the engineer's real baseline is EventLogger. The `Tracks` dump shows the **full ladder present** — 240p/480p/720p all selectable (`[X]`), nothing missing unlike Case 1 — yet the player's `downstreamFormat` is parked at **480p**: so this isn't a cap, the player simply isn't climbing. That contrast — full ladder, but sitting low — is the tell, from inside the player:
 
-<!-- CAPTURE (real, do not fabricate): paste raw/network_throttle-eventlogger.txt here.
-     Produced by: cd case-study && ./capture-eventlogger.sh network_throttle
-     Keep the Tracks dump (full ladder) + a couple of per-segment loadCompleted lines. -->
 ```text
-[EventLogger — paste raw/network_throttle-eventlogger.txt here in Task 9:
- the full Tracks dump, plus per-segment loadCompleted timing (~2 s/segment)]
+$ adb logcat -s EventLogger        # trimmed to the Tracks group + the rung actually playing
+D EventLogger: tracks [eventTime=0.27, mediaPos=0.00, window=0, period=0
+D EventLogger:   group [ id=main
+D EventLogger:     [X] Track:0, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=492000, codecs=avc1.4d401e, res=426x240, supported=YES
+D EventLogger:     [X] Track:1, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=1380000, codecs=avc1.4d401f, res=854x480, supported=YES
+D EventLogger:     [X] Track:2, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=3510000, codecs=avc1.4d401f, res=1280x720, supported=YES
+D EventLogger:     [ ] Track:3, id=null, mimeType=video/hevc, container=application/x-mpegURL, bitrate=8560000, codecs=hvc1.2.4.L120.90, res=1920x1080, supported=NO_EXCEEDS_CAPABILITIES
+D EventLogger:   ]
+D EventLogger: ]
+D EventLogger: downstreamFormat [eventTime=0.37, mediaPos=0.00, window=0, period=0, id=null, mimeType=null, container=application/x-mpegURL, bitrate=1380000, codecs=avc1.4d401f,mp4a.40.2, res=854x480]
 ```
 
-So this case, too, is reconstructable from the strongest raw baseline — full ladder, slow segments, link-bound. The overlay's contribution is the same narrowed claim: it surfaces the per-segment download time **live and visual**, colocated with the playback, no logger and no logcat correlation.
+*(This EventLogger dump and the overlay screenshot above were captured at slightly different byte-rate caps — the overlay run let ABR hover toward 720p, this tighter run pins it at 480p — but both show the same diagnosis: full ladder present, player held below the top by the link.)*
+
+So the raw arm reconstructs the *shape* — full ladder, player parked at 480p — but here's the same caveat as Case 1, sharper: **EventLogger logs no per-segment download time and no bandwidth estimate** (there is no `loadCompleted` timing in its output). The proof that the *link* is the bottleneck still comes from the `curl` measurement above, not the logger. The overlay collapses both into one view: it surfaces the per-segment download time (**`DL: 2031 ms`**) **live and visual**, next to the ladder, with no second tool and no logcat correlation.
 
 **The QA lens:** a tester sees the *exact same blurry video* as Case 1 and has no way to tell the two apart — both are "low quality." EventLogger would separate them, but it's out of reach. With the overlay, their report flips from "blurry" to *"every segment takes ~2 s to load"* — which routes to networking, not encoding. That single distinction is the difference between Case 1 and Case 2 being filed against the right team.
 
@@ -153,7 +162,7 @@ Same Tracks tab, opposite story. The full ladder is present — **720p sits in t
 
 > Throughput is the noisier signal here: the player opens parallel connections, so the headline rate wobbles run to run (~0.65–1.3 MB/s). The robust tell is the **download time per segment** — one to two seconds, versus ~20 ms unthrottled — which is precisely what the `curl` timing showed.
 
-**Difference (engineer):** EventLogger's `loadCompleted` lines carry the per-segment timing, but you read them in a logcat stream after the fact; the overlay shows it live as each chunk lands. **Difference (QA):** unavailable raw — the overlay is what makes "blurry" into "segments crawl," routed to networking.
+**Difference (engineer):** EventLogger shows the full ladder and that the player is parked at 480p — but *not* the per-segment timing that proves it's the link (that's a separate `curl`); the overlay shows the download-time-per-segment live as each chunk lands. **Difference (QA):** unavailable raw — the overlay is what makes "blurry" into "segments crawl," routed to networking.
 
 ---
 
@@ -163,16 +172,26 @@ Same Tracks tab, opposite story. The full ladder is present — **720p sits in t
 
 ### Without the tool
 
-There's nothing to see in the manifest or in throughput, and here EventLogger doesn't help either: it logs load timing and the ladder, not cache headers. So the engineer reaches for a proxy. A single `curl -I` is misleading — it's a separate request on a fresh connection with no ABR, so it doesn't represent the player's real segment traffic. mitmproxy does: it sits in front of nginx and captures the cache header on *every* segment the player actually fetches.
+There's nothing to see in the manifest or in throughput, and here EventLogger doesn't help either: it logs the ladder and playback state, not cache headers. So the engineer reaches for a proxy. A single `curl -I` is misleading — it's a separate request on a fresh connection with no ABR, so it doesn't represent the player's real segment traffic. mitmproxy does: it sits in front of nginx and captures the cache header on *every* segment the player actually fetches.
 
-<!-- CAPTURE (real, do not fabricate): paste the filtered mitmproxy capture here.
-     Produced by the documented mitmdump invocation in tools/fault-deck/README.md:
-       mitmdump --mode reverse:http://localhost:8080 -p 8081 --flow-detail 2 | tee raw/cdn_miss-proxy.txt
-       SP_PORT=8081 ./capture.sh cdn_miss segments
-     Then: grep -iE 'GET .*\.ts|x-cache|cf-cache' raw/cdn_miss-proxy.txt -->
 ```text
-[mitmproxy — paste the filtered raw/cdn_miss-proxy.txt here in Task 9:
- several segment GETs, each with X-Cache: MISS / CF-Cache-Status: MISS]
+$ mitmdump --mode reverse:http://localhost:8080 -p 8081 --flow-detail 2   # trimmed to GET + cache headers
+GET http://localhost:8080/cdnmiss/480p/seg_000.ts
+ << 200 OK 756k
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+GET http://localhost:8080/cdnmiss/480p/seg_001.ts
+ << 200 OK 532k
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+GET http://localhost:8080/cdnmiss/720p/seg_005.ts
+ << 200 OK 1.2m
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+GET http://localhost:8080/cdnmiss/720p/seg_006.ts
+ << 200 OK 1.8m
+    X-Cache: MISS
+    CF-Cache-Status: MISS
 ```
 
 Every segment is a cache **MISS** — each goes all the way to origin instead of being served from the edge. Quality is unaffected, but every segment pays origin latency. The proxy gives the engineer the *faithful* picture a `curl -I` can't — but notice what it doesn't give: **the idea to look at the CDN in the first place.** Neither EventLogger nor mitmproxy prompts that hypothesis. You have to already suspect the CDN, set up the proxy, route the device through it, and recognize cache-status header names across vendors. If the hypothesis never occurs, the proxy never gets started.
@@ -206,21 +225,28 @@ They are **not** identical.
 
 Before crediting that purely to the overlay, hold it to the strongest raw baseline again — attach EventLogger to each card and compare the `Tracks` dumps:
 
-<!-- CAPTURE (real, do not fabricate): paste both Tracks dumps here.
-     Produced by:
-       cd case-study && ./capture-eventlogger.sh constrained
-       cd case-study && ./capture-eventlogger.sh bw_misconfig
-     CONFIRM IN TASK 9 what the dumps actually show before finalizing the prose
-     below — see the reconciliation note in the plan. Keep each card's Tracks
-     dump showing every rung's [X]/[ ] selection and supported= flag. -->
 ```text
-[EventLogger — paste raw/constrained-eventlogger.txt Tracks dump here in Task 9]
+$ adb logcat -s EventLogger        # constrained — video Tracks group
+D EventLogger: tracks [eventTime=0.19, mediaPos=0.00, window=0, period=0
+D EventLogger:   group [ id=main
+D EventLogger:     [X] Track:0, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=492000, codecs=avc1.4d401e, res=426x240, supported=YES
+D EventLogger:     [X] Track:1, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=1380000, codecs=avc1.4d401f, res=854x480, supported=YES
+D EventLogger:     [ ] Track:2, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=3510000, codecs=avc1.4d401f, res=1280x720, supported=YES
+D EventLogger:     [ ] Track:3, id=null, mimeType=video/hevc, container=application/x-mpegURL, bitrate=8560000, codecs=hvc1.2.4.L120.90, res=1920x1080, supported=NO_EXCEEDS_CAPABILITIES
+D EventLogger:   ]
 ```
 ```text
-[EventLogger — paste raw/bw_misconfig-eventlogger.txt Tracks dump here in Task 9]
+$ adb logcat -s EventLogger        # bw_misconfig — video Tracks group
+D EventLogger: tracks [eventTime=0.25, mediaPos=0.00, window=0, period=0
+D EventLogger:   group [ id=main
+D EventLogger:     [X] Track:0, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=492000, codecs=avc1.4d401e, res=426x240, supported=YES
+D EventLogger:     [X] Track:1, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=1380000, codecs=avc1.4d401f, res=854x480, supported=YES
+D EventLogger:     [X] Track:2, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=3510000, codecs=avc1.4d401f, res=1280x720, supported=YES
+D EventLogger:     [ ] Track:3, id=null, mimeType=video/hevc, container=application/x-mpegURL, bitrate=8560000, codecs=hvc1.2.4.L120.90, res=1920x1080, supported=NO_EXCEEDS_CAPABILITIES
+D EventLogger:   ]
 ```
 
-This is the correction I owe an honest reader: I originally framed the overlay as *uniquely* able to tell these two apart. That overstates it. EventLogger's `Tracks` dump exposes the same per-rung detail the overlay colors — each rung's selection state and its `supported=` flag — so a careful engineer reading the dump can see the difference too. **(Task 9: confirm exactly how the two dumps differ — the selected rung, the per-rung flags — and adjust the next paragraph to match what the capture actually shows. If the dumps do *not* cleanly separate the two, say so plainly; that only sharpens the overlay's real, narrower advantage.)** The distinction is *in the Media3 data*; the overlay's contribution is making it **visual and on-device**, not making it visible at all.
+This is the correction I owe an honest reader: I originally framed the overlay as *uniquely* able to tell these two apart. That overstates it. EventLogger's `Tracks` dump exposes the same per-rung detail the overlay colors — and the two dumps **do** differ exactly where it counts: under `constrained` the **720p rung is `[ ]`** (excluded from the selection by `setMaxVideoSize`), under `bw_misconfig` it's **`[X]`** (in the pool, fully selectable). A careful engineer reading the two dumps side by side sees the same split the overlay colors. The distinction is *in the Media3 data*; the overlay's contribution is making it **visual and on-device**, not making it visible at all.
 
 Look at the **720p rung**. Under `constrained` it's **greyed out** — `setMaxVideoSize` removed it from the adaptive pool entirely (pool = 240p, 480p). Under `bw_misconfig` the **720p rung is green** — it's in the adaptive pool, fully available, and the ABR algorithm just won't climb to it (it sits even lower, at 240p). The overlay colors each rung by whether it's in the player's current selection pool (`Tracks.Group.isTrackSelected`), and that single visual cue separates a *capped* ladder from a *mistuned* climb at a glance. The honest update: this distinction is recoverable from EventLogger too (above) — the overlay's edge is that it's **one colored ladder on the device**, not a `Tracks` dump you attach a logger to capture and then read by eye.
 
@@ -249,8 +275,8 @@ Time-to-diagnose isn't deterministic — it depends heavily on who's debugging a
 
 | Fault | Tools | Commands / actions | Context switches | Approx. time (engineer) | Available to QA? |
 |---|---|---|---|---|---|
-| `manifest_cap` | `curl` / EventLogger | ~3 — attach EventLogger, read `Tracks` dump + bandwidth, (or `curl` served vs reference) | 2 (player ↔ terminal) | 1–4 min | **No** — needs source, debug build, adb |
-| `network_throttle` | `curl` / EventLogger | ~3 — read `Tracks` dump (full ladder) + per-segment `loadCompleted` timing | 2 (player ↔ terminal) | 2–5 min | **No** — same |
+| `manifest_cap` | `curl` / EventLogger | ~3 — EventLogger `Tracks` dump for the ladder + `curl` for the throughput (EventLogger has no bandwidth line) | 2 (player ↔ terminal) | 1–4 min | **No** — needs source, debug build, adb |
+| `network_throttle` | `curl` / EventLogger | ~3 — `Tracks` dump (full ladder, player parked at 480p) + `curl` for the per-segment timing (not in EventLogger) | 2 (player ↔ terminal) | 2–5 min | **No** — same |
 | `cdn_miss` | mitmproxy | ~4 — suspect CDN, stand up proxy, route device through it, read per-segment cache headers | 3 (player ↔ proxy ↔ terminal) | 5–15 min\* | **No** — would never reach a proxy |
 | `constrained` vs `bw_misconfig` | EventLogger / IDE | ~5 — EventLogger dumps both, then source for the *why* (`TrackSelectionParameters`) | 3 (player ↔ terminal ↔ editor) | 8–25 min, source required for *why* | **No** — needs source |
 
@@ -264,7 +290,7 @@ Time-to-diagnose isn't deterministic — it depends heavily on who's debugging a
 
 The engineer comparison is now honest and narrow: the raw arm *can* reconstruct most of this state, so the overlay's advantage isn't "raw tools can't see it." It's **evidence colocation without a setup tax** — the runtime ladder, the selected pool, per-segment throughput, and cache status all live in the player-visible state, on-device, next to the playback they describe, with no logger to attach, no logcat to filter, no proxy to stand up, and an on-screen cue (the red MISS dot) that *prompts* the question the raw arm needs you to already be asking.
 
-The QA column is the other half of the story, and it's a different magnitude. For triage, the raw arm isn't slower — it's **absent**. Every "No" above means the same thing: the tester can't run it, so without the overlay the ticket is *"video is low quality,"* and someone downstream guesses which of five teams owns it. The overlay turns each fault into a specific, correctly-routed report — *ladder caps at 480p* (encoding), *segments crawl* (networking), *cache MISS* (CDN), *ladder full but player won't climb* (client). That's where the overlay stops being a convenience and becomes the difference between a bug that's routed in seconds and one that bounces between teams for days.
+The QA column is the other half of the story, and it's a different magnitude. For triage, the raw arm isn't slower — it's **absent**. Every "No" above means the same thing: the tester can't run it, so without the overlay the ticket is *"video is low quality,"* and someone downstream guesses which of those four teams owns it. The overlay turns each fault into a specific, correctly-routed report — *ladder caps at 480p* (encoding), *segments crawl* (networking), *cache MISS* (CDN), *ladder full but player won't climb* (client). That's where the overlay stops being a convenience and becomes the difference between a bug that's routed in seconds and one that bounces between teams for days.
 
 The honest takeaway is two claims at two altitudes. **For the engineer:** holding the raw arm to its strongest form — EventLogger + mitmproxy, not a `curl` strawman — the overlay's win is real but modest. It surfaces the player-visible state ABR acts on (runtime ladder, selected pool, throughput, cache status) on-device, live, visual, and colocated, with no setup tax and a cue that prompts the right question — and it stays candid about the one thing that state doesn't yet include: the *why* behind a track-selection decision, which still needs source (for now). **For QA, triage, and support:** that same raw arm doesn't exist, so the overlay is the difference between *"video is low quality"* and a ticket routed to the right team on the first try. The engineer claim earns the credibility; the QA claim is where the value compounds — because the real cost of "the symptom lies" isn't one slow diagnosis, it's a misrouted bug ricocheting between encoding, networking, CDN, and client for days before anyone owns it.
 

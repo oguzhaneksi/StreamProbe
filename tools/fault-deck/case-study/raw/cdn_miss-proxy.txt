@@ -1,0 +1,343 @@
+[10:41:40.605] reverse proxy to http://localhost:8080 listening at *:8081.
+[10:42:13.087][127.0.0.1:57457] client connect
+[10:42:13.091][127.0.0.1:57457] server connect localhost:8080 ([::1]:8080)
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/master.m3u8
+    Accept-Encoding: gzip
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 441b
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:13 GMT
+    Content-Type: application/vnd.apple.mpegurl
+    Content-Length: 441
+    Last-Modified: Mon, 29 Jun 2026 08:30:49 GMT
+    Connection: keep-alive
+    ETag: "6a422d39-1b9"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/240p/index.m3u8
+    Accept-Encoding: gzip
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 548b
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:13 GMT
+    Content-Type: application/vnd.apple.mpegurl
+    Content-Length: 548
+    Last-Modified: Mon, 29 Jun 2026 08:30:13 GMT
+    Connection: keep-alive
+    ETag: "6a422d15-224"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/480p/index.m3u8
+    Accept-Encoding: gzip
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 548b
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:13 GMT
+    Content-Type: application/vnd.apple.mpegurl
+    Content-Length: 548
+    Last-Modified: Mon, 29 Jun 2026 08:30:17 GMT
+    Connection: keep-alive
+    ETag: "6a422d19-224"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/480p/seg_000.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 756k
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:13 GMT
+    Content-Type: video/mp2t
+    Content-Length: 774372
+    Last-Modified: Mon, 29 Jun 2026 08:30:13 GMT
+    Connection: keep-alive
+    ETag: "6a422d15-bd0e4"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/480p/seg_001.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 532k
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:13 GMT
+    Content-Type: video/mp2t
+    Content-Length: 544636
+    Last-Modified: Mon, 29 Jun 2026 08:30:13 GMT
+    Connection: keep-alive
+    ETag: "6a422d15-84f7c"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/480p/seg_002.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 807k
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:13 GMT
+    Content-Type: video/mp2t
+    Content-Length: 826824
+    Last-Modified: Mon, 29 Jun 2026 08:30:14 GMT
+    Connection: keep-alive
+    ETag: "6a422d16-c9dc8"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/480p/seg_003.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 547k
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:13 GMT
+    Content-Type: video/mp2t
+    Content-Length: 560052
+    Last-Modified: Mon, 29 Jun 2026 08:30:14 GMT
+    Connection: keep-alive
+    ETag: "6a422d16-88bb4"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/720p/index.m3u8
+    Accept-Encoding: gzip
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 548b
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:14 GMT
+    Content-Type: application/vnd.apple.mpegurl
+    Content-Length: 548
+    Last-Modified: Mon, 29 Jun 2026 08:30:24 GMT
+    Connection: keep-alive
+    ETag: "6a422d20-224"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/720p/seg_003.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 1.2m
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:14 GMT
+    Content-Type: video/mp2t
+    Content-Length: 1309608
+    Last-Modified: Mon, 29 Jun 2026 08:30:19 GMT
+    Connection: keep-alive
+    ETag: "6a422d1b-13fba8"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/720p/seg_004.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 1.8m
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:14 GMT
+    Content-Type: video/mp2t
+    Content-Length: 1938468
+    Last-Modified: Mon, 29 Jun 2026 08:30:19 GMT
+    Connection: keep-alive
+    ETag: "6a422d1b-1d9424"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/720p/seg_005.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 1.2m
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:14 GMT
+    Content-Type: video/mp2t
+    Content-Length: 1265052
+    Last-Modified: Mon, 29 Jun 2026 08:30:19 GMT
+    Connection: keep-alive
+    ETag: "6a422d1b-134d9c"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/720p/seg_006.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 1.8m
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:14 GMT
+    Content-Type: video/mp2t
+    Content-Length: 1923240
+    Last-Modified: Mon, 29 Jun 2026 08:30:20 GMT
+    Connection: keep-alive
+    ETag: "6a422d1c-1d58a8"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/720p/seg_007.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 1.3m
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:14 GMT
+    Content-Type: video/mp2t
+    Content-Length: 1324836
+    Last-Modified: Mon, 29 Jun 2026 08:30:20 GMT
+    Connection: keep-alive
+    ETag: "6a422d1c-143724"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/720p/seg_008.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 1.8m
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:14 GMT
+    Content-Type: video/mp2t
+    Content-Length: 1883760
+    Last-Modified: Mon, 29 Jun 2026 08:30:21 GMT
+    Connection: keep-alive
+    ETag: "6a422d1d-1cbe70"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/720p/seg_009.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 1.2m
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:14 GMT
+    Content-Type: video/mp2t
+    Content-Length: 1297012
+    Last-Modified: Mon, 29 Jun 2026 08:30:21 GMT
+    Connection: keep-alive
+    ETag: "6a422d1d-13ca74"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/720p/seg_010.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 1.8m
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:14 GMT
+    Content-Type: video/mp2t
+    Content-Length: 1935648
+    Last-Modified: Mon, 29 Jun 2026 08:30:22 GMT
+    Connection: keep-alive
+    ETag: "6a422d1e-1d8920"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/720p/seg_011.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 1.2m
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:14 GMT
+    Content-Type: video/mp2t
+    Content-Length: 1280280
+    Last-Modified: Mon, 29 Jun 2026 08:30:22 GMT
+    Connection: keep-alive
+    ETag: "6a422d1e-138918"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/720p/seg_012.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 1.8m
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:14 GMT
+    Content-Type: video/mp2t
+    Content-Length: 1921548
+    Last-Modified: Mon, 29 Jun 2026 08:30:23 GMT
+    Connection: keep-alive
+    ETag: "6a422d1f-1d520c"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/720p/seg_013.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 1.3m
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:16 GMT
+    Content-Type: video/mp2t
+    Content-Length: 1320700
+    Last-Modified: Mon, 29 Jun 2026 08:30:24 GMT
+    Connection: keep-alive
+    ETag: "6a422d20-1426fc"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
+127.0.0.1:57457: GET http://localhost:8080/cdnmiss/720p/seg_014.ts
+    Accept-Encoding: identity
+    User-Agent: Dalvik/2.1.0 (Linux; U; Android 17; sdk_gphone16k_arm64 Build/CE2A.260420.019)
+    Host: localhost:8080
+    Connection: Keep-Alive
+ << 200 OK 1.5m
+    Server: nginx/1.27.5
+    Date: Tue, 30 Jun 2026 06:42:19 GMT
+    Content-Type: video/mp2t
+    Content-Length: 1585780
+    Last-Modified: Mon, 29 Jun 2026 08:30:24 GMT
+    Connection: keep-alive
+    ETag: "6a422d20-183274"
+    X-Cache: MISS
+    CF-Cache-Status: MISS
+    Access-Control-Allow-Origin: *
+    Accept-Ranges: bytes
