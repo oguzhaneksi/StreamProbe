@@ -31,6 +31,8 @@ control arm, so the comparison isolates the overlay's diagnostic value.
 | `guess.sh` | Stops the timer, records the trial to `results.csv`, reveals correctness. |
 | `summary.sh` | Aggregates `results.csv` by arm: trials, accuracy, mean/median time. |
 | `reveal.sh` | Peek at the last drawn card without recording (escape hatch). |
+| `case-study/capture.sh` | Launches one named card with the overlay ON and screenshots a tab (for `DRAFT.md`). |
+| `case-study/capture-eventlogger.sh` | Launches one named card with EventLogger ON and dumps its logcat to `raw/` (raw-arm captures). |
 | `EXPECTED.md` | Answer key: expected overlay fingerprint per card, plus known limits. |
 | `.secret-log.txt` | Where draws are recorded. Git-ignored. Do not peek. |
 | `results.csv` | Trial results. Git-ignored. |
@@ -110,3 +112,57 @@ Cleartext HTTP to `localhost` / `127.0.0.1` is already permitted in
 `constrained` / `bw_misconfig`) mis-tunes the ExoPlayer track selector in
 `PlayerManager`; `sp_fault_overlay=off` hides the overlay for the control arm.
 Release builds ignore all of this.
+
+## Case study: strengthening the raw arm
+
+The blind benchmark above pits the overlay against *video + `adb logcat`*. The
+written case study (`case-study/DRAFT.md`) holds the raw arm to a higher bar — the
+strongest in-player tools a competent ExoPlayer engineer actually reaches for:
+
+- **ExoPlayer's `EventLogger`** (an `AnalyticsListener`). Its logcat output already
+  includes the runtime ladder (full `Tracks` dump with each rung's `[X]`/`[ ]`
+  selection and `supported=` flag), the bandwidth estimate, per-segment
+  `loadCompleted` timing/size, and dropped frames.
+- **A proxy** (mitmproxy) for the `cdn_miss` case, which captures the player's
+  *actual* segment traffic — and therefore the real `X-Cache` / `CF-Cache-Status`
+  headers across every segment — which a one-off `curl -I` does not represent.
+
+These produce the real raw captures pasted into `DRAFT.md`. They are debug-only
+capture aids; nothing here ships.
+
+### Capturing EventLogger output
+
+`EventLogger` is attached to the demo player only when launched with
+`sp_fault_eventlogger on` (a debug-only intent-extra; release builds ignore it).
+`case-study/capture-eventlogger.sh` does this for one named card, clears logcat,
+lets playback settle, and dumps `adb logcat -s EventLogger` to
+`case-study/raw/<card>-eventlogger.txt`:
+
+```bash
+cd case-study
+./capture-eventlogger.sh manifest_cap       # -> raw/manifest_cap-eventlogger.txt
+./capture-eventlogger.sh network_throttle   # -> raw/network_throttle-eventlogger.txt
+./capture-eventlogger.sh constrained        # -> raw/constrained-eventlogger.txt
+./capture-eventlogger.sh bw_misconfig       # -> raw/bw_misconfig-eventlogger.txt
+```
+
+### Capturing real CDN cache headers for `cdn_miss` (mitmproxy)
+
+The rig is plain HTTP, so mitmproxy needs **no CA certificate**. Run `mitmdump`
+as a reverse proxy in front of nginx on a second port, point the card at that
+port, and the player's real segment traffic — including the `X-Cache` /
+`CF-Cache-Status` headers on every segment — flows through it:
+
+```bash
+# Terminal A — reverse-proxy nginx (:8080) on :8081 and log response headers:
+mitmdump --mode reverse:http://localhost:8080 -p 8081 --flow-detail 2 \
+  | tee case-study/raw/cdn_miss-proxy.txt
+
+# Terminal B — launch the cdn_miss card through the proxy port:
+cd case-study
+SP_PORT=8081 ./capture.sh cdn_miss segments    # adb reverse + launch via :8081
+# Let several segments load, then stop mitmdump (Ctrl-C in Terminal A).
+```
+
+`raw/cdn_miss-proxy.txt` now contains every segment's real cache headers. Filter
+with `grep -iE 'GET .*\.ts|x-cache|cf-cache' case-study/raw/cdn_miss-proxy.txt`.
