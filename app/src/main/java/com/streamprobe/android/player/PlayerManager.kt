@@ -15,6 +15,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.util.EventLogger
 import com.streamprobe.android.DebugDataSourceFactory
 import com.streamprobe.android.PlayerUiState
 import com.streamprobe.android.Stream
@@ -51,6 +52,7 @@ internal class PlayerManager(
         stream: Stream,
         faultMode: FaultMode = FaultMode.NORMAL,
         showOverlay: Boolean = true,
+        enableEventLogger: Boolean = false,
     ) {
         // Control arm of the fault-deck benchmark hides the overlay. The player
         // is still attached (passive listeners), so playback is identical; only
@@ -60,7 +62,7 @@ internal class PlayerManager(
         initJob =
             scope.launch {
                 val injectErrors = repo.injectErrorsFlow.first()
-                buildPlayer(stream, injectErrors, faultMode)
+                buildPlayer(stream, injectErrors, faultMode, enableEventLogger)
             }
     }
 
@@ -69,6 +71,7 @@ internal class PlayerManager(
         stream: Stream,
         injectErrors: Boolean,
         faultMode: FaultMode,
+        enableEventLogger: Boolean,
     ) {
         val baseFactory: DataSource.Factory =
             if (injectErrors) {
@@ -97,6 +100,10 @@ internal class PlayerManager(
                 .build()
                 .apply {
                     streamProbe.attach(this)
+                    // Capture-only: EventLogger logs the runtime ladder, bandwidth
+                    // estimate, and per-segment timing to logcat for the case-study
+                    // raw-arm captures. Gated behind sp_fault_eventlogger (debug only).
+                    if (enableEventLogger) addAnalyticsListener(EventLogger())
                     setMediaItem(mediaItem)
                     prepare()
                     playWhenReady = true

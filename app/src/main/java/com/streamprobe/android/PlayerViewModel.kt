@@ -36,6 +36,7 @@ class PlayerViewModel(
     private val selectedStream = MutableStateFlow<Stream?>(null)
     private var faultMode: FaultMode = FaultMode.NORMAL
     private var showOverlay: Boolean = true
+    private var enableEventLogger: Boolean = false
 
     var player: ExoPlayer? by mutableStateOf(null)
         private set
@@ -50,21 +51,24 @@ class PlayerViewModel(
         stream: Stream,
         faultMode: FaultMode = FaultMode.NORMAL,
         showOverlay: Boolean = true,
+        enableEventLogger: Boolean = false,
     ) {
         selectedStream.value = stream
         this.faultMode = faultMode
         this.showOverlay = showOverlay
+        this.enableEventLogger = enableEventLogger
     }
 
     fun clearStream() {
         selectedStream.value = null
         faultMode = FaultMode.NORMAL
         showOverlay = true
+        enableEventLogger = false
     }
 
     fun initializePlayer(activity: ComponentActivity) {
         val stream = selectedStream.value ?: return
-        playerManager.initialize(activity, stream, faultMode, showOverlay)
+        playerManager.initialize(activity, stream, faultMode, showOverlay, enableEventLogger)
     }
 
     fun releasePlayer() = playerManager.release()

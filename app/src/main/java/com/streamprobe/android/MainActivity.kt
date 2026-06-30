@@ -36,7 +36,9 @@ class MainActivity : ComponentActivity() {
                 // is ready before PlayerScreen's lifecycle effect initializes the player.
                 val faultLaunch =
                     remember {
-                        parseFaultLaunch(intent)?.also { playerVm.selectStream(it.stream, it.mode, it.showOverlay) }
+                        parseFaultLaunch(intent)?.also {
+                            playerVm.selectStream(it.stream, it.mode, it.showOverlay, it.enableEventLogger)
+                        }
                     }
 
                 NavHost(navController = nav, startDestination = if (faultLaunch != null) Player else StreamSelect) {
@@ -76,17 +78,23 @@ private data class FaultLaunch(
     val stream: Stream,
     val mode: FaultMode,
     val showOverlay: Boolean,
+    val enableEventLogger: Boolean,
 )
 
 /**
  * Parses the fault-deck intent extras (`sp_fault_url`, `sp_fault_mode`,
- * `sp_fault_overlay`, optional `sp_fault_title`). Returns null unless this is a
- * debug build AND a URL was provided, so release builds and normal launches are
- * unaffected.
+ * `sp_fault_overlay`, `sp_fault_eventlogger`, optional `sp_fault_title`). Returns
+ * null unless this is a debug build AND a URL was provided, so release builds and
+ * normal launches are unaffected.
  *
  * `sp_fault_overlay` is the benchmark arm: "on" (default) shows the StreamProbe
  * overlay; "off" is the control arm where the overlay is hidden so observability
  * with vs without the overlay can be timed.
+ *
+ * `sp_fault_eventlogger` ("on" to enable, default off) attaches Media3's
+ * `EventLogger` to the player for the case-study capture runs — it logs the
+ * runtime ladder, bandwidth estimate, and per-segment timing to logcat. It is a
+ * capture-only debug affordance read here only in `BuildConfig.DEBUG`.
  */
 private fun parseFaultLaunch(intent: Intent?): FaultLaunch? {
     val url =
@@ -104,5 +112,6 @@ private fun parseFaultLaunch(intent: Intent?): FaultLaunch? {
             mimeType = MimeTypes.APPLICATION_M3U8,
         )
     val showOverlay = intent.getStringExtra("sp_fault_overlay")?.lowercase() != "off"
-    return FaultLaunch(stream, FaultMode.fromKey(intent.getStringExtra("sp_fault_mode")), showOverlay)
+    val enableEventLogger = intent.getStringExtra("sp_fault_eventlogger")?.lowercase() == "on"
+    return FaultLaunch(stream, FaultMode.fromKey(intent.getStringExtra("sp_fault_mode")), showOverlay, enableEventLogger)
 }
