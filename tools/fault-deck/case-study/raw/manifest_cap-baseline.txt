@@ -1,0 +1,28 @@
+# manifest_cap — without-tool baseline (real captured output)
+# The symptom: video is stuck at 480p. Is the network slow, or is something
+# wrong with the stream itself? Without the overlay you go to the manifest.
+
+$ curl -s http://localhost:8080/cap480/master.m3u8     # what the player was served
+#EXTM3U
+#EXT-X-VERSION:7
+#EXT-X-STREAM-INF:BANDWIDTH=492000,RESOLUTION=426x240,CODECS="avc1.4d401e,mp4a.40.2"
+240p/index.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=1380000,RESOLUTION=854x480,CODECS="avc1.4d401f,mp4a.40.2"
+480p/index.m3u8
+
+$ curl -s http://localhost:8080/full/master.m3u8       # what the source actually has
+#EXTM3U
+#EXT-X-VERSION:7
+#EXT-X-STREAM-INF:BANDWIDTH=492000,RESOLUTION=426x240,CODECS="avc1.4d401e,mp4a.40.2"
+240p/index.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=1380000,RESOLUTION=854x480,CODECS="avc1.4d401f,mp4a.40.2"
+480p/index.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=3510000,RESOLUTION=1280x720,CODECS="avc1.4d401f,mp4a.40.2"
+720p/index.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=8560000,RESOLUTION=1920x1080,CODECS="hvc1.2.4.L120.90,mp4a.40.2"
+1080p/index.m3u8
+
+# Diagnosis: the served master lists only 240p and 480p. The 720p and 1080p
+# rungs the source has were never advertised. The cap is in the manifest, not
+# the network. Cost: find the manifest URL, curl it, know what EXT-X-STREAM-INF
+# means, and ideally compare against an unfiltered reference.

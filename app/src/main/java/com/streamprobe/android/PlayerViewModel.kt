@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.media3.exoplayer.ExoPlayer
 import com.streamprobe.android.data.DebugSettingsRepository
 import com.streamprobe.android.player.AudioTrackOption
+import com.streamprobe.android.player.FaultMode
 import com.streamprobe.android.player.PlaybackController
 import com.streamprobe.android.player.PlayerManager
 import com.streamprobe.android.player.SubtitleTrackOption
@@ -33,6 +34,9 @@ class PlayerViewModel(
     private val playbackController = PlaybackController(playerManager.playerFlow, _uiState)
 
     private val selectedStream = MutableStateFlow<Stream?>(null)
+    private var faultMode: FaultMode = FaultMode.NORMAL
+    private var showOverlay: Boolean = true
+    private var enableEventLogger: Boolean = false
 
     var player: ExoPlayer? by mutableStateOf(null)
         private set
@@ -43,17 +47,28 @@ class PlayerViewModel(
         }
     }
 
-    fun selectStream(stream: Stream) {
+    fun selectStream(
+        stream: Stream,
+        faultMode: FaultMode = FaultMode.NORMAL,
+        showOverlay: Boolean = true,
+        enableEventLogger: Boolean = false,
+    ) {
         selectedStream.value = stream
+        this.faultMode = faultMode
+        this.showOverlay = showOverlay
+        this.enableEventLogger = enableEventLogger
     }
 
     fun clearStream() {
         selectedStream.value = null
+        faultMode = FaultMode.NORMAL
+        showOverlay = true
+        enableEventLogger = false
     }
 
     fun initializePlayer(activity: ComponentActivity) {
         val stream = selectedStream.value ?: return
-        playerManager.initialize(activity, stream)
+        playerManager.initialize(activity, stream, faultMode, showOverlay, enableEventLogger)
     }
 
     fun releasePlayer() = playerManager.release()

@@ -1,0 +1,17 @@
+# network_throttle — without-tool baseline (real captured output)
+# The symptom: video is stuck at 480p. The manifest is fine (full ladder), so
+# now you suspect the network. You measure the link by fetching one segment.
+
+$ curl -o /dev/null -s -w '%{speed_download} B/s  in %{time_total}s\n' \
+    http://localhost:8080/full/720p/seg_001.ts
+64482208 B/s  in 0.020572s        # ~64 MB/s on the unthrottled path
+
+$ curl -o /dev/null -s -w '%{speed_download} B/s  in %{time_total}s\n' \
+    http://localhost:8080/throttle/720p/seg_001.ts
+654261 B/s  in 2.027521s          # ~654 KB/s on the throttled path
+
+# Diagnosis: the same 720p segment downloads ~100x slower on the throttled
+# link (654 KB/s vs 64 MB/s), taking 2s instead of 20ms. The link genuinely is
+# the bottleneck, so ABR correctly sits below the top rung. Cost: know which
+# segment URL to fetch, fetch it from both paths, and reason about whether the
+# measured rate can sustain the target bitrate.

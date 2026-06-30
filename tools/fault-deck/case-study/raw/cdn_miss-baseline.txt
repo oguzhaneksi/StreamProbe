@@ -1,0 +1,17 @@
+# cdn_miss — without-tool baseline (real captured output)
+# The symptom here is subtle: quality is actually fine, but playback feels
+# heavier than it should. Nothing in the manifest or the bitrate explains it.
+# You go to the response headers.
+
+$ curl -sI http://localhost:8080/cdnmiss/480p/seg_001.ts | grep -iE 'x-cache|cf-cache'
+X-Cache: MISS
+CF-Cache-Status: MISS
+
+$ curl -sI http://localhost:8080/full/480p/seg_001.ts | grep -iE 'x-cache|cf-cache'
+(no cache headers present)
+
+# Diagnosis: every segment is a CDN cache MISS — each request goes all the way
+# to origin instead of being served from the edge. Quality is unaffected, but
+# every segment pays origin latency. Cost: suspect the CDN at all, know to dump
+# response headers, fetch a segment with -I, and recognize the cache-status
+# header names across CDN vendors (X-Cache, CF-Cache-Status, Age, ...).

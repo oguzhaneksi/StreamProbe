@@ -1,0 +1,57 @@
+--------- beginning of main
+06-30 10:53:54.008  6024  6024 D EventLogger: timeline [eventTime=0.01, mediaPos=0.00, window=0, periodCount=1, windowCount=1, reason=PLAYLIST_CHANGED
+06-30 10:53:54.008  6024  6024 D EventLogger:   period [?]
+06-30 10:53:54.008  6024  6024 D EventLogger:   window [?, seekable=false, dynamic=true]
+06-30 10:53:54.008  6024  6024 D EventLogger: ]
+06-30 10:53:54.010  6024  6024 D EventLogger: mediaItem [eventTime=0.01, mediaPos=0.00, window=0, reason=PLAYLIST_CHANGED]
+06-30 10:53:54.012  6024  6024 D EventLogger: state [eventTime=0.01, mediaPos=0.00, window=0, BUFFERING]
+06-30 10:53:54.013  6024  6024 D EventLogger: playWhenReady [eventTime=0.02, mediaPos=0.00, window=0, true, USER_REQUEST]
+06-30 10:53:54.069  6024  6024 D EventLogger: audioSessionId [eventTime=0.07, mediaPos=0.00, window=0, 129]
+06-30 10:53:54.070  6024  6024 D EventLogger: loading [eventTime=0.07, mediaPos=0.00, window=0, period=0, true]
+06-30 10:53:54.072  6024  6024 D EventLogger: surfaceSize [eventTime=0.08, mediaPos=0.00, window=0, period=0, w=1080, h=2400]
+06-30 10:53:54.132  6024  6024 D EventLogger: timeline [eventTime=0.13, mediaPos=0.00, window=0, period=0, periodCount=1, windowCount=1, reason=SOURCE_UPDATE
+06-30 10:53:54.132  6024  6024 D EventLogger:   period [60.00]
+06-30 10:53:54.132  6024  6024 D EventLogger:   window [60.00, seekable=true, dynamic=false]
+06-30 10:53:54.132  6024  6024 D EventLogger: ]
+06-30 10:53:54.240  6024  6024 D EventLogger: videoEnabled [eventTime=0.24, mediaPos=0.00, window=0, period=0]
+06-30 10:53:54.240  6024  6024 D EventLogger: audioEnabled [eventTime=0.24, mediaPos=0.00, window=0, period=0]
+06-30 10:53:54.242  6024  6024 D EventLogger: tracks [eventTime=0.25, mediaPos=0.00, window=0, period=0
+06-30 10:53:54.242  6024  6024 D EventLogger:   group [ id=main
+06-30 10:53:54.243  6024  6024 D EventLogger:     [X] Track:0, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=492000, codecs=avc1.4d401e, res=426x240, supported=YES
+06-30 10:53:54.243  6024  6024 D EventLogger:     [X] Track:1, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=1380000, codecs=avc1.4d401f, res=854x480, supported=YES
+06-30 10:53:54.243  6024  6024 D EventLogger:     [X] Track:2, id=null, mimeType=video/avc, container=application/x-mpegURL, bitrate=3510000, codecs=avc1.4d401f, res=1280x720, supported=YES
+06-30 10:53:54.243  6024  6024 D EventLogger:     [ ] Track:3, id=null, mimeType=video/hevc, container=application/x-mpegURL, bitrate=8560000, codecs=hvc1.2.4.L120.90, res=1920x1080, supported=NO_EXCEEDS_CAPABILITIES
+06-30 10:53:54.243  6024  6024 D EventLogger:   ]
+06-30 10:53:54.243  6024  6024 D EventLogger:   group [ id=main:audio
+06-30 10:53:54.243  6024  6024 D EventLogger:     [X] Track:0, id=null, mimeType=audio/mp4a-latm, container=application/x-mpegURL, primaryGroupId=main, codecs=mp4a.40.2, supported=YES
+06-30 10:53:54.243  6024  6024 D EventLogger:   ]
+06-30 10:53:54.243  6024  6024 D EventLogger:   group [ id=main:id3
+06-30 10:53:54.243  6024  6024 D EventLogger:     [X] Track:0, id=ID3, mimeType=application/id3, primaryGroupId=main, supported=YES
+06-30 10:53:54.243  6024  6024 D EventLogger:   ]
+06-30 10:53:54.243  6024  6024 D EventLogger: ]
+06-30 10:53:54.245  6024  6024 D EventLogger: rendererReady [eventTime=0.25, mediaPos=0.00, window=0, period=0, rendererIndex=3, metadata, true]
+06-30 10:53:54.277  6024  6024 D EventLogger: downstreamFormat [eventTime=0.28, mediaPos=0.00, window=0, period=0, id=null, mimeType=null, container=application/x-mpegURL, bitrate=492000, codecs=avc1.4d401e,mp4a.40.2, res=426x240]
+06-30 10:53:54.353  6024  6024 D EventLogger: videoDecoderInitialized [eventTime=0.35, mediaPos=0.00, window=0, period=0, c2.android.avc.decoder]
+06-30 10:53:54.356  6024  6024 D EventLogger: videoInputFormat [eventTime=0.36, mediaPos=0.00, window=0, period=0, id=null, mimeType=video/avc, container=video/mp2t, bitrate=492000, codecs=avc1.4D4015, res=426x240, par=1.002, color=NA/NA/NA/8/8]
+06-30 10:53:54.426  6024  6024 D EventLogger: audioDecoderInitialized [eventTime=0.43, mediaPos=0.00, window=0, period=0, c2.android.aac.decoder]
+06-30 10:53:54.426  6024  6024 D EventLogger: audioInputFormat [eventTime=0.43, mediaPos=0.00, window=0, period=0, id=1/15, mimeType=audio/mp4a-latm, container=video/mp2t, codecs=mp4a.40.2, channels=2, sample_rate=44100, language=und]
+06-30 10:53:54.463  6024  6024 D EventLogger: audioTrackInit [eventTime=0.47, mediaPos=0.00, window=0, period=0, enc=pcm-16, channelConf=stereo, sampleRate=44100, bufferSize=64192]
+06-30 10:53:54.489  6024  6024 D EventLogger: rendererReady [eventTime=0.49, mediaPos=0.00, window=0, period=0, rendererIndex=1, audio, true]
+06-30 10:53:54.493  6024  6024 D EventLogger: videoSize [eventTime=0.50, mediaPos=0.00, window=0, period=0, w=426, h=240, par=1.001565]
+06-30 10:53:54.494  6024  6024 D EventLogger: renderedFirstFrame [eventTime=0.50, mediaPos=0.00, window=0, period=0, Surface(name=null mNativeObject=-5476245012045580752)/@0x50be6ab]
+06-30 10:53:54.494  6024  6024 D EventLogger: rendererReady [eventTime=0.50, mediaPos=0.00, window=0, period=0, rendererIndex=0, video, true]
+06-30 10:53:54.501  6024  6024 D EventLogger: state [eventTime=0.50, mediaPos=0.00, window=0, period=0, READY]
+06-30 10:53:54.501  6024  6024 D EventLogger: isPlaying [eventTime=0.50, mediaPos=0.00, window=0, period=0, true]
+06-30 10:53:54.519  6024  6024 D EventLogger: surfaceSize [eventTime=0.52, mediaPos=0.04, window=0, period=0, w=1080, h=607]
+06-30 10:53:54.618  6024  6024 D EventLogger: audioPositionAdvancing [eventTime=0.62, mediaPos=0.06, window=0, period=0, since 0.60]
+06-30 10:53:55.163  6024  6024 D EventLogger: loading [eventTime=1.17, mediaPos=0.61, window=0, period=0, false]
+06-30 10:53:57.365  6024  6024 D EventLogger: loading [eventTime=3.37, mediaPos=2.81, window=0, period=0, true]
+06-30 10:53:57.402  6024  6024 D EventLogger: loading [eventTime=3.40, mediaPos=2.85, window=0, period=0, false]
+06-30 10:54:00.568  6024  6024 D EventLogger: loading [eventTime=6.57, mediaPos=6.02, window=0, period=0, true]
+06-30 10:54:00.612  6024  6024 D EventLogger: loading [eventTime=6.61, mediaPos=6.06, window=0, period=0, false]
+06-30 10:54:04.565  6024  6024 D EventLogger: loading [eventTime=10.57, mediaPos=10.02, window=0, period=0, true]
+06-30 10:54:04.575  6024  6024 D EventLogger: loading [eventTime=10.58, mediaPos=10.03, window=0, period=0, false]
+06-30 10:54:06.775  6024  6024 D EventLogger: downstreamFormat [eventTime=12.78, mediaPos=12.22, window=0, period=0, id=null, mimeType=null, container=application/x-mpegURL, bitrate=3510000, codecs=avc1.4d401f,mp4a.40.2, res=1280x720]
+06-30 10:54:06.778  6024  6024 D EventLogger: videoInputFormat [eventTime=12.78, mediaPos=12.22, window=0, period=0, id=null, mimeType=video/avc, container=video/mp2t, bitrate=3510000, codecs=avc1.4D401F, res=1280x720, color=NA/NA/NA/8/8]
+06-30 10:54:07.346  6024  6024 D EventLogger: videoSize [eventTime=13.35, mediaPos=12.80, window=0, period=0, w=1280, h=720]
+06-30 10:54:07.356  6024  6024 D EventLogger: surfaceSize [eventTime=13.36, mediaPos=12.81, window=0, period=0, w=1080, h=608]
